@@ -38,6 +38,11 @@ from ._callbacks import (
 )
 from ._layout import set_layout
 
+from sumo.wrapper import CallSumoApi
+
+import xtgeo
+from io import BytesIO
+
 
 class SurfaceViewer4D(WebvizPluginABC):
     """### SurfaceViewer4D"""
@@ -65,6 +70,13 @@ class SurfaceViewer4D(WebvizPluginABC):
         super().__init__()
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.fmu_directory = self.shared_settings["fmu_directory"]
+        self.sumo_case = self.shared_settings.get("sumo_case")
+
+        if self.sumo_case:
+            env = "dev"
+            self.api = CallSumoApi(env=env)
+            self.api.get_bearer_token()
+
         self.label = self.shared_settings.get("label", self.fmu_directory)
 
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
@@ -448,6 +460,50 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return path
 
+    def get_sumo_uuid(self, data, ensemble, real, map_type):
+        selected_interval = data["date"]
+        name = data["name"]
+        attribute = data["attr"]
+
+        if self.interval_mode == "reverse":
+            time2 = selected_interval[0:10]
+            time1 = selected_interval[11:]
+        else:
+            time1 = selected_interval[0:10]
+            time2 = selected_interval[11:]
+
+        self.surface_metadata.replace(np.nan, "", inplace=True)
+
+        try:
+            selected_metadata = self.surface_metadata[
+                (self.surface_metadata["fmu_id.realization"] == real)
+                & (self.surface_metadata["fmu_id.ensemble"] == ensemble)
+                & (self.surface_metadata["map_type"] == map_type)
+                & (self.surface_metadata["data.time.t1"] == time1)
+                & (self.surface_metadata["data.time.t2"] == time2)
+                & (self.surface_metadata["data.name"] == name)
+                & (self.surface_metadata["data.content"] == attribute)
+            ]
+
+            sumo_id = selected_metadata["sumo_id"].values[0]
+
+        except:
+            sumo_id = None
+            print("Warning:", real, ensemble, map_type, time1, time2, name, attribute)
+
+        return sumo_id
+
+    def open_surface_with_xtgeo(self, sumo_id):
+        if sumo_id:
+            stream = self.api.get_blob(object_id=sumo_id)
+            bytestring = BytesIO(stream)
+            surface = xtgeo.surface_from_file(bytestring)
+        else:
+            surface = None
+            print("WARNING: non-existing sumo_id")
+
+        return surface
+
     def get_heading(self, map_ind, observation_type):
         if self.map_defaults[map_ind]["map_type"] == observation_type:
             txt = "Observed map: "
@@ -530,11 +586,18 @@ class SurfaceViewer4D(WebvizPluginABC):
         attribute_settings = json.loads(attribute_settings)
         map_type = self.map_defaults[map_idx]["map_type"]
 
-        surface_file = self.get_real_runpath(data, ensemble, real, map_type)
+        if self.sumo_case:
+            sumo_id = self.get_sumo_uuid(data, ensemble, real, map_type)
+            surface = self.open_surface_with_xtgeo(sumo_id)
+        else:
+            surface_file = self.get_real_runpath(data, ensemble, real, map_type)
 
-        if os.path.isfile(surface_file):
-            surface = load_surface(surface_file)
+            if os.path.isfile(surface_file):
+                surface = load_surface(surface_file)
+            else:
+                surface = None
 
+        if surface:
             if self.colormap_settings is not None:
                 interval = data["date"]
                 interval = (
@@ -614,7 +677,8 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             heading, sim_info, label = self.get_heading(map_idx, self.observations)
         else:
-            print("WARNING: File", surface_file, "doesn't exist")
+            print("WARNING: Selected map not found")
+            print("Selections:", real, ensemble, map_type, data)
             heading = "Selected map doesn't exist"
             sim_info = "-"
             surface_layers = []
