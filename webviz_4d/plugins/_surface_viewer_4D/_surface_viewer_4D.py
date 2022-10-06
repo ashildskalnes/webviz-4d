@@ -254,7 +254,6 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.zone_faults_files, polygon_colors
             )
 
-
         # Read update dates and well data
         #    self.drilled_wells_df: dataframe with wellpaths (x- and y positions) for all drilled wells
         #    self.drilled_wells_info: dataframe with metadata for all drilled wells
@@ -469,7 +468,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             path = ""
             print("WARNING: selected map not found. Selection criteria are:")
             print(map_type, real, ensemble, name, attribute, time1, time2)
-            
+
         return path
 
     def get_sumo_uuid(self, data, ensemble, real, map_type):
@@ -491,7 +490,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             time_string = time1 + " - " + time2
             surface_time_interval = [time_string]
             ind = real.find("-") + 1
-            realization_id = [int(real[ind:])] 
+            realization_id = [int(real[ind:])]
 
             surfaces = self.my_case.get_objects(
                 object_type="surface",
