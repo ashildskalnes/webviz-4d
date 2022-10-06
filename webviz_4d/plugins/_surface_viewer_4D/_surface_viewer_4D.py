@@ -3,6 +3,11 @@ from pathlib import Path
 import json
 import os
 import numpy as np
+import xtgeo
+from io import BytesIO
+
+from fmu.sumo.explorer import Explorer
+
 
 from webviz_config import WebvizPluginABC
 from webviz_4d._datainput._surface import make_surface_layer, load_surface
@@ -15,7 +20,9 @@ from webviz_4d._datainput.common import (
 )
 
 from webviz_4d._datainput.well import load_all_wells
-from webviz_4d._datainput._production import make_new_well_layer
+from webviz_4d._datainput._production import (
+    make_new_well_layer,
+)
 
 from webviz_4d._private_plugins.surface_selector import SurfaceSelector
 from webviz_4d._datainput._colormaps import load_custom_colormaps
@@ -37,11 +44,6 @@ from ._callbacks import (
     change_maps_from_button,
 )
 from ._layout import set_layout
-
-from sumo.wrapper import CallSumoApi
-
-import xtgeo
-from io import BytesIO
 
 
 class SurfaceViewer4D(WebvizPluginABC):
@@ -73,9 +75,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.sumo_case = self.shared_settings.get("sumo_case")
 
         if self.sumo_case:
-            env = "dev"
-            self.api = CallSumoApi(env=env)
-            self.api.get_bearer_token()
+            sumo = Explorer(env="prod")
+            self.my_case = sumo.get_case_by_id(self.sumo_case)
+            print("Case name:", self.my_case.case_name)
 
         self.label = self.shared_settings.get("label", self.fmu_directory)
 
@@ -125,11 +127,15 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.additional_well_layers is None:
             self.additional_well_layers = default_additional_well_layers
 
+        self.all_well_layers = self.basic_well_layers.update(
+            self.additional_well_layers
+        )
+
         # Read production data
-        self.prod_names = ["BORE_OIL_VOL.csv", "BORE_GI_VOL.csv", "BORE_WI_VOL.csv"]
-        self.prod_folder = production_data
-        self.prod_data = read_csvs(folder=self.prod_folder, csv_files=self.prod_names)
-        print("Reading production data from", self.prod_folder)
+        # self.prod_names = ["BORE_OIL_VOL.csv", "BORE_GI_VOL.csv", "BORE_WI_VOL.csv"]
+        # self.prod_folder = production_data
+        # self.prod_data = read_csvs(folder=self.prod_folder, csv_files=self.prod_names)
+        # print("Reading production data from", self.prod_folder)
 
         # Read maps metadata
         self.surface_metadata_file = surface_metadata_file
@@ -161,6 +167,8 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         # Read settings
         self.settings_path = settings
+        config_dir = os.path.dirname(os.path.abspath(self.settings_path))
+        self.well_layer_dir = Path(os.path.join(config_dir, "well_layers"))
 
         if self.settings_path:
             self.config = read_config(get_path(path=self.settings_path))
@@ -235,16 +243,17 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.polygon_layers = load_polygons(self.polygon_files, polygon_colors)
 
             # Load zone fault if existing
-            zone_faults_folder = Path(os.path.join(self.polygons_folder, "rms"))
-            zone_faults_files = [
+            self.zone_faults_folder = Path(os.path.join(self.polygons_folder, "rms"))
+            self.zone_faults_files = [
                 get_path(Path(fn))
-                for fn in json.load(find_files(zone_faults_folder, ".csv"))
+                for fn in json.load(find_files(self.zone_faults_folder, ".csv"))
             ]
 
-            print("Reading zone polygons from:", zone_faults_folder)
+            print("Reading zone polygons from:", self.zone_faults_folder)
             self.zone_polygon_layers = load_zone_polygons(
-                zone_faults_files, polygon_colors
+                self.zone_faults_files, polygon_colors
             )
+
 
         # Read update dates and well data
         #    self.drilled_wells_df: dataframe with wellpaths (x- and y positions) for all drilled wells
@@ -284,71 +293,49 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.drilled_wells_info = self.all_wells_info.loc[
                 self.all_wells_info["layer_name"] == "Drilled wells"
             ]
+            self.pdm_wells_info = self.drilled_wells_info.loc[
+                self.drilled_wells_info["wellbore.pdm_name"] != ""
+            ]
 
-            interval = self.selected_intervals[0]
+            self.pdm_wells_df = load_all_wells(self.pdm_wells_info)
 
-            # Create well layers for the layers that are independent of the selected 4D interval
+            layer_overview_file = get_path(
+                Path(self.well_layer_dir / "well_layers.yaml")
+            )
+            self.well_layers_overview = read_config(layer_overview_file)
 
-            if self.drilled_wells_df is not None:
-                for key, value in self.basic_well_layers.items():
-                    if value is not None:
-                        if "production" in key:
-                            fluids = ["oil"]
-                        elif "injection" in key:
-                            fluids = ["gas", "water"]
-                        else:
-                            fluids = []
+            self.well_basic_layers = []
+            self.all_interval_layers = []
 
-                        print("Creating well layer for", value)
-                        well_layer = make_new_well_layer(
-                            interval,
-                            self.drilled_wells_df,
-                            self.drilled_wells_info,
-                            self.prod_data,
-                            self.colors,
-                            selection=key,
-                            fluids=fluids,
-                            label=value,
-                        )
+            print("Loading all well layers ...")
+            self.layer_files = []
+            basic_layers = self.well_layers_overview.get("basic")
 
-                        if well_layer is not None:
-                            self.well_base_layers.append(well_layer)
+            for key, value in basic_layers.items():
+                layer_file = get_path(Path(self.well_layer_dir / "basic" / value))
+                label = self.basic_well_layers.get(key)
 
-            # Load wellpaths for planned wells and create planned well layers
+                well_layer = make_new_well_layer(
+                    layer_file,
+                    self.all_wells_df,
+                    label,
+                )
 
-            try:
-                planned_well_df = self.all_wells_df.loc[
-                    self.all_wells_df["layer_name"] != "Drilled wells"
-                ]
+                if well_layer:
+                    self.well_basic_layers.append(well_layer)
+                    self.layer_files.append(layer_file)
 
-                planned_well_info = self.all_wells_info.loc[
-                    self.all_wells_info["layer_name"] != "Drilled wells"
-                ]
-            except:
-                planned_well_df = None
-                planned_well_info = None
+            self.intervals = self.well_layers_overview.get("additional")
+            self.interval_names = []
 
-            if planned_well_df is not None:
-                planned_layers_df = planned_well_info["layer_name"].dropna()
-                planned_layers = planned_layers_df.unique()
+            for interval in self.intervals:
+                interval_layers = self.create_additional_well_layers(interval)
+                self.all_interval_layers.append(interval_layers)
+                self.interval_names.append(interval)
 
-                for planned_layer in planned_layers:
-                    self.well_base_layers.append(
-                        make_new_well_layer(
-                            self.selected_intervals[0],
-                            planned_well_df,
-                            planned_well_info,
-                            prod_data=None,
-                            colors=self.colors,
-                            selection="planned",
-                            fluids=[],
-                            label=planned_layer,
-                        )
-                    )
-
-            # Create production and injection layers for the default interval
-
-            self.interval_well_layers = self.create_additional_well_layers(interval)
+        # Find production and injection layers for the default interval
+        index = self.interval_names.index(default_interval)
+        self.interval_well_layers = self.all_interval_layers[index]
 
         # Create selectors (attributes, names and dates) for all 3 maps
         self.selector = SurfaceSelector(app, self.selection_list, self.map_defaults[0])
@@ -383,6 +370,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             store_functions.append(
                 (get_path, [{"path": fn} for fn in self.colormap_files])
             )
+
         if self.polygons_folder is not None:
             store_functions.append(
                 (find_files, [{"folder": self.polygons_folder, "suffix": ".csv"}])
@@ -390,14 +378,24 @@ class SurfaceViewer4D(WebvizPluginABC):
             store_functions.append(
                 (get_path, [{"path": fn} for fn in self.polygon_files])
             )
+
+            store_functions.append(
+                (find_files, [{"folder": self.zone_faults_folder, "suffix": ".csv"}])
+            )
+            store_functions.append(
+                (get_path, [{"path": fn} for fn in self.zone_faults_files])
+            )
+
         if self.selector_file is not None:
             store_functions.append((get_path, [{"path": self.selector_file}]))
+
         if self.wellfolder is not None:
             store_functions.append(
                 (read_csv, [{"csv_file": Path(self.wellfolder) / "wellbore_info.csv"}])
             )
             for fn in list(self.wellbore_info["file_name"]):
                 store_functions.append((get_path, [{"path": Path(fn)}]))
+
             store_functions.append(
                 (
                     get_path,
@@ -408,11 +406,24 @@ class SurfaceViewer4D(WebvizPluginABC):
                 )
             )
 
+            store_functions.append(
+                (
+                    get_path,
+                    [
+                        {"path": Path(self.well_layer_dir) / "well_layers.yaml"},
+                    ],
+                )
+            )
+
+            for fn in self.layer_files:
+                store_functions.append((get_path, [{"path": Path(fn)}]))
+
         for fn in list(self.surface_metadata["filename"]):
             store_functions.append((get_path, [{"path": Path(fn)}]))
 
         if self.settings_path is not None:
             store_functions.append((get_path, [{"path": self.settings_path}]))
+
         return store_functions
 
     def ensembles(self, map_number):
@@ -454,10 +465,11 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             filepath = selected_metadata["filename"].values[0]
             path = get_path(Path(filepath))
-
         except:
             path = ""
-
+            print("WARNING: selected map not found. Selection criteria are:")
+            print(map_type, real, ensemble, name, attribute, time1, time2)
+            
         return path
 
     def get_sumo_uuid(self, data, ensemble, real, map_type):
@@ -472,35 +484,45 @@ class SurfaceViewer4D(WebvizPluginABC):
             time1 = selected_interval[0:10]
             time2 = selected_interval[11:]
 
-        self.surface_metadata.replace(np.nan, "", inplace=True)
-
         try:
-            selected_metadata = self.surface_metadata[
-                (self.surface_metadata["fmu_id.realization"] == real)
-                & (self.surface_metadata["fmu_id.ensemble"] == ensemble)
-                & (self.surface_metadata["map_type"] == map_type)
-                & (self.surface_metadata["data.time.t1"] == time1)
-                & (self.surface_metadata["data.time.t2"] == time2)
-                & (self.surface_metadata["data.name"] == name)
-                & (self.surface_metadata["data.content"] == attribute)
-            ]
+            ensemble_id = [0]
+            surface_attribute = [attribute]
+            surface_name = [name]
+            time_string = time1 + " - " + time2
+            surface_time_interval = [time_string]
+            ind = real.find("-") + 1
+            realization_id = [int(real[ind:])] 
 
-            sumo_id = selected_metadata["sumo_id"].values[0]
+            surfaces = self.my_case.get_objects(
+                object_type="surface",
+                object_names=surface_name,
+                tag_names=surface_attribute,
+                time_intervals=surface_time_interval,
+                iteration_ids=ensemble_id,
+                realization_ids=realization_id,
+            )
+
+            s = surfaces[0]
+            sumo_bytestring = BytesIO(s.blob)
 
         except:
-            sumo_id = None
+            sumo_bytestring = None
             print("Warning:", real, ensemble, map_type, time1, time2, name, attribute)
+            print(surface_name)
+            print(surface_attribute)
+            print(surface_time_interval)
+            print(ensemble_id)
+            print(realization_id)
 
-        return sumo_id
+        return sumo_bytestring
 
-    def open_surface_with_xtgeo(self, sumo_id):
-        if sumo_id:
-            stream = self.api.get_blob(object_id=sumo_id)
-            bytestring = BytesIO(stream)
-            surface = xtgeo.surface_from_file(bytestring)
+    def open_surface_with_xtgeo(self, sumo_bytestring):
+        if sumo_bytestring:
+            print("Loading surface from SUMO")
+            surface = xtgeo.surface_from_file(sumo_bytestring)
         else:
             surface = None
-            print("WARNING: non-existing sumo_id")
+            print("WARNING: non-existing sumo_bytestring")
 
         return surface
 
@@ -529,54 +551,63 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return heading, sim_info, label
 
-    def create_selector_lists(self, map_defaults):
-        map_type = map_defaults["map_type"]
-        map_metadata = self.surface_metadata[
-            self.surface_metadata["map_type"] == map_type
-        ]
-
-        intervals_df = map_metadata[["data.time.t1", "data.time.t2"]]
-        intervals_list = []
-
-        for _index, row in intervals_df.iterrows():
-            if self.interval_mode == "reverse":
-                interval = row["data.time.t2"] + "-" + row["data.time.t1"]
-            else:
-                interval = row["data.time.t1"] + "-" + row["data.time.t2"]
-
-            if interval not in intervals_list:
-                intervals_list.append(interval)
-
-        return map_metadata, intervals_list
-
     def create_additional_well_layers(self, interval):
+        interval_overview = self.well_layers_overview.get("additional").get(interval)
         interval_well_layers = []
 
         if get_dates(interval)[0] <= self.production_update:
-            for key, value in self.additional_well_layers.items():
-                if value is not None:
-                    if "production" in key:
-                        fluids = ["oil"]
-                    elif "injection" in key:
-                        fluids = ["gas", "water"]
-                    else:
-                        fluids = []
+            for key, value in interval_overview.items():
+                layer_dir = Path(self.well_layer_dir / "additional" / interval)
+                well_layer_file = get_path(Path(layer_dir / value))
+                label = self.additional_well_layers.get(key)
 
-                    well_layer = make_new_well_layer(
-                        interval,
-                        self.drilled_wells_df,
-                        self.drilled_wells_info,
-                        self.prod_data,
-                        self.colors,
-                        selection=key,
-                        fluids=fluids,
-                        label=value,
-                    )
+                well_layer = make_new_well_layer(
+                    well_layer_file,
+                    self.pdm_wells_df,
+                    label,
+                )
 
-                    if well_layer is not None:
-                        interval_well_layers.append(well_layer)
+                if well_layer is not None:
+                    interval_well_layers.append(well_layer)
+                    self.layer_files.append(well_layer_file)
 
         return interval_well_layers
+
+    def get_map_scaling(self, data, map_type, realization):
+        min_max = None
+        colormap_settings = self.colormap_settings
+
+        if self.colormap_settings is not None:
+            interval = data["date"]
+            interval = (
+                interval[0:4]
+                + interval[5:7]
+                + interval[8:10]
+                + "_"
+                + interval[11:15]
+                + interval[16:18]
+                + interval[19:21]
+            )
+
+            zone = data.get("name")
+
+            selected_data = colormap_settings[
+                (colormap_settings["map type"] == map_type)
+                & (colormap_settings["attribute"] == data["attr"])
+                & (colormap_settings["interval"] == interval)
+                & (colormap_settings["name"] == zone)
+            ]
+
+            if "std" in realization:
+                settings = selected_data[selected_data["realization"] == "std"]
+            else:
+                settings = selected_data[
+                    selected_data["realization"] == "realization-0"
+                ]
+
+            min_max = settings[["lower_limit", "upper_limit"]]
+
+        return min_max
 
     def make_map(self, data, ensemble, real, attribute_settings, map_idx):
         data = json.loads(data)
@@ -586,45 +617,19 @@ class SurfaceViewer4D(WebvizPluginABC):
         attribute_settings = json.loads(attribute_settings)
         map_type = self.map_defaults[map_idx]["map_type"]
 
+        surface = None
+
         if self.sumo_case:
-            sumo_id = self.get_sumo_uuid(data, ensemble, real, map_type)
-            surface = self.open_surface_with_xtgeo(sumo_id)
+            sumo_bytestring = self.get_sumo_uuid(data, ensemble, real, map_type)
+            surface = self.open_surface_with_xtgeo(sumo_bytestring)
         else:
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
 
             if os.path.isfile(surface_file):
                 surface = load_surface(surface_file)
-            else:
-                surface = None
 
         if surface:
-            if self.colormap_settings is not None:
-                interval = data["date"]
-                interval = (
-                    interval[0:4]
-                    + interval[5:7]
-                    + interval[8:10]
-                    + "_"
-                    + interval[11:15]
-                    + interval[16:18]
-                    + interval[19:21]
-                )
-
-                m_data = self.colormap_settings.loc[
-                    self.colormap_settings["map type"] == map_type
-                ]
-
-                selected_data = m_data[
-                    (m_data["attribute"] == data["attr"])
-                    & (m_data["interval"] == interval)
-                    & (m_data["realization"] == real)
-                    & (m_data["name"] == selected_zone)
-                ]
-
-                metadata = selected_data[["lower_limit", "upper_limit"]]
-
-            else:
-                metadata = None
+            metadata = self.get_map_scaling(data, map_type, real)
 
             surface_layers = [
                 make_surface_layer(
@@ -654,17 +659,20 @@ class SurfaceViewer4D(WebvizPluginABC):
 
                 surface_layers.append(layer)
 
-            if self.well_base_layers:
-                for well_layer in self.well_base_layers:
+            if self.basic_well_layers:
+                for well_layer in self.well_basic_layers:
                     surface_layers.append(well_layer)
 
             interval = data["date"]
 
-            if (
-                interval != self.selected_intervals[map_idx]
-            ):  # Create new interval layers if selected interval has changesd
-                self.interval_well_layers = self.create_additional_well_layers(interval)
-                self.selected_intervals[map_idx] = interval
+            # Load new interval layers if selected interval has changed
+            if interval != self.selected_intervals[map_idx]:
+                if get_dates(interval)[0] <= self.production_update:
+                    index = self.interval_names.index(interval)
+                    self.interval_well_layers = self.all_interval_layers[index]
+                    self.selected_intervals[map_idx] = interval
+                else:
+                    self.interval_well_layers = []
 
             for interval_layer in self.interval_well_layers:
                 surface_layers.append(interval_layer)
@@ -677,12 +685,12 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             heading, sim_info, label = self.get_heading(map_idx, self.observations)
         else:
-            print("WARNING: Selected map not found")
-            print("Selections:", real, ensemble, map_type, data)
             heading = "Selected map doesn't exist"
             sim_info = "-"
             surface_layers = []
             label = "-"
+
+        # print("make map", time.time() - t0)
 
         return (
             heading,
