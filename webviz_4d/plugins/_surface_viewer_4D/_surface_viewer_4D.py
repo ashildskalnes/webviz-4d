@@ -5,6 +5,7 @@ import os
 import numpy as np
 import xtgeo
 from io import BytesIO
+import logging
 
 from fmu.sumo.explorer import Explorer
 
@@ -70,6 +71,7 @@ class SurfaceViewer4D(WebvizPluginABC):
     ):
 
         super().__init__()
+        logging.getLogger("").setLevel(level=logging.WARNING)
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.fmu_directory = self.shared_settings["fmu_directory"]
         self.sumo_case = self.shared_settings.get("sumo_case")
