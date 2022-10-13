@@ -103,6 +103,35 @@ def make_new_well_layer(
     return layer
 
 
+def make_new_smda_well_layer(
+    layer_df,
+    wells_df,
+    label="Drilled wells",
+):
+    """Make layeredmap wells layer"""
+    # t0 = time.time()
+    data = []
+
+    for _index, row in layer_df.iterrows():
+        true_name = row["unique_wellbore_identifier"]
+        well_dataframe = wells_df[wells_df["unique_wellbore_identifier"] == true_name]
+
+        polyline_data = get_well_polyline(
+            well_dataframe,
+            row["md_start"],
+            row["md_end"],
+            row["color"],
+            row["tooltip"],
+        )
+
+        if polyline_data:
+            data.append(polyline_data)
+
+    layer = {"name": label, "checked": False, "base_layer": False, "data": data}
+
+    return layer
+
+
 def extract_production_info(pdm_well_name, prod_data, interval, production_type, fluid):
     """Return well and production information/status for a selected
     interval for production/injection wells"""
