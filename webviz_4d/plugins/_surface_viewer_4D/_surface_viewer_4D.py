@@ -3,6 +3,7 @@ from pathlib import Path
 import datetime
 import json
 import os
+import pandas as pd
 import numpy as np
 import xtgeo
 from io import BytesIO
@@ -26,7 +27,7 @@ from webviz_4d._datainput.well import (
     load_smda_wellbores,
     load_planned_wells,
     load_pdm_info,
-    create_new_well_layer,
+    create_well_layer,
     get_surface_picks,
 )
 from webviz_4d._datainput._production import (
@@ -89,9 +90,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.sumo_case = self.shared_settings.get("sumo_case")
         self.label = self.shared_settings.get("label", self.fmu_directory)
 
+        self.production_data = production_data
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
-
         self.map_suffix = map_suffix
         self.delimiter = delimiter
         self.interval_mode = interval_mode
@@ -123,22 +124,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if self.basic_well_layers is None:
             self.basic_well_layers = default_basic_well_layers
-
-        # default_additional_well_layers = {
-        #     "production": "Producers",
-        #     "production_start": "Producers - started",
-        #     "production_completed": "Producers - completed",
-        #     "injection": "Injectors",
-        #     "injection_start": "Injectors - started",
-        #     "injection_completed": "Injectors - completed",
-        # }
-
-        self.all_well_layers = self.basic_well_layers
-
-        if self.additional_well_layers is not None:
-            self.all_well_layers = self.basic_well_layers.update(
-                self.additional_well_layers
-            )
 
         if self.sumo_case:
             sumo = Explorer(env="prod")
@@ -292,19 +277,22 @@ class SurfaceViewer4D(WebvizPluginABC):
             omnia_env = ".omniaapi"
             home = os.path.expanduser("~")
             env_path = os.path.expanduser(os.path.join(home, omnia_env))
+            self.provider = ProviderImplFile(env_path)
 
-            provider = ProviderImplFile(env_path)
-
-            print("Loading drilled well data from SMDA")
-            self.drilled_wells_info = load_smda_metadata(provider, self.field_name[0])
+            print("Loading drilled well data from SMDA ...")
+            self.drilled_wells_info = load_smda_metadata(
+                self.provider, self.field_name[0]
+            )
             # print(self.drilled_wells_info)
 
-            self.drilled_wells_df = load_smda_wellbores(provider, self.field_name[0])
+            self.drilled_wells_df = load_smda_wellbores(
+                self.provider, self.field_name[0]
+            )
             # print(self.drilled_wells_df)
 
             if "planned" in self.basic_well_layers:
-                print("Loading planned well data from POZO")
-                planned_wells = load_planned_wells(provider, self.field_name[0])
+                print("Loading planned well data from POZO ...")
+                planned_wells = load_planned_wells(self.provider, self.field_name[0])
                 self.planned_wells_info = planned_wells.metadata.dataframe
                 self.planned_wells_df = planned_wells.trajectories.dataframe
                 # print(self.planned_wells_info)
@@ -312,6 +300,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.well_basic_layers = []
             self.all_interval_layers = []
 
+            print("Creating well layers")
             for key, value in self.basic_well_layers.items():
                 layer_name = key
                 label = value
@@ -323,7 +312,6 @@ class SurfaceViewer4D(WebvizPluginABC):
                 surface_picks = None
                 prod_data = None
 
-                print("Creating well layer:", layer_name)
                 if layer_name == "planned":
                     metadata = self.planned_wells_info
                     trajectories = self.planned_wells_df
@@ -339,24 +327,21 @@ class SurfaceViewer4D(WebvizPluginABC):
                     )
                     surface_picks = self.surface_picks
 
-                well_layer = create_new_well_layer(
+                well_layer = create_well_layer(
                     interval_4d=None,
                     metadata_df=metadata,
                     trajectories_df=trajectories,
                     surface_picks=surface_picks,
                     prod_data=prod_data,
-                    color=color,
+                    color_settings=None,
                     layer_name=key,
                     label=value,
                 )
 
                 if well_layer:
-                    print("Well layer added:", layer_name)
                     self.well_basic_layers.append(well_layer)
-                else:
-                    print("Well layer not added:", layer_name)
 
-            pdm_wells_info = load_pdm_info(provider, self.field_name[0])
+            pdm_wells_info = load_pdm_info(self.provider, self.field_name[0])
             pdm_wellbores = pdm_wells_info["WB_UWBI"].tolist()
             self.pdm_wells_df = self.drilled_wells_df[
                 self.drilled_wells_df["unique_wellbore_identifier"].isin(pdm_wellbores)
@@ -442,12 +427,57 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.all_interval_layers.append(interval_layers)
                 self.interval_names.append(interval)
 
-        # Find production and injection layers for the default interval
-        if self.interval_names:
-            index = self.interval_names.index(default_interval)
-            self.interval_well_layers = self.all_interval_layers[index]
+        if "PDM" in str(production_data):
+            print("Loading production/injection data from PDM ...")
+            default_interval = self.map_defaults[0]["interval"]
+
+            prod_data = self.provider.get_field_prod_data(
+                field_name=self.field_name[0],
+                start_date=default_interval[-10:],
+                end_date=default_interval[:10],
+            )
+
+            inj_data = self.provider.get_field_inj_data(
+                field_name=self.field_name[0],
+                start_date=default_interval[-10:],
+                end_date=default_interval[:10],
+            )
+            volumes_df = pd.merge(
+                prod_data.dataframe,
+                inj_data.dataframe,
+                how="outer",
+            )
+            self.prod_data = volumes_df
+
+            self.interval_well_layers = []
+            for key, value in self.additional_well_layers.items():
+                layer_name = key
+                label = value
+                color = self.well_colors.get(layer_name, None)
+
+                if color is None:
+                    color = self.well_colors.get("default", None)
+
+                well_layer = create_well_layer(
+                    interval_4d=default_interval,
+                    metadata_df=metadata,
+                    trajectories_df=self.drilled_wells_df,
+                    surface_picks=surface_picks,
+                    prod_data=self.prod_data,
+                    color_settings=None,
+                    layer_name=key,
+                    label=value,
+                )
+
+                if well_layer:
+                    self.interval_well_layers.append(well_layer)
         else:
-            self.interval_well_layers = None
+            # Find production and injection layers for the default interval
+            if self.interval_names:
+                index = self.interval_names.index(default_interval)
+                self.interval_well_layers = self.all_interval_layers[index]
+            else:
+                self.interval_well_layers = None
 
         # Create selectors (attributes, names and dates) for all 3 maps
         self.selector = SurfaceSelector(app, self.selection_list, self.map_defaults[0])
@@ -823,6 +853,48 @@ class SurfaceViewer4D(WebvizPluginABC):
                     self.selected_intervals[map_idx] = interval
                 else:
                     self.interval_well_layers = []
+
+                if "PDM" in str(self.production_data):
+                    for key, value in self.additional_well_layers.items():
+                        layer_name = key
+                        label = value
+                        print("Layer name", layer_name)
+                        color = self.well_colors.get(layer_name, None)
+
+                        if color is None:
+                            color = self.well_colors.get("default", None)
+
+                        prod_data = self.provider.get_field_prod_data(
+                            field_name=self.field_name[0],
+                            start_date=interval[-10:],
+                            end_date=interval[:10],
+                        )
+
+                        inj_data = self.provider.get_field_inj_data(
+                            field_name=self.field_name[0],
+                            start_date=interval[-10:],
+                            end_date=interval[:10],
+                        )
+                        volumes_df = pd.merge(
+                            prod_data.dataframe,
+                            inj_data.dataframe,
+                            how="outer",
+                        )
+                        self.prod_data = volumes_df
+
+                        well_layer = create_well_layer(
+                            interval_4d=interval,
+                            metadata_df=self.drilled_wells_info,
+                            trajectories_df=self.drilled_wells_df,
+                            surface_picks=self.surface_picks,
+                            prod_data=self.prod_data,
+                            color_settings=None,
+                            layer_name=key,
+                            label=value,
+                        )
+
+                        if well_layer:
+                            self.interval_well_layers.append(well_layer)
 
             if self.interval_well_layers:
                 for interval_layer in self.interval_well_layers:

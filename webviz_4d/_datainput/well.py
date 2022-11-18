@@ -39,28 +39,163 @@ def load_pdm_info(provider, field):
     return dataframe
 
 
-def create_new_well_layer(
-    interval_4d: pd.DataFrame = None,
+# def create_new_well_layer(
+#     interval_4d: list = None,
+#     metadata_df: pd.DataFrame = None,
+#     trajectories_df: pd.DataFrame = None,
+#     prod_data: pd.DataFrame = None,
+#     surface_picks: pd.DataFrame = None,
+#     completion_df: pd.DataFrame = None,
+#     color: str = None,
+#     layer_name: str = "",
+#     label: str = "",
+# ):
+
+#     """Make layeredmap wells layer"""
+#     tooltips = []
+#     layer_df = pd.DataFrame()
+
+#     md_start_list = []
+#     md_end = np.nan
+#     wellbores = []
+
+#     interval = None
+
+#     if interval_4d is not None:
+#         interval = interval_4d
+#         # print(layer_name)
+#         # print(metadata_df)
+
+#     for row in metadata_df.iterrows():
+#         status = False
+#         tooltip = create_tooltip(row, layer_name)
+#         # print(row, tooltip)
+
+#         df = row[1]
+#         wellbore_name = df["unique_wellbore_identifier"]
+
+#         if surface_picks is not None and not surface_picks.empty:
+#             try:
+#                 selected_surface_pick = surface_picks[
+#                     surface_picks["unique_wellbore_identifier"] == wellbore_name
+#                 ]
+#                 md_start = selected_surface_pick["md"].to_numpy()[0]
+#             except:
+#                 md_start = np.nan
+#         else:
+#             md_start = 0
+
+#         if layer_name in ["production", "injection"]:
+#             if interval is not None and prod_data is not None:
+#                 if md_start is not None and not math.isnan(md_start):
+#                     status, start_date, end_date = check_production_data(
+#                         prod_data, layer_name, wellbore_name, interval
+#                     )
+
+#                     if status and tooltip:
+#                         tooltip = (
+#                             tooltip
+#                             + " Start:"
+#                             + start_date[:4]
+#                             + " End:"
+#                             + end_date[:4]
+#                         )
+#                         # print(wellbore_name, status, start_date, end_date, tooltip)
+#         else:
+#             if md_start is not None and not math.isnan(md_start):
+#                 status = True
+
+#         if status:
+#             tooltips.append(tooltip)
+#             md_start_list.append(md_start)
+#             wellbores.append(wellbore_name)
+
+#     layer_df["unique_wellbore_identifier"] = wellbores
+#     layer_df["color"] = color
+#     layer_df["tooltip"] = tooltips
+#     layer_df["layer_name"] = "well_layer_" + layer_name
+#     layer_df["md_start"] = md_start_list
+#     layer_df["md_end"] = md_end
+
+#     # print(layer_df)
+
+#     well_layer = make_new_smda_well_layer(
+#         layer_df,
+#         trajectories_df,
+#         label=label,
+#     )
+
+#     return well_layer
+
+
+def create_well_layer(
+    interval_4d: list = None,
     metadata_df: pd.DataFrame = None,
     trajectories_df: pd.DataFrame = None,
     prod_data: pd.DataFrame = None,
     surface_picks: pd.DataFrame = None,
     completion_df: pd.DataFrame = None,
-    color: str = None,
+    color_settings: dict = {},
     layer_name: str = "",
     label: str = "",
 ):
 
     """Make layeredmap wells layer"""
+    prod_units = {
+        "OIL_VOL": "kSm3",
+        "GAS_VOL": "MSm3",
+        "WATER_VOL": "kSm3",
+    }
+
+    prod_labels = {
+        "OIL_VOL": "oil",
+        "GAS_VOL": "gas",
+        "WATER_VOL": "water",
+    }
+
+    inj_units = {
+        "GI_VOL": "MSm3",
+        "WI_VOL": "kSm3",
+    }
+
+    inj_labels = {
+        "GI_VOL": "gas",
+        "WI_VOL": "water",
+    }
+
+    if not color_settings:
+        color_settings = {
+            "default": "black",
+            "planned": "purple",
+            "oil_production": "green",
+            "gas_production": "red",
+            "gas_injection": "salmon",
+            "water_injection": "blue",
+            "wag_injection": "cyan",
+        }
+
     tooltips = []
     layer_df = pd.DataFrame()
 
     md_start_list = []
     md_end = np.nan
     wellbores = []
+    colors = []
 
+    interval = None
+
+    if interval_4d is not None:
+        interval = interval_4d
+
+    print("Layer name", layer_name)
     for row in metadata_df.iterrows():
+        # print(row)
+        status = False
         tooltip = create_tooltip(row, layer_name)
+        color = color_settings.get("default")
+
+        if layer_name == "planned":
+            color = color_settings.get("planned")
 
         df = row[1]
         wellbore_name = df["unique_wellbore_identifier"]
@@ -76,17 +211,88 @@ def create_new_well_layer(
         else:
             md_start = 0
 
-        if tooltip is not None and md_start is not None and not math.isnan(md_start):
+        if layer_name in ["production", "injection"]:
+            if interval is not None and prod_data is not None:
+                if md_start is not None and not math.isnan(md_start):
+                    if "production" in layer_name:
+                        fluids = ["OIL_VOL", "GAS_VOL", "WATER_VOL"]
+                        units = prod_units
+                        labels = prod_labels
+                    elif "injection in layer_name":
+                        fluids = ["GI_VOL", "WI_VOL"]
+                        units = inj_units
+                        labels = inj_labels
+
+                    status, volumes = get_production_data(
+                        prod_data, wellbore_name, fluids
+                    )
+
+                    if status and tooltip:
+                        short_name = get_short_wellname(wellbore_name)
+                        fluids_text = ""
+
+                        for key in units.keys():
+                            fluids_text = (
+                                fluids_text
+                                + labels[key]
+                                + " {:.0f}".format(volumes[key].values[0])
+                                + " ["
+                                + units[key]
+                                + "], "
+                            )
+                        tooltip = (
+                            short_name
+                            + ": "
+                            + layer_name
+                            + " ("
+                            + fluids_text[:-2]
+                            + ")"
+                        )
+
+                        if (
+                            "OIL_VOL" in volumes.columns
+                            and volumes["OIL_VOL"].values[0] > 0
+                        ):
+                            color = color_settings.get("oil_production")
+                        elif (
+                            "GAS_VOL" in volumes.columns
+                            and volumes["GAS_VOL"].values[0] > 0
+                        ):
+                            color = color_settings.get("gas_production")
+                        elif (
+                            "GI_VOL" in volumes.columns
+                            and volumes["GI_VOL"].values[0] > 0
+                            and volumes["WI_VOL"].values[0] > 0
+                        ):
+                            color = color_settings.get("wag_injection")
+                        elif (
+                            "GI_VOL" in volumes.columns
+                            and volumes["GI_VOL"].values[0] > 0
+                        ):
+                            color = color_settings.get("gas_injection")
+                        elif (
+                            "WI_VOL" in volumes.columns
+                            and volumes["WI_VOL"].values[0] > 0
+                        ):
+                            color = color_settings.get("water_injection")
+        else:
+            if md_start is not None and not math.isnan(md_start):
+                status = True
+
+        if status:
             tooltips.append(tooltip)
             md_start_list.append(md_start)
             wellbores.append(wellbore_name)
+            colors.append(color)
 
     layer_df["unique_wellbore_identifier"] = wellbores
-    layer_df["color"] = color
+    layer_df["color"] = colors
     layer_df["tooltip"] = tooltips
     layer_df["layer_name"] = "well_layer_" + layer_name
     layer_df["md_start"] = md_start_list
     layer_df["md_end"] = md_end
+
+    # print(layer_df)
 
     well_layer = make_new_smda_well_layer(
         layer_df,
@@ -95,6 +301,29 @@ def create_new_well_layer(
     )
 
     return well_layer
+
+
+def get_production_data(prod_data, wellbore_name, fluids):
+    status = False
+
+    try:
+        wellbore_volumes = prod_data[prod_data["WB_UWBI"] == wellbore_name]
+        volumes_df = wellbore_volumes[fluids]
+        fluid_volumes = volumes_df.dropna()
+
+        if fluid_volumes is not None and not fluid_volumes.empty:
+            sum_vol = 0
+
+            for fluid in fluids:
+                vol = fluid_volumes[fluid].values[0]
+                sum_vol = sum_vol + vol
+
+            if sum_vol > 0:
+                status = True
+    except:
+        wellbore_volumes = None
+
+    return status, fluid_volumes
 
 
 def make_new_smda_well_layer(
@@ -129,7 +358,13 @@ def make_new_smda_well_layer(
 def create_tooltip(row, layer_name):
     tooltip = None
 
-    if layer_name in ["planned", "drilled_wells", "reservoir_sections"]:
+    if layer_name in [
+        "planned",
+        "drilled_wells",
+        "reservoir_sections",
+        "production",
+        "injection",
+    ]:
         df = row[1]
         wellbore_name = df["unique_wellbore_identifier"]
         short_name = get_short_wellname(wellbore_name)
@@ -356,3 +591,22 @@ def get_surface_picks(wellbores_df, surf):
     surface_picks["md"] = md_values
 
     return surface_picks
+
+
+def check_interval_date(interval, selected_date):
+    """Check if a selected date is included in a 4D interval or not"""
+    # if selected_date is None or (
+    #     not isinstance(selected_date, str) and math.isnan(selected_date)
+    # ):
+
+    if selected_date is None or not isinstance(selected_date, str):
+        status = None
+    elif selected_date >= interval[:10]:
+        if selected_date < interval[11:]:
+            status = "inside"
+        else:
+            status = "greater"
+    else:
+        status = "less"
+
+    return status

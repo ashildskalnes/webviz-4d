@@ -102,3 +102,17 @@ def make_surface_layer(
             }
         ],
     }
+
+
+def get_top_res_surface(sumo_case_id, top_res_name):
+    surface = None
+
+    sumo_bytestring = get_sumo_bytestring(
+        name=top_res_name,
+        attribute="depth_structural_model",
+        aggregation="mean",
+        ensemble="0",
+        map_type="simulated",
+    )
+
+    surface = self.open_surface_with_xtgeo(sumo_bytestring)
