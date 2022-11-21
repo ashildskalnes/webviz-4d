@@ -187,7 +187,7 @@ def create_well_layer(
     if interval_4d is not None:
         interval = interval_4d
 
-    print("Layer name", layer_name)
+    # print("Layer name", layer_name)
     for row in metadata_df.iterrows():
         # print(row)
         status = False

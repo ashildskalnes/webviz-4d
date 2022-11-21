@@ -128,7 +128,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.sumo_case:
             sumo = Explorer(env="prod")
             self.my_case = sumo.get_case_by_id(self.sumo_case)
-            print("Case name:", self.my_case.case_name)
+            print("Case name:", self.my_case.name)
             top_res_name = self.shared_settings.get("top_res_surface")
             print("Top reservoir surface:", top_res_name)
 
