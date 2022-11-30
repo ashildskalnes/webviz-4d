@@ -33,7 +33,7 @@ def load_planned_wells(provider, field):
 
 
 def load_pdm_info(provider, field):
-    metadata = provider.get_pdm_dates(field_name=field)
+    metadata = provider.get_pdm_wellbores(field_name=field)
     dataframe = metadata.dataframe
 
     return dataframe
@@ -461,8 +461,18 @@ def load_all_wells(metadata):
 
 def get_position_data(well_dataframe, md_start, md_end):
     """Return x- and y-values for a well between given depths"""
+    rename_dict = {
+        "MD": "md",
+        "X_UTME": "easting",
+        "Y_UTMN": "northing",
+        "Z_TVDSS": "tvd_msl",
+    }
+
     delta = 200
     positions = None
+
+    if "MD" in well_dataframe.columns:
+        well_dataframe = well_dataframe.rename(columns=rename_dict)
 
     if not well_dataframe.empty and not math.isnan(md_start):
         well_df = well_dataframe[well_dataframe["md"] >= md_start]

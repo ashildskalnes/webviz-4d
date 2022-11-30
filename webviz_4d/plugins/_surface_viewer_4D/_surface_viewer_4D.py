@@ -126,26 +126,33 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.basic_well_layers = default_basic_well_layers
 
         if self.sumo_case:
-            sumo = Explorer(env="prod")
-            self.my_case = sumo.get_case_by_id(self.sumo_case)
-            print("Case name:", self.my_case.name)
-            top_res_name = self.shared_settings.get("top_res_surface")
-            print("Top reservoir surface:", top_res_name)
-
-            sumo_bytestring = self.get_sumo_bytestring(
-                name=top_res_name,
-                attribute="depth_structural_model",
-                aggregation="mean",
-                ensemble="0",
-                map_type="simulated",
-            )
-
-            surface = self.open_surface_with_xtgeo(sumo_bytestring)
+            env = "prod"
+            surface = self.get_sumo_top_res_surface(env)
 
             if surface:
                 self.top_res_surface = surface
             else:
                 self.top_res_surface = None
+            # sumo = Explorer(env="prod")
+            # self.my_case = sumo.get_case_by_id(self.sumo_case)
+            # print("Case name:", self.my_case.name)
+            # top_res_name = self.shared_settings.get("top_res_surface")
+            # print("Top reservoir surface:", top_res_name)
+
+            # sumo_bytestring = self.get_sumo_bytestring(
+            #     name=top_res_name,
+            #     attribute="depth_structural_model",
+            #     aggregation="mean",
+            #     ensemble="0",
+            #     map_type="simulated",
+            # )
+
+            # surface = self.open_surface_with_xtgeo(sumo_bytestring)
+
+            # if surface:
+            #     self.top_res_surface = surface
+            # else:
+            #     self.top_res_surface = None
 
         # Read maps metadata
         if "SMDA" not in str(wellfolder):
@@ -277,22 +284,26 @@ class SurfaceViewer4D(WebvizPluginABC):
             omnia_env = ".omniaapi"
             home = os.path.expanduser("~")
             env_path = os.path.expanduser(os.path.join(home, omnia_env))
-            self.provider = ProviderImplFile(env_path)
+            self.smda_provider = ProviderImplFile(env_path, "SMDA")
+            self.pozo_provider = ProviderImplFile(env_path, "POZO")
+            self.pdm_provider = ProviderImplFile(env_path, "PDM")
 
             print("Loading drilled well data from SMDA ...")
             self.drilled_wells_info = load_smda_metadata(
-                self.provider, self.field_name[0]
+                self.smda_provider, self.field_name[0]
             )
             # print(self.drilled_wells_info)
 
             self.drilled_wells_df = load_smda_wellbores(
-                self.provider, self.field_name[0]
+                self.smda_provider, self.field_name[0]
             )
             # print(self.drilled_wells_df)
 
             if "planned" in self.basic_well_layers:
                 print("Loading planned well data from POZO ...")
-                planned_wells = load_planned_wells(self.provider, self.field_name[0])
+                planned_wells = load_planned_wells(
+                    self.pozo_provider, self.field_name[0]
+                )
                 self.planned_wells_info = planned_wells.metadata.dataframe
                 self.planned_wells_df = planned_wells.trajectories.dataframe
                 # print(self.planned_wells_info)
@@ -341,7 +352,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 if well_layer:
                     self.well_basic_layers.append(well_layer)
 
-            pdm_wells_info = load_pdm_info(self.provider, self.field_name[0])
+            pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name[0])
             pdm_wellbores = pdm_wells_info["WB_UWBI"].tolist()
             self.pdm_wells_df = self.drilled_wells_df[
                 self.drilled_wells_df["unique_wellbore_identifier"].isin(pdm_wellbores)
@@ -431,13 +442,13 @@ class SurfaceViewer4D(WebvizPluginABC):
             print("Loading production/injection data from PDM ...")
             default_interval = self.map_defaults[0]["interval"]
 
-            prod_data = self.provider.get_field_prod_data(
+            prod_data = self.pdm_provider.get_field_prod_data(
                 field_name=self.field_name[0],
                 start_date=default_interval[-10:],
                 end_date=default_interval[:10],
             )
 
-            inj_data = self.provider.get_field_inj_data(
+            inj_data = self.pdm_provider.get_field_inj_data(
                 field_name=self.field_name[0],
                 start_date=default_interval[-10:],
                 end_date=default_interval[:10],
@@ -613,6 +624,23 @@ class SurfaceViewer4D(WebvizPluginABC):
             print(map_type, real, ensemble, name, attribute, time1, time2)
 
         return path
+
+    def get_sumo_top_res_surface(self, env):
+        sumo = Explorer(env=env)
+        self.my_case = sumo.get_case_by_id(self.sumo_case)
+        print("Case name:", self.my_case.name)
+        top_res_name = self.shared_settings.get("top_res_surface")
+        print("Top reservoir surface:", top_res_name)
+
+        sumo_bytestring = self.get_sumo_bytestring(
+            name=top_res_name,
+            attribute="depth_structural_model",
+            aggregation="mean",
+            ensemble="0",
+            map_type="simulated",
+        )
+
+        return self.open_surface_with_xtgeo(sumo_bytestring)
 
     def get_sumo_bytestring(
         self,
@@ -864,13 +892,13 @@ class SurfaceViewer4D(WebvizPluginABC):
                         if color is None:
                             color = self.well_colors.get("default", None)
 
-                        prod_data = self.provider.get_field_prod_data(
+                        prod_data = self.pdm_provider.get_field_prod_data(
                             field_name=self.field_name[0],
                             start_date=interval[-10:],
                             end_date=interval[:10],
                         )
 
-                        inj_data = self.provider.get_field_inj_data(
+                        inj_data = self.pdm_provider.get_field_inj_data(
                             field_name=self.field_name[0],
                             start_date=interval[-10:],
                             end_date=interval[:10],
