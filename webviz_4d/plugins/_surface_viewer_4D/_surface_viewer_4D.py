@@ -128,34 +128,8 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.sumo_case:
             env = "prod"
             surface = self.get_sumo_top_res_surface(env)
-
-            if surface:
-                self.top_res_surface = surface
-            else:
-                self.top_res_surface = None
-            # sumo = Explorer(env="prod")
-            # self.my_case = sumo.get_case_by_id(self.sumo_case)
-            # print("Case name:", self.my_case.name)
-            # top_res_name = self.shared_settings.get("top_res_surface")
-            # print("Top reservoir surface:", top_res_name)
-
-            # sumo_bytestring = self.get_sumo_bytestring(
-            #     name=top_res_name,
-            #     attribute="depth_structural_model",
-            #     aggregation="mean",
-            #     ensemble="0",
-            #     map_type="simulated",
-            # )
-
-            # surface = self.open_surface_with_xtgeo(sumo_bytestring)
-
-            # if surface:
-            #     self.top_res_surface = surface
-            # else:
-            #     self.top_res_surface = None
-
-        # Read maps metadata
-        if "SMDA" not in str(wellfolder):
+        else:
+            # Read maps metadata from file
             self.surface_metadata_file = surface_metadata_file
             print("Reading maps metadata from", self.surface_metadata_file)
             self.surface_metadata = (
@@ -163,6 +137,14 @@ class SurfaceViewer4D(WebvizPluginABC):
                 if self.surface_metadata_file is not None
                 else None
             )
+
+            surface = self.get_top_res_surface()
+
+        if surface:
+            self.top_res_surface = surface
+        else:
+            self.top_res_surface = None
+
         self.selector_file = selector_file
         self.selection_list = read_config(get_path(path=self.selector_file))
 
@@ -313,6 +295,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             print("Creating well layers")
             for key, value in self.basic_well_layers.items():
+                print(key, value)
                 layer_name = key
                 label = value
                 color = self.well_colors.get(layer_name, None)
@@ -642,6 +625,12 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return self.open_surface_with_xtgeo(sumo_bytestring)
 
+    def get_top_res_surface(self):
+        top_res_surface_file = self.shared_settings.get("top_res_surface")
+        print("Top reservoir surface:", top_res_surface_file)
+
+        return self.open_surface_with_xtgeo(top_res_surface_file)
+
     def get_sumo_bytestring(
         self,
         name: str = "",
@@ -683,6 +672,13 @@ class SurfaceViewer4D(WebvizPluginABC):
         surface_name = [name]
         surface_time_interval = time_string
         aggregations = aggregations
+
+        # print("surface_name", surface_name)
+        # print("surface_attribute", surface_attribute)
+        # print("surface_time_interval", surface_time_interval)
+        # print("ensemble_id", ensemble_id)
+        # print("realization_id", realization_id)
+        # print("aggregations", aggregations)
 
         try:
             surfaces = self.my_case.get_objects(
