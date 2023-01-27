@@ -1,21 +1,8 @@
 import os
 import pandas as pd
-import math
-import glob
 import json
-from pathlib import Path
-
-from webviz_config.webviz_store import webvizstore
+import fmu.sumo.explorer._utils as explorer_utils
 from webviz_config.common_cache import CACHE
-
-import webviz_4d._datainput.common as common
-
-from webviz_4d.plugins._surface_viewer_4D._webvizstore import (
-    read_csv,
-    read_csvs,
-    find_files,
-    get_path,
-)
 
 
 supported_polygons = {
@@ -23,15 +10,23 @@ supported_polygons = {
     "goc_outline": "Initial GOC",
     "faults": "Faults",
     "prm_receivers": "PRM receivers",
+    "sumo_faults": "Faults",
+    "sumo_goc_outline": "Initial GOC",
+    "sumo_fwl_outline": "Initial FWL",
+    "sumo_outline": "Initial FWL",
 }
 default_colors = {
     "owc_outline": "lightslategray",
     "goc_outline": "red",
     "faults": "gray",
     "prm_receivers": "darkgray",
+    "sumo_faults": "gray",
+    "sumo_goc_outline": "red",
+    "sumo_fwl_outline": "lightslategray",
 }
 
 checked = {
+    "Initial FWL": True,
     "Initial OWC": True,
     "Initial GOC": True,
     "Faults": True,
@@ -85,6 +80,23 @@ def get_prm_polyline(prm, color):
         }
 
 
+def get_sumo_polyline(sumo_layer, name, color):
+    """Create polyline data - SUMO faults, color and tooltip"""
+    if color is None:
+        color = default_colors.get("sumo_faults")
+
+    positions = sumo_layer["coordinates"]
+    tooltip = name
+
+    if positions:
+        return {
+            "type": "polyline",
+            "color": color,
+            "positions": positions,
+            "tooltip": tooltip,
+        }
+
+
 def get_contact_polyline(contact, key, color):
     """Create polyline data - owc polyline, color and tooltip"""
     data = []
@@ -120,7 +132,17 @@ def make_new_polyline_layer(dataframe, key, label, color):
     data = []
     name = supported_polygons.get(key)
 
-    if "outline" in key:
+    if dataframe.empty:
+        return None
+
+    if "sumo" in key:
+        for _index, row in dataframe.iterrows():
+            polyline_data = get_sumo_polyline(row, label, color)
+
+            if polyline_data:
+                data.append(polyline_data)
+
+    elif "outline" in key:
         data = get_contact_polyline(dataframe, key, color)
     elif key == "prm_receivers":
         for _index, row in dataframe.iterrows():
@@ -128,6 +150,7 @@ def make_new_polyline_layer(dataframe, key, label, color):
 
             if polyline_data:
                 data.append(polyline_data)
+
     else:
         for _index, row in dataframe.iterrows():
             polyline_data = get_fault_polyline(row, label, color)
@@ -179,6 +202,7 @@ def load_zone_polygons(csv_files, polygon_colors):
     for csv_file in csv_files:
         polygon_df = pd.read_csv(csv_file)
         label = os.path.basename(csv_file).replace(".csv", "")
+        print("  ", label)
 
         name = "faults"
         default_color = default_colors.get(name)
@@ -195,11 +219,114 @@ def load_zone_polygons(csv_files, polygon_colors):
 
 
 def get_zone_layer(polygon_layers, zone_name):
-    for layer in polygon_layers:
-        data = layer["data"]
-        tooltip = data[0]["tooltip"]
+    if polygon_layers is not None:
+        for layer in polygon_layers:
+            data = layer["data"]
+            tooltip = data[0]["tooltip"]
 
-        if tooltip == zone_name:
-            return layer
+            if tooltip == zone_name:
+                return layer
 
     return None
+
+
+def create_sumo_layer(polygon_df):
+    """Create sumo layer"""
+    all_positions = []
+    positions = []
+    ids = []
+
+    for _index, row in polygon_df.iterrows():
+        position = [row["X"], row["Y"]]
+
+        if _index == 0:
+            poly_id = row["ID"]
+
+        if row["ID"] == poly_id:
+            position = [row["X"], row["Y"]]
+            positions.append(position)
+        else:
+            all_positions.append(positions)
+            positions = []
+            poly_id = row["ID"]
+            position = [row["X"], row["Y"]]
+            positions.append(position)
+            ids.append(poly_id)
+
+    # Add last line
+    all_positions.append(positions)
+    ids.append(poly_id)
+
+    layer_df = pd.DataFrame()
+    layer_df["id"] = ids
+    layer_df["geometry"] = "Polygon"
+    layer_df["coordinates"] = all_positions
+
+    return layer_df
+
+
+def decode_sumo_polygon(polygon, sumo):
+    polygon_bytes = explorer_utils.get_object(polygon.sumo_id, sumo)
+    polygon_string = polygon_bytes.decode("utf-8")
+    polygon_lines = polygon_string.split("\n")
+
+    x_coordinates = []
+    y_coordinates = []
+    z_coordinates = []
+    pol_ids = []
+
+    for line in polygon_lines:
+        index = polygon_lines.index(line)
+
+        if index != 0 and index != len(polygon_lines) - 1:
+            line_list = line.split(",")
+            x_coordinates.append(float(line_list[0]))
+            y_coordinates.append(float(line_list[1]))
+            z_coordinates.append(float(line_list[2]))
+            pol_ids.append(round(float(line_list[3])))
+
+    polygon_df = pd.DataFrame()
+    polygon_df["X"] = x_coordinates
+    polygon_df["Y"] = y_coordinates
+    polygon_df["Z"] = z_coordinates
+    polygon_df["ID"] = pol_ids
+
+    return polygon_df
+
+
+def load_sumo_polygons(polygons, sumo, polygon_colors):
+
+    polygon_layers = []
+
+    for polygon in polygons:
+        print("  ", polygon.name, polygon.tag_name)
+
+        if "fault" in polygon.tag_name:
+            name = "sumo_faults"
+        elif "outline" in polygon.tag_name and "goc" in polygon.tag_name:
+            name = "sumo_goc_outline"
+        elif "outline" in polygon.tag_name and "fwl" in polygon.tag_name:
+            name = "sumo_fwl_outline"
+        elif "outline" in polygon.tag_name:
+            name = "sumo_outline"
+        else:
+            print("WARNING: Unknown polygon type", polygon.tag_name)
+            return None
+
+        default_color = default_colors.get(name)
+
+        if polygon_colors:
+            color = polygon_colors.get(name, default_color)
+        else:
+            color = default_color
+
+        polygon_data = decode_sumo_polygon(polygon, sumo)
+        polygon_df = create_sumo_layer(polygon_data)
+        polygon_layer = make_new_polyline_layer(
+            polygon_df, name, polygon.tag_name, color
+        )
+
+        if polygon_layer is not None:
+            polygon_layers.append(polygon_layer)
+
+    return polygon_layers

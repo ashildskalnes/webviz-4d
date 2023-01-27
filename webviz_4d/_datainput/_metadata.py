@@ -5,9 +5,7 @@ import re
 from webviz_4d._datainput.common import get_dates
 
 
-def create_map_settings(
-    attribute, name, map_type, ensemble, realization, default_interval
-):
+def create_map_settings(attribute, name, map_type, ensemble, realization, interval):
 
     map_dict = {
         "attribute": attribute,
@@ -15,82 +13,30 @@ def create_map_settings(
         "map_type": map_type,
         "ensemble": ensemble,
         "realization": realization,
-        "interval": default_interval,
+        "interval": interval,
     }
 
     return map_dict
 
 
-def get_map_defaults(selection_options, default_interval, observations, simulations):
-    observed_options = selection_options[observations]
-    simulated_options = selection_options[simulations]
+def get_map_defaults(selection_options, default_interval, map_type):
+    options = selection_options[map_type]
 
-    realizations = get_realizations(metadata_df, simulations)
-    ensembles = get_ensembles(metadata_df, simulations)
+    ensemble = options["ensemble"][0]
+    realization = options["realization"][0]
+    attribute = options["attribute"][0]
+    name = options["name"][0]
 
-    map_defaults = []
+    map_default = create_map_settings(
+        attribute,
+        name,
+        map_type,
+        ensemble,
+        realization,
+        default_interval,
+    )
 
-    if observed_options:
-        ensemble = observed_options["ensemble"][0]
-        realization = observed_options["realization"][0]
-        attribute = observed_options["attribute"][0]
-        name = observed_options["name"][0]
-
-        map_default = create_map_settings(
-            observed_attribute,
-            observed_name,
-            observations,
-            ensemble,
-            realization,
-            default_interval,
-        )
-        map_defaults.append(map_default)
-
-        if simulated_options:
-            ensemble = simulated_options["ensemble"][0]
-            realization = simulated_options["realization"][0]
-            attribute = simulated_options["attribute"][0]
-            name = simulated_options["name"][0]
-
-            map_default = create_map_settings(
-                observed_attribute,
-                observed_name,
-                observations,
-                ensemble,
-                realization,
-                default_interval,
-            )
-            map_defaults.append(map_default)
-            map_defaults.append(map_default)
-
-    elif simulated_options:
-        ensemble = simulated_options["ensemble"][0]
-        realization = simulated_options["realization"][0]
-        attribute = simulated_options["attribute"][0]
-        name = simulated_options["name"][0]
-
-        map_default = create_map_settings(
-            observed_attribute,
-            observed_name,
-            observations,
-            ensemble,
-            realization,
-            default_interval,
-        )
-
-        map_default = create_map_settings(
-            simulated_attribute,
-            simulated_name,
-            simulations,
-            ensemble,
-            realization,
-            default_interval,
-        )
-        map_defaults.append(map_default)
-        map_defaults.append(map_default)
-        map_defaults.append(map_default)
-
-    return map_defaults
+    return map_default
 
 
 def check_yaml_file(surfacepath):
@@ -195,12 +141,15 @@ def get_selected_interval(dates, indices):
 
 
 def sort_realizations(realizations):
+    # Sort realizations according numbers and statistics alphabetically#
+    valid_statistics = ["max", "min", "mean", "p10", "p50", "p90", "std"]
+
     numbers = []
     statistics = []
     sorted_list = []
 
     for realization in realizations:
-        if realization in ["std", "mean"]:
+        if realization in valid_statistics:
             statistics.append(realization)
         else:
             ind = realization.find("-")
@@ -210,6 +159,8 @@ def sort_realizations(realizations):
 
     for number in numbers:
         sorted_list.append("realization-" + str(number))
+
+    statistics.sort()
 
     for statistic in statistics:
         if statistic not in sorted_list:

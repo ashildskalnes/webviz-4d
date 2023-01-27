@@ -40,12 +40,13 @@ class SurfaceSelector:
             - somedate
             - somedate"""
 
-    def __init__(self, app, selections, map_defaults):
+    def __init__(self, app, selections, map_defaults, default_interval):
 
         self.selections = selections
         self.map_defaults = map_defaults
         # self.intervals = intervals
         self.current_selections = map_defaults
+        self.current_selections["interval"] = default_interval
         self._storage_id = f"{str(uuid4())}-surface-selector"
         self.set_ids()
         self.set_callbacks(app)
