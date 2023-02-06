@@ -3,7 +3,11 @@ import argparse
 import logging
 from fmu.sumo.explorer import Explorer
 import fmu.sumo.explorer._utils as explorer_utils
-from webviz_4d._datainput._sumo import decode_time_interval, get_surface_id
+from webviz_4d._datainput._sumo import (
+    decode_time_interval,
+    get_surface_id,
+    print_sumo_objects,
+)
 
 
 def main():
@@ -14,155 +18,140 @@ def main():
     args = parser.parse_args()
 
     sumo_name = args.sumo_name
+
     sumo = Explorer(env="prod")
 
-    my_case = sumo.get_case_by_name(sumo_name)
-    print(f"{my_case.name}: {my_case.sumo_id}")
+    my_case = sumo.cases.filter(name=sumo_name)[0]
+    print(f"{my_case.name}: {my_case.id}")
 
     # Some case info
-    print(my_case.field_name)
+    print(my_case.field)
     print(my_case.status)
     print(my_case.user)
 
     # Get all observed surfaces in a case
     surface_type = "observed"
-    surfaces = my_case.get_objects("surface", stages=["case"])
+    print(surface_type)
 
-    print(surface_type, "surfaces:", len(surfaces))
-
-    for surface in surfaces:
-        index = surfaces.index(surface)
-        time = surface.meta_data.get("data").get("time")
-        time_list = decode_time_interval(time)
-
-        print("  ", index, surface.name, surface.tag_name, time_list)
+    surfaces = my_case.observation.surfaces
+    print_sumo_objects(surfaces)
 
     # Get sumo id for one observed surface
     if len(surfaces) > 0:
-        surface_id = get_surface_id(
-            sumo,
-            sumo_name,
-            surface_type,
-            surface.name,
-            surface.tag_name,
-            time_list,
+        surface = surfaces[0]
+        selected_time = surface._metadata.get("data").get("time")
+
+        selected_surfaces = my_case.observation.surfaces.filter(
+            name=surface.name, tagname=surface.tagname
         )
 
-        if surface_id is not None:
-            print(
-                "\n",
-                surface_type,
-                "surface:",
-                surface.name,
-                surface.tag_name,
-                time_list,
+        for surface in selected_surfaces:
+            if surface._metadata.get("data").get("time") == selected_time:
+                time_list = decode_time_interval(selected_time)
+
+                print(
+                    surface_type,
+                    "surface:",
+                    surface.name,
+                    surface.tagname,
+                    time_list,
+                )
+
+                surface_instance = surface.to_regular_surface()
+                print(surface_instance)
+
+        # Get all realization surfaces in an iteration
+        surface_type = "realization"
+        print(surface_type, "surfaces:")
+
+        iter_id = 0
+        real_id = 0
+
+        surfaces = my_case.realization.surfaces.filter(
+            iteration=iter_id, realization=real_id
+        )
+
+        try:
+            print_sumo_objects(surfaces)
+        except Exception as e:
+            print("Number of surfaces:", len(surfaces))
+            print(e)
+
+        # Get sumo id for one realization surface
+        if len(surfaces) > 0:
+            surface = surfaces[0]
+            selected_time = surface._metadata.get("data").get("time")
+
+            selected_surfaces = my_case.realization.surfaces.filter(
+                name=surface.name,
+                tagname=surface.tagname,
+                iteration=surface.iteration,
+                realization=surface.realization,
             )
 
-            surface_instance = explorer_utils.get_surface_object(surface_id, sumo)
-            print(surface_instance)
+            for surface in selected_surfaces:
+                if surface._metadata.get("data").get("time") == selected_time:
+                    time_list = decode_time_interval(selected_time)
 
-    # Get all realization surfaces in an iteration
-    surface_type = "realization"
-    iterations = my_case.get_iterations()
-    iter_id = iterations[0].get("id")
-    iter_name = iterations[0].get("name")
-    real_id = 0
+                print(
+                    surface_type,
+                    "surface:",
+                    surface.name,
+                    surface.tagname,
+                    time_list,
+                    surface.iteration,
+                    surface.realization,
+                )
 
-    surfaces = my_case.get_objects(
-        object_type="surface",
-        object_names=[],
-        tag_names=[],
-        time_intervals=[],
-        iteration_ids=[iter_id],
-        realization_ids=[real_id],
-    )
-
-    print(surface_type, "surfaces:", len(surfaces))
-
-    for surface in surfaces:
-        index = surfaces.index(surface)
-        time = surface.meta_data.get("data").get("time")
-        time_list = decode_time_interval(time)
-        iteration_name = surface.meta_data.get("fmu").get("iteration").get("name")
-        realization_name = surface.meta_data.get("fmu").get("realization").get("name")
-
-        print(
-            "  ",
-            index,
-            surface.name,
-            surface.tag_name,
-            time_list,
-            iteration_name,
-            realization_name,
-        )
-
-    # Get sumo id for one realization surface
-    surface_id = get_surface_id(
-        sumo_explorer=sumo,
-        case_name=sumo_name,
-        surface_type=surface_type,
-        surface_name=surface.name,
-        attribute=surface.tag_name,
-        time_interval=time_list,
-        iteration_name=iter_name,
-    )
-
-    if surface_id is not None:
-        surface_obj = explorer_utils.get_surface_object(surface_id, sumo)
-        print("\n", surface_type, "surface:", surface.name, surface.tag_name, time_list)
-        print(surface_obj)
+                surface_instance = surface.to_regular_surface()
+                print(surface_instance)
 
     # Get all aggregated surfaces in an iteration
     surface_type = "aggregation"
-    iterations = my_case.get_iterations()
-    iter_id = iterations[0].get("id")
-    real_id = 0
+    # iterations = my_case.get_iterations()
+    # iter_id = iterations[0].get("id")
+
     aggregations = ["mean", "min", "max", "p10", "p50", "p90", "std"]
 
-    surfaces = my_case.get_objects(
-        object_type="surface",
-        object_names=[],
-        tag_names=[],
-        time_intervals=[],
-        iteration_ids=[iter_id],
-        aggregations=aggregations,
-    )
+    surfaces = my_case.aggregation.surfaces.filter(iteration=iter_id)
+    print(surface_type, "aggreagated surfaces:")
 
-    print(surface_type, "surfaces:", len(surfaces))
-
-    for surface in surfaces:
-        index = surfaces.index(surface)
-        time = surface.meta_data.get("data").get("time")
-        time_list = decode_time_interval(time)
-        iteration_name = surface.meta_data.get("fmu").get("iteration").get("name")
-        operation = surface.meta_data.get("fmu").get("aggregation").get("operation")
-
-        print(
-            "  ",
-            index,
-            surface.name,
-            surface.tag_name,
-            time_list,
-            iteration_name,
-            operation,
-        )
+    try:
+        print_sumo_objects(surfaces)
+    except Exception as e:
+        print("Number of surfaces:", len(surfaces))
+        print(e)
 
     # Get sumo id for one aggregated surface
-    surface_id = get_surface_id(
-        sumo_explorer=sumo,
-        case_name=sumo_name,
-        surface_type=surface_type,
-        surface_name=surface.name,
-        attribute=surface.tag_name,
-        time_interval=time_list,
-        iteration_name=iter_name,
-        aggregation="mean",
-    )
+    if len(surfaces) > 0:
+        surface = surfaces[0]
+        selected_time = surface._metadata.get("data").get("time")
+        aggregation = surface._metadata.get("fmu").get("aggregation")
+        selected_operation = aggregation.get("operation")
 
-    if surface_id is not None:
-        surface_obj = explorer_utils.get_surface_object(surface_id, sumo)
-        print("\n", surface_type, "surface:", surface.name, surface.tag_name, time_list)
-        print(surface_obj)
+        selected_surfaces = my_case.aggregation.surfaces.filter(
+            name=surface.name, tagname=surface.tagname, iteration=surface.iteration
+        )
+
+        for surface in selected_surfaces:
+            if surface._metadata.get("data").get("time") == selected_time:
+                time_list = decode_time_interval(selected_time)
+                aggregation = surface._metadata.get("fmu").get("aggregation")
+                operation = aggregation.get("operation")
+
+                if aggregation.get("operation") == selected_operation:
+                    print(
+                        surface_type,
+                        "surface:",
+                        surface.name,
+                        surface.tagname,
+                        time_list,
+                        surface.iteration,
+                        operation,
+                    )
+
+                    surface_instance = surface.to_regular_surface()
+                    print(surface_instance)
 
 
 if __name__ == "__main__":

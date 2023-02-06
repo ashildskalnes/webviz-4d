@@ -211,3 +211,13 @@ def get_ensembles(metadata, map_type):
         ensembles = list(set(ensembles_list))
 
     return sorted(ensembles)
+
+
+def get_realization_id(realization_name):
+    real = realization_name.split("-")
+    real_id = 0
+
+    if len(real) == 2:
+        real_id = int(real[1])
+
+    return real_id

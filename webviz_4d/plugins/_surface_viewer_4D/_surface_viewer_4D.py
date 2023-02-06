@@ -42,21 +42,23 @@ from webviz_4d._datainput._polygons import (
     load_zone_polygons,
     get_zone_layer,
     load_sumo_polygons,
+    load_sumo_fault_polygon,
+    get_fault_polygon_tag,
 )
 
 from webviz_4d._datainput._metadata import (
     get_map_defaults,
+    get_realization_id,
 )
 
 from webviz_4d._datainput._sumo import (
-    # extract_metadata,
-    # get_aggregated_surfaces,
-    # get_observed_surfaces,
     create_selector_lists,
-    # get_surface_id,
     get_observed_surface,
     get_aggregated_surface,
     get_realization_surface,
+    get_polygon_name,
+    get_iteration_id,
+    print_sumo_objects,
 )
 
 from webviz_4d_input._providers.wellbore_provider._provider_impl_file import (
@@ -142,8 +144,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.sumo_name:
             env = "prod"
             self.sumo = Explorer(env=env)
-            self.my_case = self.sumo.get_case_by_name(self.sumo_name)
+            self.my_case = self.sumo.sumo.cases.filter(name=self.sumo_name)[0]
             self.label = "SUMO case: " + self.sumo_name
+            self.iterations = self.my_case.get_iterations()
             print("SUMO case:", self.my_case.name)
 
             print("Create selection lists ...")
@@ -275,21 +278,29 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if self.sumo_name:
             print("Loading polygons from SUMO")
-            polygon_colors = self.config.get("polygon_colors")
+            self.polygon_colors = self.config.get("polygon_colors")
 
-            polygon_name = self.shared_settings.get("top_res_surface").get("name")
+            default_polygon_name = self.shared_settings.get("top_res_surface").get(
+                "name"
+            )
             # print("  Polygon_name", polygon_name)
 
             sumo_polygons = self.my_case.get_objects(
                 object_type="polygons",
-                object_names=[polygon_name],
+                object_names=[default_polygon_name],
                 tag_names=[],
                 iteration_ids=[0],
                 realization_ids=[0],
             )
+
+            self.fault_polygon_tag = get_fault_polygon_tag(sumo_polygons)
+            print("Sumo fault tag name", self.fault_polygon_tag)
+
             self.polygon_layers = load_sumo_polygons(
                 sumo_polygons, self.sumo, polygon_colors
             )
+
+            # polygon_name = get_polygon_name(sumo_polygons, surface_name)
 
         elif self.polygons_folder is not None:
             self.polygon_files = [
@@ -341,7 +352,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 planned_wells = load_planned_wells(
                     self.pozo_provider, self.field_name[0]
                 )
-                self.planned_wells_info = planned_wells.metadata.dataframe
+                self.planned_wells_info = planned_wells._metadata.dataframe
                 self.planned_wells_df = planned_wells.trajectories.dataframe
                 # print(self.planned_wells_info)
 
@@ -499,27 +510,27 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.prod_data = volumes_df
 
             self.interval_well_layers = []
-            for key, value in self.additional_well_layers.items():
-                layer_name = key
-                label = value
-                color = self.well_colors.get(layer_name, None)
+            # for key, value in self.additional_well_layers.items():
+            #     layer_name = key
+            #     label = value
+            #     color = self.well_colors.get(layer_name, None)
 
-                if color is None:
-                    color = self.well_colors.get("default", None)
+            #     if color is None:
+            #         color = self.well_colors.get("default", None)
 
-                well_layer = create_well_layer(
-                    interval_4d=default_interval,
-                    metadata_df=metadata,
-                    trajectories_df=self.drilled_wells_df,
-                    surface_picks=surface_picks,
-                    prod_data=self.prod_data,
-                    color_settings=None,
-                    layer_name=key,
-                    label=value,
-                )
+            #     well_layer = create_well_layer(
+            #         interval_4d=default_interval,
+            #         metadata_df=metadata,
+            #         trajectories_df=self.drilled_wells_df,
+            #         surface_picks=surface_picks,
+            #         prod_data=self.prod_data,
+            #         color_settings=None,
+            #         layer_name=key,
+            #         label=value,
+            #     )
 
-                if well_layer:
-                    self.interval_well_layers.append(well_layer)
+            #     if well_layer:
+            #         self.interval_well_layers.append(well_layer)
         else:
             # Find production and injection layers for the default interval
             if self.interval_names:
@@ -837,6 +848,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 interval_list = [t2, t1]
 
             name = data["name"]
+            selected_surface_name = name
             attribute = data["attr"]
 
             if map_type == "observed":
@@ -907,16 +919,62 @@ class SurfaceViewer4D(WebvizPluginABC):
                 )
             ]
 
-            # Check if there are polygon layers available for the selected zone
-            for polygon_layer in self.polygon_layers:
-                layer_name = polygon_layer["name"]
-                layer = polygon_layer
+            # Check if there are polygon layers available for the selected zone, iteration and and realization
+            if self.sumo_name:
+                iter_id = get_iteration_id(self.iterations, ensemble)
 
-                if layer_name == "Faults":
-                    zone_layer = get_zone_layer(self.zone_polygon_layers, selected_zone)
+                if iter_id is None:
+                    iter_id = 0
 
-                    if zone_layer:
-                        layer = zone_layer
+                real_id = get_realization_id(real)
+
+                sumo_polygons = self.my_case.get_objects(
+                    object_type="polygons",
+                    object_names=[selected_surface_name],
+                    tag_names=[],
+                    iteration_ids=[iter_id],
+                    realization_ids=[real_id],
+                )
+
+                self.polygon_layers = None
+                print_sumo_objects(sumo_polygons)
+
+                self.polygon_layers = load_sumo_polygons(
+                    sumo_polygons, self.sumo, self.polygon_colors
+                )
+
+                for polygon_layer in self.polygon_layers:
+                    layer_name = polygon_layer["name"]
+                    layer = polygon_layer
+
+                    print("Map id:", map_idx, "adding polygon layer:", layer_name)
+
+                    surface_layers.append(layer)
+
+                # for polygon_layer in self.polygon_layers:
+                #     layer_name = polygon_layer["name"]
+                #     layer = polygon_layer
+
+                #     zone_layer = load_sumo_fault_polygon(
+                #         sumo_polygons[0], self.sumo, self.polygon_colors
+                #     )
+
+                #     if zone_layer:
+                #         layer = zone_layer
+
+                #     surface_layers.append(layer)
+            else:
+                for polygon_layer in self.polygon_layers:
+                    layer_name = polygon_layer["name"]
+                    layer = polygon_layer
+
+                    if layer_name == "Faults":
+                        zone_layer = get_zone_layer(
+                            self.zone_polygon_layers, selected_zone
+                        )
+
+                        if zone_layer:
+                            layer = zone_layer
 
                 surface_layers.append(layer)
 
@@ -977,9 +1035,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                         if well_layer:
                             self.interval_well_layers.append(well_layer)
 
-            if self.interval_well_layers:
-                for interval_layer in self.interval_well_layers:
-                    surface_layers.append(interval_layer)
+                if self.interval_well_layers:
+                    for interval_layer in self.interval_well_layers:
+                        surface_layers.append(interval_layer)
 
             self.selected_names[map_idx] = data["name"]
             self.selected_attributes[map_idx] = data["attr"]

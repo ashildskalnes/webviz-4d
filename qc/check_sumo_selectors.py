@@ -19,7 +19,7 @@ def main():
     sumo_name = args.sumo_name
     sumo = Explorer(env="prod")
 
-    my_case = sumo.get_case_by_name(sumo_name)
+    my_case = sumo.sumo.cases.filter(name=(sumo_name)
     print(f"{my_case.name}: {my_case.sumo_id}")
 
     # Some case info

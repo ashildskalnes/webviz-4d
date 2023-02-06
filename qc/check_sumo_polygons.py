@@ -3,10 +3,8 @@ import argparse
 import glob
 from fmu.sumo.explorer import Explorer
 import fmu.sumo.explorer._utils as explorer_utils
-from webviz_4d._datainput._polygons import (
-    load_polygons,
-    load_sumo_polygons,
-)
+from webviz_4d._datainput._polygons import load_sumo_polygons
+from webviz_4d._datainput._sumo import print_sumo_objects
 
 
 def main():
@@ -20,19 +18,17 @@ def main():
     polygon_name = args.polygon_name
     sumo = Explorer(env="prod")
 
-    my_case = sumo.get_case_by_name(sumo_name)
-    print(f"{my_case.name}: {my_case.sumo_id}")
+    my_case = sumo.cases.filter(name=sumo_name)[0]
+    print(f"{my_case.name}: {my_case.id}")
 
     # Some case info
-    print(my_case.field_name)
+    print(my_case.field)
     print(my_case.status)
     print(my_case.user)
 
     # Load polygons from sumo
     iter_id = 0
     real_id = 0
-
-    # polygon_name = "VOLANTIS GP. Top"
 
     sumo_polygons = my_case.get_objects(
         object_type="polygons",
@@ -41,6 +37,8 @@ def main():
         iteration_ids=[iter_id],
         realization_ids=[real_id],
     )
+
+    print_sumo_objects(sumo_polygons)
 
     polygon_layers = load_sumo_polygons(sumo_polygons, sumo, None)
 

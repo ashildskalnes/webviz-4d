@@ -8,7 +8,7 @@ def get_aggregated_surfaces(
     sumo_exp: Explorer = None, sumo_name: str = None, iteration_ids: list = [0]
 ):
     size = 10000
-    my_case = sumo_exp.get_case_by_name(sumo_name)
+    my_case = sumo_exp.sumo.cases.filter(name=sumo_name)[0]
 
     select = "fmu,data,file"
     query = f"_sumo.parent_object:{my_case.sumo_id}"
@@ -152,7 +152,7 @@ def get_aggregated_surfaces(
 
 def get_observed_surfaces(sumo_exp: Explorer = None, sumo_name: str = None):
     size = 10000
-    my_case = sumo_exp.get_case_by_name(sumo_name)
+    my_case = sumo_exp.sumo.cases.filter(name=sumo_name)[0]
 
     select = "fmu,data,file"
     query = f"_sumo.parent_object:{my_case.sumo_id}"
@@ -283,7 +283,7 @@ def get_surfaces(
 
     size = 9999
     default = "---"
-    my_case = sumo_exp.get_case_by_name(sumo_name)
+    my_case = sumo_exp.sumo.cases.filter(name=sumo_name)[0]
     iterations = my_case.get_iterations()
 
     iteration_id = 0
@@ -513,13 +513,13 @@ def get_tag_values(surfaces, tag_name):
         elif tag_name == "attribute":
             tag = surface.tag_name
         elif tag_name == "aggregation":
-            aggregation = surface.meta_data.get("fmu").get("aggregation")
+            aggregation = surface._metadata.get("fmu").get("aggregation")
             if aggregation is not None:
-                tag = surface.meta_data.get("fmu").get("aggregation").get("operation")
+                tag = surface._metadata.get("fmu").get("aggregation").get("operation")
             else:
                 tag = None
         elif tag_name == "time":
-            time = surface.meta_data.get("data").get("time")
+            time = surface._metadata.get("data").get("time")
             time_list = decode_time_interval(time)
 
             if time_list[1] is not None:
@@ -532,7 +532,7 @@ def get_tag_values(surfaces, tag_name):
             else:
                 tag = None
         elif tag_name == "time_interval":
-            time = surface.meta_data.get("data").get("time")
+            time = surface._metadata.get("data").get("time")
             time_list = decode_time_interval(time)
 
             if time_list[1] is not None:
@@ -702,7 +702,7 @@ def get_surface_id(
     aggregation: str = "mean",
 ):
 
-    my_case = sumo_explorer.get_case_by_name(case_name)
+    my_case = sumo_explorer.sumo.cases.filter(name=case_name)[0]
 
     if my_case is None:
         print("WARNING: SUMO case not found", case_name)
@@ -711,13 +711,20 @@ def get_surface_id(
     time_string = get_time_string(time_interval)
 
     if surface_type == "observed":
-        surfaces = my_case.get_objects(
-            object_type="surface",
-            object_names=[surface_name],
-            tag_names=[attribute],
-            stages=["case"],
-            time_intervals=[time_string],
+        surfaces = my_case.observation.surfaces.filter(
+            name=surface_name,
+            tagname=attribute,
         )
+
+        for surface in surfaces:
+            time = surface.time
+            # surfaces = my_case.get_objects(
+            #     object_type="surface",
+            #     object_names=[surface_name],
+            #     tag_names=[attribute],
+            #     stages=["case"],
+            #     time_intervals=[time_string],
+            # )
     elif surface_type == "realization":
         iter_id = None
 
@@ -865,3 +872,78 @@ def get_aggregated_surface(
     )
 
     return surface_id
+
+
+def get_polygon_name(sumo_polygons, surface_name):
+
+    for polygon in sumo_polygons:
+        if polygon.name == surface_name and "fault" in polygon.tag_name:
+            return polygon.name
+
+        else:
+            for polygon in sumo_polygons:
+                if surface_name.lower() in polygon.name.lower():
+                    return polygon.name
+
+    return None
+
+
+def get_iteration_id(iterations, iteration_name):
+    for iteration in iterations:
+        iter_name = iteration.get("name")
+        if iter_name == iteration_name:
+            iter_id = iteration.get("id")
+            return iter_id
+
+    return
+
+
+def print_sumo_objects(sumo_objects):
+    if len(sumo_objects) > 0:
+        index = 0
+        for sumo_object in sumo_objects:
+            # index = sumo_objects._curr_index(sumo_object)
+            object_type = sumo_object._metadata.get("class")
+            content = sumo_object._metadata.get("data").get("content")
+            iteration = sumo_object._metadata.get("fmu").get("iteration")
+
+            if iteration:
+                iter_name = iteration.get("name")
+            else:
+                iter_name = None
+
+            realization = sumo_object._metadata.get("fmu").get("realization")
+
+            if realization:
+                real_name = realization.get("name")
+            else:
+                real_name = None
+
+            aggregation = sumo_object._metadata.get("fmu").get("aggregation")
+
+            if aggregation:
+                operation = aggregation.get("operation")
+            else:
+                operation = None
+
+            time = sumo_object._metadata.get("data").get("time")
+            time_list = decode_time_interval(time)
+
+            print(
+                "  ",
+                index,
+                object_type,
+                sumo_object.name,
+                sumo_object.tagname,
+                "time=",
+                time_list,
+                "operation=",
+                operation,
+                "iter=",
+                iter_name,
+                "real=",
+                real_name,
+            )
+            index += 1
+    else:
+        "WARNING: No SUMO objects"

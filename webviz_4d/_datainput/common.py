@@ -87,19 +87,19 @@ def get_update_dates(welldata, productiondata):
 
     try:
         with open(welldata, "r") as stream:
-            well_meta_data = yaml.safe_load(stream)
+            well_metadata = yaml.safe_load(stream)
 
-        well_update = well_meta_data[0]["welldata"]["update_time"]
+        well_update = well_metadata[0]["welldata"]["update_time"]
         update_dates["well_update_date"] = well_update.strftime("%Y-%m-%d")
     except:
         update_dates["well_update_date"] = ""
     try:
         with open(productiondata, "r") as stream:
-            production_meta_data = yaml.safe_load(stream)
-        first_date = production_meta_data[0]["production"]["start_date"].strftime(
+            production_metadata = yaml.safe_load(stream)
+        first_date = production_metadata[0]["production"]["start_date"].strftime(
             "%Y-%m-%d"
         )
-        last_date = production_meta_data[0]["production"]["last_date"].strftime(
+        last_date = production_metadata[0]["production"]["last_date"].strftime(
             "%Y-%m-%d"
         )
         update_dates["production_first_date"] = first_date

@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import fmu.sumo.explorer._utils as explorer_utils
 from webviz_config.common_cache import CACHE
+from webviz_4d._datainput._sumo import print_sumo_objects
 
 
 supported_polygons = {
@@ -299,8 +300,6 @@ def load_sumo_polygons(polygons, sumo, polygon_colors):
     polygon_layers = []
 
     for polygon in polygons:
-        print("  ", polygon.name, polygon.tag_name)
-
         if "fault" in polygon.tag_name:
             name = "sumo_faults"
         elif "outline" in polygon.tag_name and "goc" in polygon.tag_name:
@@ -330,3 +329,37 @@ def load_sumo_polygons(polygons, sumo, polygon_colors):
             polygon_layers.append(polygon_layer)
 
     return polygon_layers
+
+
+def load_sumo_fault_polygon(polygon, sumo, polygon_colors):
+    polygon_layer = None
+    name = "sumo_faults"
+    default_color = default_colors.get(name)
+
+    if polygon_colors:
+        color = polygon_colors.get(name, default_color)
+    else:
+        color = default_color
+
+    print("  ", polygon.name, polygon.tag_name)
+
+    polygon_data = decode_sumo_polygon(polygon, sumo)
+    polygon_df = create_sumo_layer(polygon_data)
+    polygon_layer = make_new_polyline_layer(polygon_df, name, polygon.tag_name, color)
+
+    return polygon_layer
+
+
+def get_fault_polygon_tag(polygons):
+    fault_tag = None
+
+    for polygon in polygons:
+        print("  ", polygon.name, polygon.tag_name)
+
+        if "fault" in polygon.tag_name:
+            return polygon.tag_name
+
+    if fault_tag is None:
+        print("WARNING: No fault polygons found")
+
+    return fault_tag
