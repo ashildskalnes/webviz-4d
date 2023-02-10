@@ -11,11 +11,11 @@ def main():
     description = "Test SUMO polygons"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("sumo_name")
-    parser.add_argument("polygon_name")
+    # parser.add_argument("polygon_name")
     args = parser.parse_args()
 
     sumo_name = args.sumo_name
-    polygon_name = args.polygon_name
+    # polygon_name = args.polygon_name
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
@@ -30,17 +30,13 @@ def main():
     iter_id = 0
     real_id = 0
 
-    sumo_polygons = my_case.get_objects(
-        object_type="polygons",
-        object_names=[polygon_name],
-        tag_names=[],
-        iteration_ids=[iter_id],
-        realization_ids=[real_id],
+    sumo_polygons = my_case.realization.polygons.filter(
+        iteration=iter_id, realization=real_id
     )
 
     print_sumo_objects(sumo_polygons)
 
-    polygon_layers = load_sumo_polygons(sumo_polygons, sumo, None)
+    polygon_layers = load_sumo_polygons(sumo_polygons, None)
 
     if polygon_layers:
         for polygon_layer in polygon_layers:

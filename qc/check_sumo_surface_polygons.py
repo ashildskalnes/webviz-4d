@@ -8,7 +8,7 @@ from webviz_4d._datainput._sumo import (
     get_polygon_name,
     print_sumo_objects,
 )
-from webviz_4d._datainput._polygons import get_fault_polygon_tag
+from webviz_4d._datainput._polygons import get_fault_polygon_tag, load_sumo_polygons
 
 
 def main():
@@ -21,11 +21,11 @@ def main():
     sumo_name = args.sumo_name
     sumo = Explorer(env="prod")
 
-    my_case = sumo.sumo.cases.filter(name=(sumo_name)
-    print(f"{my_case.name}: {my_case.sumo_id}")
+    my_case = sumo.cases.filter(name=sumo_name)[0]
+    print(f"{my_case.name}: {my_case.id}")
 
     # Some case info
-    print(my_case.field_name)
+    print(my_case.field)
     print(my_case.status)
     print(my_case.user)
 
@@ -33,7 +33,6 @@ def main():
     real_id = get_realization_id(realization)
 
     iter_id = 0
-    real_id = 0
 
     print("Create selectors lists:")
     selectors = create_selector_lists(my_case, "timelapse")
@@ -48,17 +47,27 @@ def main():
 
         # Search for polygon with same name as the actual surface
         for surface_name in surface_names:
-            sumo_polygons = my_case.get_objects(
-                object_type="polygons",
-                object_names=[],
-                tag_names=[],
-                iteration_ids=[iter_id],
-                realization_ids=[real_id],
+            sumo_polygons = my_case.realization.polygons.filter(
+                iteration=iter_id, realization=real_id
             )
 
             if len(sumo_polygons) > 0:
                 polygon_name = get_polygon_name(sumo_polygons, surface_name)
+
+                if polygon_name is None:
+                    polygon_name = "VOLANTIS GP. Top"
+
                 print(surface_name, ":", polygon_name)
+
+                sumo_polygons = my_case.realization.polygons.filter(
+                    name=polygon_name, iteration=iter_id, realization=real_id
+                )
+
+                polygon_layers = load_sumo_polygons(sumo_polygons, None)
+
+                for layer in polygon_layers:
+                    layer_name = layer["name"]
+                    print("  ", layer_name)
 
         fault_polygon_tag = get_fault_polygon_tag(sumo_polygons)
         print("Sumo fault tag name", fault_polygon_tag)

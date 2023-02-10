@@ -1,22 +1,17 @@
-import pandas as pd
 import argparse
-import json
+import logging
 from fmu.sumo.explorer import Explorer
-import fmu.sumo.explorer._utils as explorer_utils
-from webviz_4d._datainput._sumo import (
-    create_selector_lists,
-)
 
 
 def main():
+    logging.getLogger("").setLevel(level=logging.WARNING)
     description = "Compile metadata for SUMO surfaces"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("sumo_name")
-    parser.add_argument("mode", nargs="?", default="timelapse")
     args = parser.parse_args()
 
-    mode = args.mode
     sumo_name = args.sumo_name
+
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
@@ -27,9 +22,19 @@ def main():
     print(my_case.status)
     print(my_case.user)
 
-    # Create selectors
-    selectors = create_selector_lists(my_case, mode)
-    print((json.dumps(selectors, indent=2)))
+    # Get all realization surfaces in an iteration
+    surface_type = "realization"
+    print(surface_type, "surfaces:")
+
+    iter_id = 0
+    surfaces = my_case.realization.surfaces.filter(iteration=iter_id)
+
+    index = 1
+    for surface in surfaces:
+        print(index, surface.name, surface.tagname)
+        index += 1
+
+    print("Number of surfaces:", len(surfaces))
 
 
 if __name__ == "__main__":

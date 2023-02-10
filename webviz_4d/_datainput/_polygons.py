@@ -17,13 +17,13 @@ supported_polygons = {
     "sumo_outline": "Initial FWL",
 }
 default_colors = {
-    "owc_outline": "lightslategray",
+    "owc_outline": "blue",
     "goc_outline": "red",
     "faults": "gray",
     "prm_receivers": "darkgray",
     "sumo_faults": "gray",
     "sumo_goc_outline": "red",
-    "sumo_fwl_outline": "lightslategray",
+    "sumo_fwl_outline": "blue",
 }
 
 checked = {
@@ -266,50 +266,21 @@ def create_sumo_layer(polygon_df):
     return layer_df
 
 
-def decode_sumo_polygon(polygon, sumo):
-    polygon_bytes = explorer_utils.get_object(polygon.sumo_id, sumo)
-    polygon_string = polygon_bytes.decode("utf-8")
-    polygon_lines = polygon_string.split("\n")
-
-    x_coordinates = []
-    y_coordinates = []
-    z_coordinates = []
-    pol_ids = []
-
-    for line in polygon_lines:
-        index = polygon_lines.index(line)
-
-        if index != 0 and index != len(polygon_lines) - 1:
-            line_list = line.split(",")
-            x_coordinates.append(float(line_list[0]))
-            y_coordinates.append(float(line_list[1]))
-            z_coordinates.append(float(line_list[2]))
-            pol_ids.append(round(float(line_list[3])))
-
-    polygon_df = pd.DataFrame()
-    polygon_df["X"] = x_coordinates
-    polygon_df["Y"] = y_coordinates
-    polygon_df["Z"] = z_coordinates
-    polygon_df["ID"] = pol_ids
-
-    return polygon_df
-
-
-def load_sumo_polygons(polygons, sumo, polygon_colors):
+def load_sumo_polygons(polygons, polygon_colors):
 
     polygon_layers = []
 
     for polygon in polygons:
-        if "fault" in polygon.tag_name:
+        if "fault" in polygon.tagname:
             name = "sumo_faults"
-        elif "outline" in polygon.tag_name and "goc" in polygon.tag_name:
+        elif "outline" in polygon.tagname and "GOC" in polygon.tagname:
             name = "sumo_goc_outline"
-        elif "outline" in polygon.tag_name and "fwl" in polygon.tag_name:
+        elif "outline" in polygon.tagname and "FWL" in polygon.tagname:
             name = "sumo_fwl_outline"
-        elif "outline" in polygon.tag_name:
+        elif "outline" in polygon.tagname:
             name = "sumo_outline"
         else:
-            print("WARNING: Unknown polygon type", polygon.tag_name)
+            print("WARNING: Unknown polygon type", polygon.tagname)
             return None
 
         default_color = default_colors.get(name)
@@ -319,10 +290,11 @@ def load_sumo_polygons(polygons, sumo, polygon_colors):
         else:
             color = default_color
 
-        polygon_data = decode_sumo_polygon(polygon, sumo)
-        polygon_df = create_sumo_layer(polygon_data)
+        # print("DEBUG:", polygon.tagname, name, color)
+
+        polygon_df = create_sumo_layer(polygon.to_dataframe())
         polygon_layer = make_new_polyline_layer(
-            polygon_df, name, polygon.tag_name, color
+            polygon_df, name, polygon.tagname, color
         )
 
         if polygon_layer is not None:
@@ -331,7 +303,7 @@ def load_sumo_polygons(polygons, sumo, polygon_colors):
     return polygon_layers
 
 
-def load_sumo_fault_polygon(polygon, sumo, polygon_colors):
+def load_sumo_fault_polygon(polygon, polygon_colors):
     polygon_layer = None
     name = "sumo_faults"
     default_color = default_colors.get(name)
@@ -341,11 +313,10 @@ def load_sumo_fault_polygon(polygon, sumo, polygon_colors):
     else:
         color = default_color
 
-    print("  ", polygon.name, polygon.tag_name)
+    print("  ", polygon.name, polygon.tagname)
 
-    polygon_data = decode_sumo_polygon(polygon, sumo)
-    polygon_df = create_sumo_layer(polygon_data)
-    polygon_layer = make_new_polyline_layer(polygon_df, name, polygon.tag_name, color)
+    polygon_df = polygon.to_dataframe()
+    polygon_layer = make_new_polyline_layer(polygon_df, name, polygon.tagname, color)
 
     return polygon_layer
 
@@ -354,10 +325,10 @@ def get_fault_polygon_tag(polygons):
     fault_tag = None
 
     for polygon in polygons:
-        print("  ", polygon.name, polygon.tag_name)
+        # print(polygon.name, polygon.tagname)
 
-        if "fault" in polygon.tag_name:
-            return polygon.tag_name
+        if "fault" in polygon.tagname:
+            return polygon.tagname
 
     if fault_tag is None:
         print("WARNING: No fault polygons found")

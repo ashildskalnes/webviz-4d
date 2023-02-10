@@ -42,7 +42,6 @@ from webviz_4d._datainput._polygons import (
     load_zone_polygons,
     get_zone_layer,
     load_sumo_polygons,
-    load_sumo_fault_polygon,
     get_fault_polygon_tag,
 )
 
@@ -56,9 +55,8 @@ from webviz_4d._datainput._sumo import (
     get_observed_surface,
     get_aggregated_surface,
     get_realization_surface,
-    get_polygon_name,
     get_iteration_id,
-    print_sumo_objects,
+    get_polygon_name,
 )
 
 from webviz_4d_input._providers.wellbore_provider._provider_impl_file import (
@@ -144,9 +142,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.sumo_name:
             env = "prod"
             self.sumo = Explorer(env=env)
-            self.my_case = self.sumo.sumo.cases.filter(name=self.sumo_name)[0]
+            self.my_case = self.sumo.cases.filter(name=self.sumo_name)[0]
             self.label = "SUMO case: " + self.sumo_name
-            self.iterations = self.my_case.get_iterations()
+            self.iterations = self.my_case.iterations
             print("SUMO case:", self.my_case.name)
 
             print("Create selection lists ...")
@@ -285,22 +283,14 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
             # print("  Polygon_name", polygon_name)
 
-            sumo_polygons = self.my_case.get_objects(
-                object_type="polygons",
-                object_names=[default_polygon_name],
-                tag_names=[],
-                iteration_ids=[0],
-                realization_ids=[0],
+            self.sumo_polygons = self.my_case.realization.polygons.filter(
+                iteration=0, realization=0
             )
 
-            self.fault_polygon_tag = get_fault_polygon_tag(sumo_polygons)
+            self.fault_polygon_tag = get_fault_polygon_tag(self.sumo_polygons)
             print("Sumo fault tag name", self.fault_polygon_tag)
 
-            self.polygon_layers = load_sumo_polygons(
-                sumo_polygons, self.sumo, polygon_colors
-            )
-
-            # polygon_name = get_polygon_name(sumo_polygons, surface_name)
+            self.polygon_layers = load_sumo_polygons(self.sumo_polygons, polygon_colors)
 
         elif self.polygons_folder is not None:
             self.polygon_files = [
@@ -508,33 +498,10 @@ class SurfaceViewer4D(WebvizPluginABC):
                 how="outer",
             )
             self.prod_data = volumes_df
-
-            self.interval_well_layers = []
-            # for key, value in self.additional_well_layers.items():
-            #     layer_name = key
-            #     label = value
-            #     color = self.well_colors.get(layer_name, None)
-
-            #     if color is None:
-            #         color = self.well_colors.get("default", None)
-
-            #     well_layer = create_well_layer(
-            #         interval_4d=default_interval,
-            #         metadata_df=metadata,
-            #         trajectories_df=self.drilled_wells_df,
-            #         surface_picks=surface_picks,
-            #         prod_data=self.prod_data,
-            #         color_settings=None,
-            #         layer_name=key,
-            #         label=value,
-            #     )
-
-            #     if well_layer:
-            #         self.interval_well_layers.append(well_layer)
         else:
             # Find production and injection layers for the default interval
             if self.interval_names:
-                index = self.interval_names.index(default_interval)
+                index = self.interval_names.index(self.default_interval)
                 self.interval_well_layers = self.all_interval_layers[index]
             else:
                 self.interval_well_layers = None
@@ -692,45 +659,52 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if top_res_surface is not None:
             name = top_res_surface.get("name")
-            tag_name = top_res_surface.get("tag_name")
+            tagname = top_res_surface.get("tag_name")
+            time_interval = [False, False]
 
-        surface_meta = self.my_case.get_objects(
-            object_type="surface",
-            object_names=[name],
-            tag_names=[tag_name],
-            iteration_ids=[0],
-            realization_ids=[0],
-        )
-
-        if len(surface_meta) > 0:
-            surface_id = surface_meta[0].sumo_id
-            print(
-                "Top reservoir surface loaded from SUMO:",
-                name,
-                tag_name,
+            surface = get_realization_surface(
+                case=self.my_case,
+                surface_name=name,
+                attribute=tagname,
+                time_interval=time_interval,
+                iteration_id=0,
             )
-            return explorer_utils.get_surface_object(surface_id, self.sumo)
+
+        if surface:
+            return surface.to_regular_surface()
         else:
             print(
                 "ERROR: Top reservoir surface not loaded from SUMO:",
                 name,
-                tag_name,
+                tagname,
+                time_interval,
             )
             return None
 
     def get_top_res_surface(self):
-        top_res_surface_file = self.shared_settings.get("top_res_surface")
+        top_res_surface = self.shared_settings.get("top_res_surface")
 
-        return self.open_surface_with_xtgeo(top_res_surface_file)
+        if top_res_surface:
+            name = top_res_surface.get("name")
+            print("Load top reservoir surface:", name)
 
-    def open_surface_with_xtgeo(self, sumo_bytestring):
-        if sumo_bytestring:
-            surface = xtgeo.surface_from_file(sumo_bytestring)
+            if os.path.isfile(name):
+                return xtgeo.surface_from_file(name)
+            else:
+                print("ERROR: File not found")
+                return None
         else:
-            surface = None
-            print("WARNING: non-existing sumo_bytestring")
+            print("WARNING: Top reservoir surface not defined")
+            return None
 
-        return surface
+    def open_surface_with_xtgeo(surface):
+        if surface:
+            surface_object = surface.to_regular_surface()
+        else:
+            surface_object = None
+            print("ERROR: non-existing surface")
+
+        return surface_object
 
     def get_heading(self, map_ind, observation_type):
         if self.map_defaults[map_ind]["map_type"] == observation_type:
@@ -848,13 +822,11 @@ class SurfaceViewer4D(WebvizPluginABC):
                 interval_list = [t2, t1]
 
             name = data["name"]
-            selected_surface_name = name
             attribute = data["attr"]
 
             if map_type == "observed":
-                surface_id = get_observed_surface(
-                    sumo_explorer=self.sumo,
-                    case_name=self.sumo_name,
+                surface = get_observed_surface(
+                    case=self.my_case,
                     surface_name=name,
                     attribute=attribute,
                     time_interval=interval_list,
@@ -862,9 +834,8 @@ class SurfaceViewer4D(WebvizPluginABC):
             elif (
                 map_type == "simulated" and "realization" not in real
             ):  # aggregated surface
-                surface_id = get_aggregated_surface(
-                    sumo_explorer=self.sumo,
-                    case_name=self.sumo_name,
+                surface = get_aggregated_surface(
+                    case=self.my_case,
                     surface_name=name,
                     attribute=attribute,
                     time_interval=interval_list,
@@ -876,18 +847,17 @@ class SurfaceViewer4D(WebvizPluginABC):
                 realization_split = real.split("-")
                 real_id = realization_split[1]
 
-                surface_id = get_realization_surface(
-                    sumo_explorer=self.sumo,
-                    case_name=self.sumo_name,
+                surface = get_realization_surface(
+                    case=self.my_case,
                     surface_name=name,
                     attribute=attribute,
                     time_interval=interval_list,
                     iteration_name=ensemble,
-                    realization_id=real_id,
+                    realization=real_id,
                 )
 
-            if surface_id is not None:
-                surface = explorer_utils.get_surface_object(surface_id, self.sumo)
+            if surface is not None:
+                surface = surface.to_regular_surface()
 
             else:
                 heading = "Selected map doesn't exist"
@@ -928,41 +898,23 @@ class SurfaceViewer4D(WebvizPluginABC):
 
                 real_id = get_realization_id(real)
 
-                sumo_polygons = self.my_case.get_objects(
-                    object_type="polygons",
-                    object_names=[selected_surface_name],
-                    tag_names=[],
-                    iteration_ids=[iter_id],
-                    realization_ids=[real_id],
+                polygon_name = get_polygon_name(self.sumo_polygons, name)
+
+                sumo_polygons = self.my_case.realization.polygons.filter(
+                    name=polygon_name, iteration=iter_id, realization=real_id
                 )
 
                 self.polygon_layers = None
-                print_sumo_objects(sumo_polygons)
 
                 self.polygon_layers = load_sumo_polygons(
-                    sumo_polygons, self.sumo, self.polygon_colors
+                    sumo_polygons, self.polygon_colors
                 )
 
                 for polygon_layer in self.polygon_layers:
                     layer_name = polygon_layer["name"]
                     layer = polygon_layer
 
-                    print("Map id:", map_idx, "adding polygon layer:", layer_name)
-
                     surface_layers.append(layer)
-
-                # for polygon_layer in self.polygon_layers:
-                #     layer_name = polygon_layer["name"]
-                #     layer = polygon_layer
-
-                #     zone_layer = load_sumo_fault_polygon(
-                #         sumo_polygons[0], self.sumo, self.polygon_colors
-                #     )
-
-                #     if zone_layer:
-                #         layer = zone_layer
-
-                #     surface_layers.append(layer)
             else:
                 for polygon_layer in self.polygon_layers:
                     layer_name = polygon_layer["name"]
@@ -1038,6 +990,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 if self.interval_well_layers:
                     for interval_layer in self.interval_well_layers:
                         surface_layers.append(interval_layer)
+
+            for interval_layer in self.interval_well_layers:
+                surface_layers.append(interval_layer)
 
             self.selected_names[map_idx] = data["name"]
             self.selected_attributes[map_idx] = data["attr"]
