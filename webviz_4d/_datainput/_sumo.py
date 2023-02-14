@@ -283,7 +283,7 @@ def get_aggregated_surface(
 ):
     iteration_id = get_iteration_id(case.iterations, iteration_name)
 
-    surfaces = case.aggregated.surfaces.filter(
+    surfaces = case.aggregation.surfaces.filter(
         name=surface_name,
         tagname=attribute,
         iteration=iteration_id,
