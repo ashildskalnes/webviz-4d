@@ -2,7 +2,6 @@ import pandas as pd
 import argparse
 import glob
 from fmu.sumo.explorer import Explorer
-import fmu.sumo.explorer._utils as explorer_utils
 from webviz_4d._datainput._polygons import load_sumo_polygons
 from webviz_4d._datainput._sumo import print_sumo_objects
 
@@ -19,7 +18,7 @@ def main():
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
-    print(f"{my_case.name}: {my_case.id}")
+    print(f"{my_case.name}: {my_case.uuid}")
 
     # Some case info
     print(my_case.field)
@@ -30,9 +29,7 @@ def main():
     iter_id = 0
     real_id = 0
 
-    sumo_polygons = my_case.realization.polygons.filter(
-        iteration=iter_id, realization=real_id
-    )
+    sumo_polygons = my_case.polygons.filter(iteration=iter_id, realization=real_id)
 
     print_sumo_objects(sumo_polygons)
 

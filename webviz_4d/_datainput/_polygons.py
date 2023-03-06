@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import json
-import fmu.sumo.explorer._utils as explorer_utils
 from webviz_config.common_cache import CACHE
 from webviz_4d._datainput._sumo import print_sumo_objects
 

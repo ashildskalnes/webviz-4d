@@ -2,7 +2,6 @@ import pandas as pd
 import argparse
 import json
 from fmu.sumo.explorer import Explorer
-import fmu.sumo.explorer._utils as explorer_utils
 from webviz_4d._datainput._sumo import (
     create_selector_lists,
 )
@@ -20,7 +19,7 @@ def main():
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
-    print(f"{my_case.name}: {my_case.id}")
+    print(f"{my_case.name}: {my_case.uuid}")
 
     # Some case info
     print(my_case.field)

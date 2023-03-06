@@ -2,7 +2,6 @@ import pandas as pd
 import argparse
 import logging
 from fmu.sumo.explorer import Explorer
-import fmu.sumo.explorer._utils as explorer_utils
 from webviz_4d._datainput._sumo import (
     decode_time_interval,
     get_observed_surface,
@@ -23,7 +22,7 @@ def main():
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
-    print(f"{my_case.name}: {my_case.id}")
+    print(f"{my_case.name}: {my_case.uuid}")
 
     # Some case info
     print(my_case.field)
@@ -34,7 +33,7 @@ def main():
     surface_type = "observed"
     print(surface_type)
 
-    surfaces = my_case.observation.surfaces
+    surfaces = surfaces = my_case.surfaces.filter(stage="case")
     print_sumo_objects(surfaces)
 
     # Get sumo instance for one observed surface
@@ -42,8 +41,8 @@ def main():
         surface = surfaces[0]
         selected_time = surface._metadata.get("data").get("time")
 
-        selected_surfaces = my_case.observation.surfaces.filter(
-            name=surface.name, tagname=surface.tagname
+        selected_surfaces = my_case.surfaces.filter(
+            stage="case", name=surface.name, tagname=surface.tagname
         )
 
         for surface in selected_surfaces:
@@ -72,7 +71,7 @@ def main():
     print(surface_type, "surfaces:")
 
     iter_id = 0
-    surfaces = my_case.realization.surfaces.filter(iteration=iter_id)
+    surfaces = my_case.surfaces.filter(stage="realization", iteration=iter_id)
 
     try:
         print_sumo_objects(surfaces)
@@ -95,6 +94,7 @@ def main():
             attribute=surface.tagname,
             time_interval=time_interval,
             iteration_id=0,
+            realization=0,
         )
 
         print(
@@ -111,8 +111,8 @@ def main():
     # Get all aggregated surfaces in an iteration
     surface_type = "aggregation"
 
-    surfaces = my_case.aggregation.surfaces.filter(iteration=iter_id)
-    print(surface_type, "aggreagated surfaces:")
+    surfaces = my_case.surfaces.filter(stage="iteration")
+    print(surface_type, "aggregated surfaces:")
 
     try:
         print_sumo_objects(surfaces)
@@ -128,8 +128,11 @@ def main():
         aggregation = surface._metadata.get("fmu").get("aggregation")
         selected_operation = aggregation.get("operation")
 
-        selected_surfaces = my_case.aggregation.surfaces.filter(
-            name=surface.name, tagname=surface.tagname, iteration=surface.iteration
+        selected_surfaces = my_case.surfaces.filter(
+            stage="iteration",
+            name=surface.name,
+            tagname=surface.tagname,
+            iteration=surface.iteration,
         )
 
         for surface in selected_surfaces:

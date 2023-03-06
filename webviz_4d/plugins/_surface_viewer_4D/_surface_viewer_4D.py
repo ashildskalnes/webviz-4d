@@ -10,7 +10,6 @@ import xtgeo
 import logging
 
 from fmu.sumo.explorer import Explorer
-import fmu.sumo.explorer._utils as explorer_utils
 
 from webviz_config import WebvizPluginABC
 from webviz_4d._datainput._surface import make_surface_layer, load_surface
@@ -283,7 +282,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
             # print("  Polygon_name", polygon_name)
 
-            self.sumo_polygons = self.my_case.realization.polygons.filter(
+            self.sumo_polygons = self.my_case.polygons.filter(
                 iteration=0, realization=0
             )
 
@@ -900,7 +899,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
                 polygon_name = get_polygon_name(self.sumo_polygons, name)
 
-                sumo_polygons = self.my_case.realization.polygons.filter(
+                sumo_polygons = self.my_case.polygons.filter(
                     name=polygon_name, iteration=iter_id, realization=real_id
                 )
 

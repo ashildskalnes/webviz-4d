@@ -1,6 +1,7 @@
 import pandas as pd
 
 from fmu.sumo.explorer.objects.case import Case
+from fmu.sumo.explorer.timefilter import TimeType, TimeFilter
 from webviz_4d._datainput._metadata import sort_realizations
 
 
@@ -125,9 +126,15 @@ def create_selector_lists(my_case, mode):
     for iteration in iterations:
         iteration_names.append(iteration.get("name"))
 
-    realization_surfaces = my_case.realization.surfaces.filter(iteration=0)
+    # time filter for intervals
+    time = TimeFilter(type=TimeType.INTERVAL)
+
+    realization_surfaces = my_case.surfaces.filter(
+        stage="realization", iteration=0, time=time
+    )
     print("Surfaces in iteration 0:", len(realization_surfaces))
     realizations = realization_surfaces.realizations
+
     sorted_realizations = []
 
     for realization in sorted(realizations):
@@ -146,11 +153,13 @@ def create_selector_lists(my_case, mode):
         map_type_dict = {}
 
         if map_type == "observed":
-            surfaces = my_case.observation.surfaces
+            surfaces = my_case.surfaces.filter(stage="case", time=time)
         elif map_type == "simulated":
-            surfaces = my_case.realization.surfaces.filter(iteration=0, realization=0)
+            surfaces = realization_surfaces
         elif map_type == "aggregated":
-            surfaces = my_case.aggregation.surfaces.filter(iteration=0)
+            surfaces = my_case.surfaces.filter(
+                stage="iteration", iteration=0, time=time
+            )
         else:
             print("ERROR: Not supported map_type", map_type)
             return None
@@ -232,7 +241,7 @@ def get_observed_surface(
     attribute: str = None,
     time_interval: list = [],
 ):
-    surfaces = case.observation.surfaces.filter(name=surface_name, tagname=attribute)
+    surfaces = case.surfaces.filter(stage="case", name=surface_name, tagname=attribute)
     selected_surface = time_filter(surfaces, time_interval)
 
     return selected_surface
@@ -261,14 +270,36 @@ def get_realization_surface(
     if iteration_id is None:
         iteration_id = get_iteration_id(case.iterations, iteration_name)
 
-    surfaces = case.realization.surfaces.filter(
+    if len(time_interval) == 0:
+        time = TimeFilter(type=TimeType.NONE)
+    elif len(time_interval) == 1:
+        time = time = TimeFilter(type=TimeType.TIMESTAMP, start=time_interval[0])
+    elif len(time_interval) == 2:
+        if time_interval[0] is False and time_interval[1] is False:
+            time = TimeFilter(type=TimeType.NONE)
+        elif time_interval[1] is False:
+            time = time = TimeFilter(type=TimeType.TIMESTAMP, start=time_interval[0])
+        else:
+            time = time = TimeFilter(
+                type=TimeType.INTERVAL, start=time_interval[0], end=time_interval[1]
+            )
+    else:
+        print("ERROR: Wrong time interval specification:", time_interval)
+        return None
+
+    selected_surfaces = case.surfaces.filter(
+        stage="realization",
         name=surface_name,
         tagname=attribute,
+        time=time,
         iteration=iteration_id,
         realization=realization,
     )
 
-    selected_surface = time_filter(surfaces, time_interval)
+    if len(selected_surfaces) > 0:
+        selected_surface = selected_surfaces[0]
+    else:
+        selected_surface = None
 
     return selected_surface
 

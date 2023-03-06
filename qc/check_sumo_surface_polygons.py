@@ -22,7 +22,7 @@ def main():
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
-    print(f"{my_case.name}: {my_case.id}")
+    print(f"{my_case.name}: {my_case.uuid}")
 
     # Some case info
     print(my_case.field)
@@ -47,7 +47,7 @@ def main():
 
         # Search for polygon with same name as the actual surface
         for surface_name in surface_names:
-            sumo_polygons = my_case.realization.polygons.filter(
+            sumo_polygons = my_case.polygons.filter(
                 iteration=iter_id, realization=real_id
             )
 
@@ -59,7 +59,7 @@ def main():
 
                 print(surface_name, ":", polygon_name)
 
-                sumo_polygons = my_case.realization.polygons.filter(
+                sumo_polygons = my_case.polygons.filter(
                     name=polygon_name, iteration=iter_id, realization=real_id
                 )
 

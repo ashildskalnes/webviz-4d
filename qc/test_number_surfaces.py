@@ -15,7 +15,7 @@ def main():
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
-    print(f"{my_case.name}: {my_case.id}")
+    print(f"{my_case.name}: {my_case.uuid}")
 
     # Some case info
     print(my_case.field)
@@ -27,7 +27,7 @@ def main():
     print(surface_type, "surfaces:")
 
     iter_id = 0
-    surfaces = my_case.realization.surfaces.filter(iteration=iter_id)
+    surfaces = my_case.surfaces.filter(iteration=iter_id)
 
     index = 1
     for surface in surfaces:
