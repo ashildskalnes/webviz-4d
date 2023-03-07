@@ -9,6 +9,9 @@ supported_polygons = {
     "owc_outline": "Initial OWC",
     "goc_outline": "Initial GOC",
     "faults": "Faults",
+    "Initial OWC": "Initial OWC",
+    "Initial GOC": "Initial GOC",
+    "Faults": "Faults",
     "prm_receivers": "PRM receivers",
     "sumo_faults": "Faults",
     "sumo_goc_outline": "Initial GOC",
@@ -225,6 +228,7 @@ def get_zone_layer(polygon_layers, zone_name):
             tooltip = data[0]["tooltip"]
 
             if tooltip == zone_name:
+                print(" Zone layer", zone_name)
                 return layer
 
     return None

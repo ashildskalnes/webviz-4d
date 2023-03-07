@@ -927,7 +927,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                         if zone_layer:
                             layer = zone_layer
 
-                surface_layers.append(layer)
+                    surface_layers.append(layer)
 
             if self.basic_well_layers:
                 for well_layer in self.well_basic_layers:
