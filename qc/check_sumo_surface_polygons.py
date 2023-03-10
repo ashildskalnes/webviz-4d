@@ -16,9 +16,11 @@ def main():
     description = "Connect SUMO polygons with availble surface names"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("sumo_name")
+    parser.add_argument("default_name")
     args = parser.parse_args()
 
     sumo_name = args.sumo_name
+    default_name = args.default_name
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
@@ -32,7 +34,7 @@ def main():
     realization = "realization-1"
     real_id = get_realization_id(realization)
 
-    iter_id = 0
+    iter_name = my_case.iterations[0].get("name")
 
     print("Create selectors lists:")
     selectors = create_selector_lists(my_case, "timelapse")
@@ -48,11 +50,13 @@ def main():
         # Search for polygon with same name as the actual surface
         for surface_name in surface_names:
             sumo_polygons = my_case.polygons.filter(
-                iteration=iter_id, realization=real_id
+                iteration=iter_name, realization=real_id
             )
 
             if len(sumo_polygons) > 0:
-                polygon_name = get_polygon_name(sumo_polygons, surface_name)
+                polygon_name = get_polygon_name(
+                    sumo_polygons, surface_name, default_name
+                )
 
                 if polygon_name is None:
                     polygon_name = "VOLANTIS GP. Top"
@@ -60,7 +64,7 @@ def main():
                 print(surface_name, ":", polygon_name)
 
                 sumo_polygons = my_case.polygons.filter(
-                    name=polygon_name, iteration=iter_id, realization=real_id
+                    name=polygon_name, iteration=iter_name, realization=real_id
                 )
 
                 polygon_layers = load_sumo_polygons(sumo_polygons, None)

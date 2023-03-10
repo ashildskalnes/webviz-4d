@@ -19,6 +19,23 @@ def create_map_settings(attribute, name, map_type, ensemble, realization, interv
     return map_dict
 
 
+def get_all_map_defaults(selection_list, map_defaults_list):
+    # Return all map defaults if existing, if not create defaults
+    map_defaults = []
+
+    for map_default in map_defaults_list:
+        if map_default is None and selection_list["observed"] is not None:
+            map_type = "observed"
+            map_default = get_map_defaults(selection_list, map_type)
+        elif map_default is None and selection_list["simulated"] is None:
+            map_type = "simulated"
+            map_default = get_map_defaults(selection_list, map_type)
+
+        map_defaults.append(map_default)
+
+    return map_defaults
+
+
 def get_map_defaults(selection_options, default_interval, map_type):
     options = selection_options[map_type]
 

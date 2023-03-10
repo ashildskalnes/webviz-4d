@@ -270,7 +270,6 @@ def create_sumo_layer(polygon_df):
 
 
 def load_sumo_polygons(polygons, polygon_colors):
-
     polygon_layers = []
 
     for polygon in polygons:
@@ -284,24 +283,25 @@ def load_sumo_polygons(polygons, polygon_colors):
             name = "sumo_outline"
         else:
             print("WARNING: Unknown polygon type", polygon.tagname)
-            return None
+            name = ""
 
-        default_color = default_colors.get(name)
+        if len(name) > 0:
+            default_color = default_colors.get(name)
 
-        if polygon_colors:
-            color = polygon_colors.get(name, default_color)
-        else:
-            color = default_color
+            if polygon_colors:
+                color = polygon_colors.get(name, default_color)
+            else:
+                color = default_color
 
-        # print("DEBUG:", polygon.tagname, name, color)
+            polygon_df = create_sumo_layer(polygon.to_dataframe())
 
-        polygon_df = create_sumo_layer(polygon.to_dataframe())
-        polygon_layer = make_new_polyline_layer(
-            polygon_df, name, polygon.tagname, color
-        )
+            polygon_layer = make_new_polyline_layer(
+                polygon_df, name, polygon.tagname, color
+            )
 
-        if polygon_layer is not None:
-            polygon_layers.append(polygon_layer)
+            if polygon_layer is not None:
+                print("Adding polygon layer:", name, polygon.name, polygon.tagname)
+                polygon_layers.append(polygon_layer)
 
     return polygon_layers
 

@@ -1,6 +1,4 @@
-import pandas as pd
 import argparse
-import glob
 from fmu.sumo.explorer import Explorer
 from webviz_4d._datainput._polygons import load_sumo_polygons
 from webviz_4d._datainput._sumo import print_sumo_objects
@@ -24,12 +22,13 @@ def main():
     print(my_case.field)
     print(my_case.status)
     print(my_case.user)
+    print(my_case.iterations)
 
     # Load polygons from sumo
-    iter_id = 0
+    iter_name = my_case.iterations[0].get("name")
     real_id = 0
 
-    sumo_polygons = my_case.polygons.filter(iteration=iter_id, realization=real_id)
+    sumo_polygons = my_case.polygons.filter(iteration=iter_name, realization=real_id)
 
     print_sumo_objects(sumo_polygons)
 

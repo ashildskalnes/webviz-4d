@@ -12,6 +12,7 @@ def main():
 
     sumo_name = args.sumo_name
 
+    # sumo = Explorer(env="prod", keep_alive="15m")
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
@@ -26,13 +27,11 @@ def main():
     surface_type = "realization"
     print(surface_type, "surfaces:")
 
-    iter_id = 0
-    surfaces = my_case.surfaces.filter(iteration=iter_id)
+    iter_name = my_case.iterations[0].get("name")
+    surfaces = my_case.surfaces.filter(iteration=iter_name)
 
-    index = 1
-    for surface in surfaces:
-        print(index, surface.name, surface.tagname)
-        index += 1
+    for index, surface in enumerate(surfaces):
+        print(index + 1, surface.name, surface.tagname)
 
     print("Number of surfaces:", len(surfaces))
 

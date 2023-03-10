@@ -15,6 +15,20 @@ defaults = {
 }
 
 
+def get_default_interval(selection_list, options):
+    """Return the first 4D interval (from observed/simulated) as default"""
+    try:
+        default_interval = selection_list[options[0]]["interval"][0]
+    except:
+        try:
+            default_interval = selection_list[options[1]]["interval"][0]
+        except:
+            print("WARNING: default interval not found")
+            default_interval = None
+
+    return default_interval
+
+
 def read_config(config_file):
     """Return the content of a configuration file as a dict"""
     config_dict = {}

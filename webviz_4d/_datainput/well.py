@@ -39,93 +39,54 @@ def load_pdm_info(provider, field):
     return dataframe
 
 
-# def create_new_well_layer(
-#     interval_4d: list = None,
-#     metadata_df: pd.DataFrame = None,
-#     trajectories_df: pd.DataFrame = None,
-#     prod_data: pd.DataFrame = None,
-#     surface_picks: pd.DataFrame = None,
-#     completion_df: pd.DataFrame = None,
-#     color: str = None,
-#     layer_name: str = "",
-#     label: str = "",
-# ):
+def create_well_layers(
+    basic_well_layers_dict,
+    planned_wells_info,
+    planned_wells_df,
+    drilled_wells_info,
+    drilled_wells_df,
+    surface_picks,
+    well_colors,
+):
+    basic_well_layers = []
 
-#     """Make layeredmap wells layer"""
-#     tooltips = []
-#     layer_df = pd.DataFrame()
+    print("Creating well layers")
+    for key, value in basic_well_layers_dict.items():
+        print("  ", key, value)
 
-#     md_start_list = []
-#     md_end = np.nan
-#     wellbores = []
+        layer_name = key
+        color = well_colors.get(layer_name, None)
 
-#     interval = None
+        if color is None:
+            color = well_colors.get("default", None)
 
-#     if interval_4d is not None:
-#         interval = interval_4d
-#         # print(layer_name)
-#         # print(metadata_df)
+        prod_data = None
 
-#     for row in metadata_df.iterrows():
-#         status = False
-#         tooltip = create_tooltip(row, layer_name)
-#         # print(row, tooltip)
+        if layer_name == "planned":
+            metadata = planned_wells_info
+            trajectories = planned_wells_df
+        if layer_name == "drilled_wells":
+            metadata = drilled_wells_info
+            trajectories = drilled_wells_df
+        elif layer_name == "reservoir_sections":
+            metadata = drilled_wells_info
+            trajectories = drilled_wells_df
 
-#         df = row[1]
-#         wellbore_name = df["unique_wellbore_identifier"]
+        well_layer = create_well_layer(
+            interval_4d=None,
+            metadata_df=metadata,
+            trajectories_df=trajectories,
+            surface_picks=surface_picks,
+            prod_data=prod_data,
+            color_settings=None,
+            layer_name=key,
+            label=value,
+        )
 
-#         if surface_picks is not None and not surface_picks.empty:
-#             try:
-#                 selected_surface_pick = surface_picks[
-#                     surface_picks["unique_wellbore_identifier"] == wellbore_name
-#                 ]
-#                 md_start = selected_surface_pick["md"].to_numpy()[0]
-#             except:
-#                 md_start = np.nan
-#         else:
-#             md_start = 0
+        if well_layer:
+            basic_well_layers.append(well_layer)
 
-#         if layer_name in ["production", "injection"]:
-#             if interval is not None and prod_data is not None:
-#                 if md_start is not None and not math.isnan(md_start):
-#                     status, start_date, end_date = check_production_data(
-#                         prod_data, layer_name, wellbore_name, interval
-#                     )
-
-#                     if status and tooltip:
-#                         tooltip = (
-#                             tooltip
-#                             + " Start:"
-#                             + start_date[:4]
-#                             + " End:"
-#                             + end_date[:4]
-#                         )
-#                         # print(wellbore_name, status, start_date, end_date, tooltip)
-#         else:
-#             if md_start is not None and not math.isnan(md_start):
-#                 status = True
-
-#         if status:
-#             tooltips.append(tooltip)
-#             md_start_list.append(md_start)
-#             wellbores.append(wellbore_name)
-
-#     layer_df["unique_wellbore_identifier"] = wellbores
-#     layer_df["color"] = color
-#     layer_df["tooltip"] = tooltips
-#     layer_df["layer_name"] = "well_layer_" + layer_name
-#     layer_df["md_start"] = md_start_list
-#     layer_df["md_end"] = md_end
-
-#     # print(layer_df)
-
-#     well_layer = make_new_smda_well_layer(
-#         layer_df,
-#         trajectories_df,
-#         label=label,
-#     )
-
-#     return well_layer
+    return basic_well_layers
 
 
 def create_well_layer(
@@ -139,7 +100,6 @@ def create_well_layer(
     layer_name: str = "",
     label: str = "",
 ):
-
     """Make layeredmap wells layer"""
     prod_units = {
         "OIL_VOL": "kSm3",
@@ -200,18 +160,20 @@ def create_well_layer(
         df = row[1]
         wellbore_name = df["unique_wellbore_identifier"]
 
-        if surface_picks is not None and not surface_picks.empty:
-            try:
-                selected_surface_pick = surface_picks[
-                    surface_picks["unique_wellbore_identifier"] == wellbore_name
-                ]
-                md_start = selected_surface_pick["md"].to_numpy()[0]
-            except:
-                md_start = np.nan
-        else:
-            md_start = 0
+        md_start = 0
 
-        if layer_name in ["production", "injection"]:
+        if layer_name not in ["planned", "drilled_wells"]:
+            if surface_picks is not None and not surface_picks.empty:
+                try:
+                    selected_surface_pick = surface_picks[
+                        surface_picks["unique_wellbore_identifier"] == wellbore_name
+                    ]
+                    md_start = selected_surface_pick["md"].to_numpy()[0]
+
+                    status = True
+                except:
+                    md_start = np.nan
+
             if interval is not None and prod_data is not None:
                 if md_start is not None and not math.isnan(md_start):
                     if "production" in layer_name:
@@ -557,6 +519,7 @@ def get_surface_picks(wellbores_df, surf):
         return surface_picks
 
     md_values = []
+    print("Extracting surface picks for top reservoir")
 
     wellbore_names = wellbores_df["unique_wellbore_identifier"].unique()
 

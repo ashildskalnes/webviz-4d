@@ -126,13 +126,16 @@ def create_selector_lists(my_case, mode):
     for iteration in iterations:
         iteration_names.append(iteration.get("name"))
 
+    iter_name = iteration_names[0]
+
     # time filter for intervals
     time = TimeFilter(type=TimeType.INTERVAL)
 
     realization_surfaces = my_case.surfaces.filter(
-        stage="realization", iteration=0, time=time
+        stage="realization",
+        iteration=iter_name,
     )
-    print("Surfaces in iteration 0:", len(realization_surfaces))
+    print("Surfaces in iteration:", iter_name, len(realization_surfaces))
     realizations = realization_surfaces.realizations
 
     sorted_realizations = []
@@ -153,13 +156,11 @@ def create_selector_lists(my_case, mode):
         map_type_dict = {}
 
         if map_type == "observed":
-            surfaces = my_case.surfaces.filter(stage="case", time=time)
+            surfaces = my_case.surfaces.filter(stage="case")
         elif map_type == "simulated":
             surfaces = realization_surfaces
         elif map_type == "aggregated":
-            surfaces = my_case.surfaces.filter(
-                stage="iteration", iteration=0, time=time
-            )
+            surfaces = my_case.surfaces.filter(stage="iteration", iteration=iter_name)
         else:
             print("ERROR: Not supported map_type", map_type)
             return None
@@ -167,27 +168,24 @@ def create_selector_lists(my_case, mode):
         print(map_type)
         print("  all surfaces:", len(surfaces))
 
-        times = get_tag_values(surfaces, "time")
-
         if mode == "timelapse":
-            timelapse_surfaces = check_timelapse(surfaces, times)
+            timelapse_surfaces = surfaces.filter(time=time)
             surfaces = timelapse_surfaces
+            print("  timelapse surfaces:", len(timelapse_surfaces))
 
-            print("  timelapse surfaces:", len(surfaces))
+        names = surfaces.names
+        attributes = surfaces.tagnames
+        time_intervals = convert_intervals(surfaces.intervals)
 
-        names = get_tag_values(surfaces, "name")
-        attributes = get_tag_values(surfaces, "attribute")
-        time_intervals = get_tag_values(surfaces, "time_interval")
-
-        map_type_dict["name"] = names
-        map_type_dict["attribute"] = attributes
-        map_type_dict["interval"] = time_intervals
+        map_type_dict["name"] = sorted(names)
+        map_type_dict["attribute"] = sorted(attributes)
+        map_type_dict["interval"] = sorted(time_intervals)
 
         if map_type == "simulated":
-            map_type_dict["ensemble"] = iteration_names
+            map_type_dict["ensemble"] = sorted(iteration_names)
             map_type_dict["realization"] = sorted_realizations
         elif map_type == "aggregated":
-            statistics = get_tag_values(surfaces, "aggregation")
+            statistics = sorted(surfaces.aggregations)
             map_type_dict["aggregation"] = statistics
         else:
             map_type_dict["ensemble"] = [default]
@@ -196,6 +194,18 @@ def create_selector_lists(my_case, mode):
         map_dict[map_type] = map_type_dict
 
     return map_dict
+
+
+def convert_intervals(intervals):
+    converted_intervals = []
+
+    for interval in intervals:
+        time1 = interval[0][:10]
+        time2 = interval[1][:10]
+
+        converted_intervals.append(time2 + "-" + time1)
+
+    return converted_intervals
 
 
 def extract_time_interval(time):
@@ -241,8 +251,16 @@ def get_observed_surface(
     attribute: str = None,
     time_interval: list = [],
 ):
-    surfaces = case.surfaces.filter(stage="case", name=surface_name, tagname=attribute)
-    selected_surface = time_filter(surfaces, time_interval)
+    time = create_time_filter(time_interval, True)
+    surfaces = case.surfaces.filter(
+        stage="case", name=surface_name, tagname=attribute, time=time
+    )
+
+    if len(surfaces) == 1:
+        selected_surface = surfaces[0]
+    else:
+        print("WARNING: Number of surfaces found =", str(len(surfaces)))
+        selected_surface = None
 
     return selected_surface
 
@@ -264,41 +282,23 @@ def get_realization_surface(
     attribute: str = None,
     time_interval: list = [],
     iteration_name: str = "iter-0",
-    iteration_id: int = None,
     realization: int = 0,
 ):
-    if iteration_id is None:
-        iteration_id = get_iteration_id(case.iterations, iteration_name)
-
-    if len(time_interval) == 0:
-        time = TimeFilter(type=TimeType.NONE)
-    elif len(time_interval) == 1:
-        time = time = TimeFilter(type=TimeType.TIMESTAMP, start=time_interval[0])
-    elif len(time_interval) == 2:
-        if time_interval[0] is False and time_interval[1] is False:
-            time = TimeFilter(type=TimeType.NONE)
-        elif time_interval[1] is False:
-            time = time = TimeFilter(type=TimeType.TIMESTAMP, start=time_interval[0])
-        else:
-            time = time = TimeFilter(
-                type=TimeType.INTERVAL, start=time_interval[0], end=time_interval[1]
-            )
-    else:
-        print("ERROR: Wrong time interval specification:", time_interval)
-        return None
+    time = create_time_filter(time_interval, True)
 
     selected_surfaces = case.surfaces.filter(
         stage="realization",
         name=surface_name,
         tagname=attribute,
         time=time,
-        iteration=iteration_id,
+        iteration=iteration_name,
         realization=realization,
     )
 
-    if len(selected_surfaces) > 0:
+    if len(selected_surfaces) == 1:
         selected_surface = selected_surfaces[0]
     else:
+        print("WARNING: Number of surfaces found =", str(len(selected_surfaces)))
         selected_surface = None
 
     return selected_surface
@@ -312,22 +312,52 @@ def get_aggregated_surface(
     iteration_name: str = "iter-0",
     operation: str = "mean",
 ):
-    iteration_id = get_iteration_id(case.iterations, iteration_name)
+    time = create_time_filter(time_interval, True)
 
-    surfaces = case.aggregation.surfaces.filter(
+    selected_surfaces = case.surfaces.filter(
         name=surface_name,
         tagname=attribute,
-        iteration=iteration_id,
-        operation=operation,
+        time=time,
+        iteration=iteration_name,
+        aggregation=operation,
     )
 
-    selected_surface = time_filter(surfaces, time_interval)
+    if len(selected_surfaces) == 1:
+        selected_surface = selected_surfaces[0]
+    else:
+        print("WARNING: Number of surfaces found =", str(len(selected_surfaces)))
+        selected_surface = None
 
     return selected_surface
 
 
-def get_polygon_name(sumo_polygons, surface_name):
+def create_time_filter(time_interval, exact):
+    if len(time_interval) == 0:
+        time = TimeFilter(type=TimeType.NONE)
+    elif len(time_interval) == 1:
+        time = TimeFilter(type=TimeType.TIMESTAMP, start=time_interval[0], exact=exact)
+    elif len(time_interval) == 2:
+        if time_interval[0] is False and time_interval[1] is False:
+            time = TimeFilter(type=TimeType.NONE)
+        elif time_interval[1] is False:
+            time = TimeFilter(
+                type=TimeType.TIMESTAMP, start=time_interval[0], exact=exact
+            )
+        else:
+            time = TimeFilter(
+                type=TimeType.INTERVAL,
+                start=time_interval[0],
+                end=time_interval[1],
+                exact=exact,
+            )
+    else:
+        print("ERROR: Wrong time interval specification:", time_interval)
+        time = None
 
+    return time
+
+
+def get_polygon_name(sumo_polygons, surface_name, default_name):
     for polygon in sumo_polygons:
         if polygon.name == surface_name and "fault" in polygon.tagname:
             return polygon.name
@@ -337,7 +367,7 @@ def get_polygon_name(sumo_polygons, surface_name):
                 if surface_name.lower() in polygon.name.lower():
                     return polygon.name
 
-    return None
+    return default_name
 
 
 def get_iteration_id(iterations, iteration_name):
@@ -357,7 +387,7 @@ def print_sumo_objects(sumo_objects):
         tagnames = []
 
         for sumo_object in sumo_objects:
-            object_type = sumo_object._metadata.get("class")
+            # object_type = sumo_object._metadata.get("class")
             content = sumo_object._metadata.get("data").get("content")
             iteration = sumo_object._metadata.get("fmu").get("iteration")
 
@@ -389,15 +419,15 @@ def print_sumo_objects(sumo_objects):
             print(
                 "  ",
                 index,
-                object_type,
                 sumo_object.name,
                 sumo_object.tagname,
+                "content =",
                 content,
-                "time=",
+                "time =",
                 time_list,
-                "operation=",
+                "operation =",
                 operation,
-                "iter=",
+                "iter =",
                 iter_name,
                 "real=",
                 real_name,
