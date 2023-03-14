@@ -144,7 +144,6 @@ def make_new_polyline_layer(dataframe, key, label, color):
 
             if polyline_data:
                 data.append(polyline_data)
-
     elif "outline" in key:
         data = get_contact_polyline(dataframe, key, color)
     elif key == "prm_receivers":
@@ -286,12 +285,10 @@ def load_sumo_polygons(polygons, polygon_colors):
             name = ""
 
         if len(name) > 0:
-            default_color = default_colors.get(name)
-
             if polygon_colors:
-                color = polygon_colors.get(name, default_color)
+                color = polygon_colors.get(name, default_colors.get(name))
             else:
-                color = default_color
+                color = default_colors.get(name)
 
             polygon_df = create_sumo_layer(polygon.to_dataframe())
 

@@ -21,6 +21,9 @@ def load_smda_wellbores(provider, field):
 
     dataframe = trajectories.dataframe
 
+    unique_wellbores = dataframe["unique_wellbore_identifier"].unique()
+    print(" - drilled wellbores:", len(unique_wellbores))
+
     return dataframe
 
 
@@ -28,6 +31,10 @@ def load_planned_wells(provider, field):
     planned_wells = provider.get_planned_wellbores(
         field_name=field,
     )
+
+    dataframe = planned_wells.trajectories.dataframe
+    unique_wellbores = dataframe["unique_wellbore_identifier"].unique()
+    print(" - planned wellbores:", len(unique_wellbores))
 
     return planned_wells
 
@@ -50,10 +57,7 @@ def create_well_layers(
 ):
     basic_well_layers = []
 
-    print("Creating well layers")
     for key, value in basic_well_layers_dict.items():
-        print("  ", key, value)
-
         layer_name = key
         color = well_colors.get(layer_name, None)
 
@@ -519,7 +523,7 @@ def get_surface_picks(wellbores_df, surf):
         return surface_picks
 
     md_values = []
-    print("Extracting surface picks for top reservoir")
+    print("Extracting surface picks for top reservoir ...")
 
     wellbore_names = wellbores_df["unique_wellbore_identifier"].unique()
 
@@ -562,6 +566,9 @@ def get_surface_picks(wellbores_df, surf):
 
     surface_picks["unique_wellbore_identifier"] = wellbore_names
     surface_picks["md"] = md_values
+
+    non_nan_values = [item for item in md_values if str(item) != "nan"]
+    print(" - surface picks:", len(non_nan_values))
 
     return surface_picks
 

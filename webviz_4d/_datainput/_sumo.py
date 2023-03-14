@@ -149,8 +149,6 @@ def create_selector_lists(my_case, mode):
 
     statistics = []
 
-    print("mode:", mode)
-
     for map_type in map_types:
         map_dict[map_type] = {}
         map_type_dict = {}
@@ -166,7 +164,7 @@ def create_selector_lists(my_case, mode):
             return None
 
         print(map_type)
-        print("  all surfaces:", len(surfaces))
+        # print("  all surfaces:", len(surfaces))
 
         if mode == "timelapse":
             timelapse_surfaces = surfaces.filter(time=time)
@@ -357,17 +355,18 @@ def create_time_filter(time_interval, exact):
     return time
 
 
-def get_polygon_name(sumo_polygons, surface_name, default_name):
+def get_polygon_name(sumo_polygons, surface_name):
+    # Check if there exists a polygon with the same name as the surface
+    name = None
+
     for polygon in sumo_polygons:
-        if polygon.name == surface_name and "fault" in polygon.tagname:
-            return polygon.name
+        if polygon.name.lower() == surface_name.lower():
+            name = polygon.name
+        elif surface_name.lower() in polygon.name.lower():
+            name = polygon.name
 
-        else:
-            for polygon in sumo_polygons:
-                if surface_name.lower() in polygon.name.lower():
-                    return polygon.name
-
-    return default_name
+    print("DEBUG: get_polygon_name", surface_name, name)
+    return name
 
 
 def get_iteration_id(iterations, iteration_name):
@@ -389,19 +388,8 @@ def print_sumo_objects(sumo_objects):
         for sumo_object in sumo_objects:
             # object_type = sumo_object._metadata.get("class")
             content = sumo_object._metadata.get("data").get("content")
-            iteration = sumo_object._metadata.get("fmu").get("iteration")
-
-            if iteration:
-                iter_name = iteration.get("name")
-            else:
-                iter_name = None
-
-            realization = sumo_object._metadata.get("fmu").get("realization")
-
-            if realization:
-                real_name = realization.get("name")
-            else:
-                real_name = None
+            iteration = sumo_object.iteration
+            realization = sumo_object.realization
 
             aggregation = sumo_object._metadata.get("fmu").get("aggregation")
 
@@ -428,9 +416,9 @@ def print_sumo_objects(sumo_objects):
                 "operation =",
                 operation,
                 "iter =",
-                iter_name,
+                iteration,
                 "real=",
-                real_name,
+                realization,
             )
             index += 1
 
@@ -457,3 +445,42 @@ def check_timelapse(surfaces, times):
             timelapse_surfaces.append(surface)
 
     return timelapse_surfaces
+
+
+def get_sumo_top_res_surface(my_case, shared_settings):
+    top_res_surface = shared_settings.get("top_res_surface")
+    iter_name = my_case.iterations[0].get("name")
+
+    if top_res_surface is not None:
+        name = top_res_surface.get("name")
+        tagname = top_res_surface.get("tag_name")
+        time_interval = [False, False]
+
+        surface = get_realization_surface(
+            case=my_case,
+            surface_name=name,
+            attribute=tagname,
+            time_interval=time_interval,
+            iteration_name=iter_name,
+        )
+
+    if surface:
+        return surface.to_regular_surface()
+    else:
+        print(
+            "ERROR: Top reservoir surface not loaded from SUMO:",
+            name,
+            tagname,
+            time_interval,
+        )
+        return None
+
+
+def open_surface_with_xtgeo(surface):
+    if surface:
+        surface_object = surface.to_regular_surface()
+    else:
+        surface_object = None
+        print("ERROR: non-existing surface")
+
+    return surface_object
