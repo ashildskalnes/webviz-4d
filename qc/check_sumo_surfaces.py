@@ -71,87 +71,92 @@ def main():
     surface_type = "realization"
     print(surface_type, "surfaces:")
 
-    iter_name = my_case.iterations[0].get("name")
-    surfaces = my_case.surfaces.filter(stage="realization", iteration=iter_name)
+    iterations = my_case.iterations
 
-    # try:
-    #     print_sumo_objects(surfaces)
-    # except Exception as e:
-    #     print(e)
+    if len(iterations) == 0:
+        print("WARNING: No iterations found in case")
+    else:
+        iter_name = my_case.iterations[0].get("name")
+        surfaces = my_case.surfaces.filter(stage="realization", iteration=iter_name)
 
-    print("Number of surfaces:", len(surfaces))
+        # try:
+        #     print_sumo_objects(surfaces)
+        # except Exception as e:
+        #     print(e)
 
-    # surfaces = ["dummy"]
+        print("Number of surfaces:", len(surfaces))
 
-    # Get sumo id for one realization surface
-    if len(surfaces) > 0:
-        surface = surfaces[0]
-        surface_name = surface.name
-        attribute = surface.tagname
-        selected_time = surface._metadata.get("data").get("time")
-        time_interval = decode_time_interval(selected_time)
+        # surfaces = ["dummy"]
 
-        selected_surface = get_realization_surface(
-            case=my_case,
-            surface_name=surface_name,
-            attribute=attribute,
-            time_interval=time_interval,
-            iteration_name=iter_name,
-            realization=0,
-        )
+        # Get sumo id for one realization surface
+        if len(surfaces) > 0:
+            surface = surfaces[0]
+            surface_name = surface.name
+            attribute = surface.tagname
+            selected_time = surface._metadata.get("data").get("time")
+            time_interval = decode_time_interval(selected_time)
 
-        print(
-            selected_surface.name,
-            selected_surface.tagname,
-            time_interval,
-            selected_surface.iteration,
-            selected_surface.realization,
-        )
+            selected_surface = get_realization_surface(
+                case=my_case,
+                surface_name=surface_name,
+                attribute=attribute,
+                time_interval=time_interval,
+                iteration_name=iter_name,
+                realization=0,
+            )
 
-        surface_instance = selected_surface.to_regular_surface()
-    print(surface_instance)
+            print(
+                selected_surface.name,
+                selected_surface.tagname,
+                time_interval,
+                selected_surface.iteration,
+                selected_surface.realization,
+            )
 
-    # Get all aggregated surfaces in an iteration
-    surface_type = "aggregation"
-
-    surfaces = my_case.surfaces.filter(stage="iteration")
-    print(surface_type, "aggregated surfaces:")
-
-    try:
-        print_sumo_objects(surfaces)
-    except Exception as e:
-        print(e)
-
-    print("Number of surfaces:", len(surfaces))
-
-    # Get sumo id for one aggregated surface
-    if len(surfaces) > 0:
-        surface = surfaces[0]
-
-        surface_name = surface.name
-        attribute = surface.tagname
-        selected_time = surface._metadata.get("data").get("time")
-        time_interval = decode_time_interval(selected_time)
-
-        selected_surface = get_aggregated_surface(
-            case=my_case,
-            surface_name=surface_name,
-            attribute=attribute,
-            time_interval=time_interval,
-            iteration_name=iter_name,
-            operation="mean",
-        )
-
-        print(
-            selected_surface.name,
-            selected_surface.tagname,
-            time_interval,
-            selected_surface.iteration,
-            selected_surface._metadata.get("fmu").get("aggregation"),
-        )
-
-        surface_instance = surface.to_regular_surface()
+            surface_instance = selected_surface.to_regular_surface()
         print(surface_instance)
+
+        # Get all aggregated surfaces in an iteration
+        surface_type = "aggregation"
+
+        surfaces = my_case.surfaces.filter(stage="iteration")
+        print(surface_type, "aggregated surfaces:")
+
+        try:
+            print_sumo_objects(surfaces)
+        except Exception as e:
+            print(e)
+
+        print("Number of surfaces:", len(surfaces))
+
+        # Get sumo id for one aggregated surface
+        if len(surfaces) > 0:
+            surface = surfaces[0]
+
+            surface_name = surface.name
+            attribute = surface.tagname
+            selected_time = surface._metadata.get("data").get("time")
+            time_interval = decode_time_interval(selected_time)
+
+            selected_surface = get_aggregated_surface(
+                case=my_case,
+                surface_name=surface_name,
+                attribute=attribute,
+                time_interval=time_interval,
+                iteration_name=iter_name,
+                operation="mean",
+            )
+
+            print(
+                selected_surface.name,
+                selected_surface.tagname,
+                time_interval,
+                selected_surface.iteration,
+                selected_surface._metadata.get("fmu").get("aggregation"),
+            )
+
+            surface_instance = surface.to_regular_surface()
+            print(surface_instance)
 
 
 if __name__ == "__main__":
