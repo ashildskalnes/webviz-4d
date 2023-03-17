@@ -4,7 +4,6 @@ from pathlib import Path
 import datetime
 import json
 import os
-import pandas as pd
 import numpy as np
 import xtgeo
 import logging
@@ -12,7 +11,13 @@ import logging
 from fmu.sumo.explorer import Explorer
 
 from webviz_config import WebvizPluginABC
-from webviz_4d._datainput._surface import make_surface_layer, load_surface
+
+from webviz_4d._datainput._surface import (
+    make_surface_layer,
+    load_surface,
+    get_top_res_surface,
+)
+
 from webviz_4d._datainput.common import (
     read_config,
     get_well_colors,
@@ -28,9 +33,9 @@ from webviz_4d._datainput.well import (
     load_smda_wellbores,
     load_planned_wells,
     load_pdm_info,
-    create_well_layer,
-    create_well_layers,
+    create_basic_well_layers,
     get_surface_picks,
+    create_production_layers,
 )
 from webviz_4d._datainput._production import (
     make_new_well_layer,
@@ -58,9 +63,12 @@ from webviz_4d._datainput._sumo import (
     get_realization_surface,
     get_polygon_name,
     print_sumo_objects,
+    get_sumo_interval_list,
+    get_selected_surface,
+    get_sumo_zone_polygons,
 )
 
-from webviz_4d_input._providers.wellbore_provider._provider_impl_file import (
+from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 
@@ -106,10 +114,12 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.fmu_directory = self.shared_settings["fmu_directory"]
         self.sumo_name = self.shared_settings.get("sumo_name")
         self.label = self.shared_settings.get("label", self.fmu_directory)
-
-        self.production_data = production_data
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
+        self.top_res_surface_settings = self.shared_settings.get("top_res_surface")
+
+        self.production_data = production_data
+        self.wellfolder = wellfolder
         self.map_suffix = map_suffix
         self.delimiter = delimiter
         self.interval_mode = interval_mode
@@ -132,9 +142,15 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.well_base_layers = []
         self.interval_well_layers = {}
 
-        self.top_res_surface_settings = self.shared_settings.get("top_res_surface")
+        self.api_usage = {
+            "sumo": False,
+            "pozo": False,
+            "smda": False,
+            "pdm": False,
+            "ssdl": False,
+        }
 
-        # Define well layers
+        # Define default well layers
         default_basic_well_layers = {
             "planned": "Planned wells",
             "drilled_wells": "Drilled wells",
@@ -148,6 +164,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.well_layer_dir = Path(os.path.join(wellfolder, "well_layers"))
 
         if self.sumo_name:
+            self.api_usage["sumo"] = True
             env = "prod"
             self.sumo = Explorer(env=env)
             self.my_case = self.sumo.cases.filter(name=self.sumo_name)[0]
@@ -156,18 +173,17 @@ class SurfaceViewer4D(WebvizPluginABC):
             print("SUMO case:", self.my_case.name)
 
             print("Create selection lists ...")
-            mode = "timelapse"
+            time_mode = "timelapse"
             self.selection_list = create_selector_lists(
                 self.my_case,
-                mode,
+                time_mode,
             )
 
             if self.selection_list is None:
                 sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
-
-            surface = self.get_sumo_top_res_surface()
         else:
             # Read maps metadata from file
+            self.my_case = None
             self.surface_metadata_file = surface_metadata_file
             print("Reading maps metadata from", self.surface_metadata_file)
             self.surface_metadata = (
@@ -176,12 +192,14 @@ class SurfaceViewer4D(WebvizPluginABC):
                 else None
             )
 
-            surface = self.get_top_res_surface()
-
             self.selector_file = selector_file
             self.selection_list = read_config(get_path(path=self.selector_file))
 
             self.polygons_folder = polygons_folder
+
+        surface = get_top_res_surface(
+            self.shared_settings.get("top_res_surface"), self.my_case
+        )
 
         if surface:
             self.top_res_surface = surface
@@ -239,25 +257,22 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.zone_polygon_layers = None
 
         self.polygon_colors = self.config.get("polygon_colors")
+        self.default_polygon_name = self.shared_settings.get("top_res_surface").get(
+            "name"
+        )
+        print("Default polygon_name", self.default_polygon_name)
 
         if self.sumo_name:
-            print("Loading polygons from SUMO")
+            print("Polygons in SUMO ...")
             iter_name = self.my_case.iterations[0].get("name")
-            self.default_polygon_name = self.shared_settings.get("top_res_surface").get(
-                "name"
-            )
-            print("  Default polygon_name", self.default_polygon_name)
 
             self.sumo_polygons = self.my_case.polygons.filter(
                 iteration=iter_name, realization=0
             )
+            for polygon in self.sumo_polygons:
+                print("  - ", polygon.name, polygon.tagname)
 
             self.fault_polygon_tag = get_fault_polygon_tag(self.sumo_polygons)
-
-            self.polygon_layers = load_sumo_polygons(
-                self.sumo_polygons, self.polygon_colors
-            )
-
         elif self.polygons_folder is not None:
             self.polygon_files = [
                 get_path(Path(fn))
@@ -277,12 +292,9 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.zone_polygon_layers = load_zone_polygons(
                 self.zone_faults_files, self.polygon_colors
             )
-
         # Read update dates and well data
         #    self.drilled_wells_df: dataframe with wellpaths (x- and y positions) for all drilled wells
         #    self.drilled_wells_info: dataframe with metadata for all drilled wells
-
-        self.wellfolder = wellfolder
 
         if "SMDA" in str(self.wellfolder):
             omnia_env = ".omniaapi"
@@ -317,7 +329,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.planned_wells_info = planned_wells.metadata.dataframe
                 self.planned_wells_df = planned_wells.trajectories.dataframe
 
-            self.well_basic_layers = create_well_layers(
+            self.well_basic_layers = create_basic_well_layers(
                 self.basic_well_layers,
                 self.planned_wells_info,
                 self.planned_wells_df,
@@ -327,8 +339,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.well_colors,
             )
 
-            pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name[0])
-            pdm_wellbores = pdm_wells_info["WB_UWBI"].tolist()
+            self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name[0])
+            pdm_wellbores = self.pdm_wells_info["WB_UWBI"].tolist()
             self.pdm_wells_df = self.drilled_wells_df[
                 self.drilled_wells_df["unique_wellbore_identifier"].isin(pdm_wellbores)
             ]
@@ -339,7 +351,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.interval_well_layers = []
 
             self.well_update = str(datetime.date.today())
-            self.production_update = ""
+            self.production_update = str(datetime.date.today())
 
         if "SMDA" not in str(self.wellfolder):
             print("Loading well data from", self.wellfolder)
@@ -415,26 +427,19 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.interval_names.append(interval)
 
         if "PDM" in str(production_data):
-            print("Loading production/injection data from PDM ...")
-            default_interval = self.default_interval
-
-            prod_data = self.pdm_provider.get_field_prod_data(
+            self.interval_well_layers = create_production_layers(
                 field_name=self.field_name[0],
-                start_date=default_interval[-10:],
-                end_date=default_interval[:10],
+                pdm_provider=self.pdm_provider,
+                interval_4d=default_interval,
+                wellbore_trajectories=self.drilled_wells_df,
+                surface_picks=self.surface_picks,
+                layer_options=self.additional_well_layers,
+                well_colors=self.well_colors,
             )
 
-            inj_data = self.pdm_provider.get_field_inj_data(
-                field_name=self.field_name[0],
-                start_date=default_interval[-10:],
-                end_date=default_interval[:10],
-            )
-            volumes_df = pd.merge(
-                prod_data.dataframe,
-                inj_data.dataframe,
-                how="outer",
-            )
-            self.prod_data = volumes_df
+            for interval_layer in self.interval_well_layers:
+                data = interval_layer.get("data")
+                print("  ", interval_layer.get("name"), len(data))
         else:
             # Find production and injection layers for the default interval
             if self.interval_names:
@@ -557,106 +562,6 @@ class SurfaceViewer4D(WebvizPluginABC):
     def layout(self):
         return set_layout(parent=self)
 
-    def get_real_runpath(self, data, ensemble, real, map_type):
-        selected_interval = data["date"]
-        name = data["name"]
-        attribute = data["attr"]
-
-        if self.interval_mode == "reverse":
-            time2 = selected_interval[0:10]
-            time1 = selected_interval[11:]
-        else:
-            time1 = selected_interval[0:10]
-            time2 = selected_interval[11:]
-
-        self.surface_metadata.replace(np.nan, "", inplace=True)
-
-        try:
-            selected_metadata = self.surface_metadata[
-                (self.surface_metadata["fmu_id.realization"] == real)
-                & (self.surface_metadata["fmu_id.ensemble"] == ensemble)
-                & (self.surface_metadata["map_type"] == map_type)
-                & (self.surface_metadata["data.time.t1"] == time1)
-                & (self.surface_metadata["data.time.t2"] == time2)
-                & (self.surface_metadata["data.name"] == name)
-                & (self.surface_metadata["data.content"] == attribute)
-            ]
-
-            filepath = selected_metadata["filename"].values[0]
-            path = get_path(Path(filepath))
-        except:
-            path = ""
-            print("WARNING: selected map not found. Selection criteria are:")
-            print(map_type, real, ensemble, name, attribute, time1, time2)
-
-        return path
-
-    def get_sumo_top_res_surface(self):
-        top_res_surface_settings = self.shared_settings["top_res_surface"]
-
-        if top_res_surface_settings is not None:
-            name = top_res_surface_settings.get("name")
-            tagname = top_res_surface_settings.get("tag_name")
-            iter_name = top_res_surface_settings.get("iter")
-            real = top_res_surface_settings.get("real")
-            time_interval = [False, False]
-
-            if "realization" in real:
-                real_id = real.split("-")[1]
-                surface = get_realization_surface(
-                    case=self.my_case,
-                    surface_name=name,
-                    attribute=tagname,
-                    time_interval=time_interval,
-                    iteration_name=iter_name,
-                    realization=real_id,
-                )
-            else:
-                surface = get_aggregated_surface(
-                    case=self.my_case,
-                    surface_name=name,
-                    attribute=tagname,
-                    time_interval=time_interval,
-                    iteration_name=iter_name,
-                    operation=real,
-                )
-
-        if surface:
-            return surface.to_regular_surface()
-        else:
-            print(
-                "ERROR: Top reservoir surface not loaded from SUMO:",
-                name,
-                tagname,
-                time_interval,
-            )
-            return None
-
-    def get_top_res_surface(self):
-        top_res_surface = self.shared_settings.get("top_res_surface")
-
-        if top_res_surface:
-            name = top_res_surface.get("name")
-            print("Load top reservoir surface:", name)
-
-            if os.path.isfile(name):
-                return xtgeo.surface_from_file(name)
-            else:
-                print("ERROR: File not found")
-                return None
-        else:
-            print("WARNING: Top reservoir surface not defined")
-            return None
-
-    def open_surface_with_xtgeo(surface):
-        if surface:
-            surface_object = surface.to_regular_surface()
-        else:
-            surface_object = None
-            print("ERROR: non-existing surface")
-
-        return surface_object
-
     def get_heading(self, map_ind, observation_type):
         if self.map_defaults[map_ind]["map_type"] == observation_type:
             txt = "Observed map: "
@@ -753,8 +658,10 @@ class SurfaceViewer4D(WebvizPluginABC):
 
     def make_map(self, data, ensemble, real, attribute_settings, map_idx):
         data = json.loads(data)
-
         selected_zone = data.get("name")
+        selected_interval = data["date"]
+        name = data["name"]
+        attribute = data["attr"]
 
         attribute_settings = json.loads(attribute_settings)
         map_type = self.map_defaults[map_idx]["map_type"]
@@ -762,55 +669,18 @@ class SurfaceViewer4D(WebvizPluginABC):
         surface = None
 
         if self.sumo_name:
-            selected_interval = data["date"]
+            interval_list = get_sumo_interval_list(selected_interval)
+            surface = get_selected_surface(
+                case=self.my_case,
+                map_type=map_type,
+                surface_name=name,
+                attribute=attribute,
+                time_interval=interval_list,
+                iteration_name=ensemble,
+                realization=real,
+            )
 
-            t1 = selected_interval[-10:]
-            t2 = selected_interval[:10]
-
-            if t1 < t2:
-                interval_list = [t1, t2]
-            else:
-                interval_list = [t2, t1]
-
-            name = data["name"]
-            attribute = data["attr"]
-
-            if map_type == "observed":
-                surface = get_observed_surface(
-                    case=self.my_case,
-                    surface_name=name,
-                    attribute=attribute,
-                    time_interval=interval_list,
-                )
-            elif (
-                map_type == "simulated" and "realization" not in real
-            ):  # aggregated surface
-                surface = get_aggregated_surface(
-                    case=self.my_case,
-                    surface_name=name,
-                    attribute=attribute,
-                    time_interval=interval_list,
-                    iteration_name=ensemble,
-                    operation=real,
-                )
-
-            else:
-                realization_split = real.split("-")
-                real_id = realization_split[1]
-
-                surface = get_realization_surface(
-                    case=self.my_case,
-                    surface_name=name,
-                    attribute=attribute,
-                    time_interval=interval_list,
-                    iteration_name=ensemble,
-                    realization=real_id,
-                )
-
-            if surface is not None:
-                surface = surface.to_regular_surface()
-
-            else:
+            if surface is None:
                 heading = "Selected map doesn't exist"
                 sim_info = "-"
                 surface_layers = []
@@ -842,60 +712,28 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             # Check if there are polygon layers available for the selected zone, iteration and and realization
             if self.sumo_name:
-                default_polygon_name = self.top_res_surface_settings.get("name")
-                default_polygon_iter = self.top_res_surface_settings.get("iter")
-                default_polygon_real = self.top_res_surface_settings.get("real")
+                self.polygons = get_sumo_zone_polygons(
+                    case=self.my_case,
+                    sumo_polygons=self.sumo_polygons,
+                    polygon_settings=self.top_res_surface_settings,
+                    map_type=map_type,
+                    surface_name=name,
+                    iteration_name=ensemble,
+                    realization=real,
+                )
 
-                polygon_usage = self.top_res_surface_settings.get("polygon_usage")
+                self.polygon_layers = load_sumo_polygons(
+                    self.polygons, self.polygon_colors
+                )
 
-                zones_settings = polygon_usage.get("zones")
-                polygon_iteration = None
-                polygon_realization = None
+                if self.polygon_layers is not None:
+                    for polygon_layer in self.polygon_layers:
+                        layer_name = polygon_layer["name"]
+                        layer = polygon_layer
 
-                polygon_name = get_polygon_name(self.sumo_polygons, name)
-
-                if polygon_name is None and zones_settings:
-                    polygon_name = default_polygon_name
-
-                if polygon_name:
-                    if map_type == "simulated":
-                        if "realization" in real:
-                            polygon_iteration = ensemble
-                            polygon_realization = real
-                        else:
-                            aggregated_settings = polygon_usage.get("aggregated")
-
-                            if aggregated_settings:
-                                polygon_iteration = ensemble
-                                polygon_realization = default_polygon_real
-                    else:  # map_type == observed
-                        observed_settings = polygon_usage.get("observed")
-
-                        if observed_settings:
-                            polygon_iteration = default_polygon_iter
-                            polygon_realization = default_polygon_real
-
-                    if polygon_iteration:
-                        polygon_real_id = get_realization_id(polygon_realization)
-
-                        polygons = self.sumo_polygons.filter(
-                            name=polygon_name,
-                            iteration=polygon_iteration,
-                            realization=polygon_real_id,
-                        )
-
-                        self.polygon_layers = load_sumo_polygons(
-                            polygons, self.polygon_colors
-                        )
-
-                        if self.polygon_layers is not None:
-                            for polygon_layer in self.polygon_layers:
-                                layer_name = polygon_layer["name"]
-                                layer = polygon_layer
-
-                                surface_layers.append(layer)
-                        else:
-                            print("WARNING: No SUMO zone polygons found")
+                        surface_layers.append(layer)
+                else:
+                    print("WARNING: No SUMO zone polygons found")
             else:
                 for polygon_layer in self.polygon_layers:
                     layer_name = polygon_layer["name"]
@@ -917,47 +755,38 @@ class SurfaceViewer4D(WebvizPluginABC):
                     print(" ", well_layer["name"])
                     surface_layers.append(well_layer)
 
+            # print("Additional well layers")
+            # if self.additional_well_layers:
+            #     for well_layer in self.well_additional_layers:
+            #         print(" ", well_layer["name"])
+            #         surface_layers.append(well_layer)
+
             interval = data["date"]
 
             # Load new interval layers if selected interval has changed
             if interval != self.selected_intervals[map_idx]:
                 if get_dates(interval)[0] <= self.production_update:
-                    index = self.interval_names.index(interval)
-                    self.interval_well_layers = self.all_interval_layers[index]
-                    self.selected_intervals[map_idx] = interval
+                    if "PDM" not in str(self.production_data):
+                        index = self.interval_names.index(interval)
+                        self.interval_well_layers = self.all_interval_layers[index]
+                        self.selected_intervals[map_idx] = interval
+                    else:
+                        self.interval_well_layers = create_production_layers(
+                            field_name=self.field_name[0],
+                            pdm_provider=self.pdm_provider,
+                            interval_4d=interval,
+                            wellbore_trajectories=self.drilled_wells_df,
+                            surface_picks=self.surface_picks,
+                            layer_options=self.additional_well_layers,
+                            well_colors=self.well_colors,
+                        )
                 else:
                     self.interval_well_layers = []
 
-                if "PDM" in str(self.production_data):
-                    for key, value in self.additional_well_layers.items():
-                        layer_name = key
-                        label = value
-                        print("Layer name", layer_name)
-                        color = self.well_colors.get(layer_name, None)
-
-                        if color is None:
-                            color = self.well_colors.get("default", None)
-
-                        well_layer = create_well_layer(
-                            interval_4d=interval,
-                            metadata_df=self.drilled_wells_info,
-                            trajectories_df=self.drilled_wells_df,
-                            surface_picks=self.surface_picks,
-                            prod_data=self.prod_data,
-                            color_settings=None,
-                            layer_name=key,
-                            label=value,
-                        )
-
-                        if well_layer:
-                            self.interval_well_layers.append(well_layer)
-
-                if self.interval_well_layers:
-                    for interval_layer in self.interval_well_layers:
-                        surface_layers.append(interval_layer)
-
-            for interval_layer in self.interval_well_layers:
-                surface_layers.append(interval_layer)
+            if self.interval_well_layers:
+                for interval_layer in self.interval_well_layers:
+                    surface_layers.append(interval_layer)
+                    print(" ", interval_layer["name"])
 
             self.selected_names[map_idx] = data["name"]
             self.selected_attributes[map_idx] = data["attr"]
@@ -971,6 +800,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             sim_info = "-"
             surface_layers = []
             label = "-"
+            self.interval_status = False
 
         # print("make map", time.time() - t0)
 

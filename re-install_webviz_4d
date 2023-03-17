@@ -20,7 +20,6 @@ pip install python-dotenv
 pip install msal_extensions
 pip install pygobject
 pip install requests
-pip install ../webviz-4d-input
 pip install git+https://github.com/equinor/sumo-wrapper-python.git
 pip install git+https://github.com/equinor/fmu-sumo.git
 

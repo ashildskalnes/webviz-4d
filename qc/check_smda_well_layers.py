@@ -14,12 +14,15 @@ from webviz_4d._datainput.well import (
     load_smda_metadata,
     load_smda_wellbores,
     load_planned_wells,
-    create_well_layer,
-    create_well_layers,
+    create_basic_well_layers,
+    create_pdm_well_layer,
+    create_pdm_well_layer,
     get_surface_picks,
+    load_pdm_info,
+    create_production_layers,
 )
 
-from webviz_4d_input._providers.wellbore_provider._provider_impl_file import (
+from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 
@@ -90,7 +93,7 @@ def main():
         planned_wells_info = planned_wells.metadata.dataframe
         planned_wells_df = planned_wells.trajectories.dataframe
 
-    well_basic_layers = create_well_layers(
+    well_basic_layers = create_basic_well_layers(
         basic_well_layers,
         planned_wells_info,
         planned_wells_df,
@@ -103,7 +106,6 @@ def main():
     print("Basic well layers")
     for layer in well_basic_layers:
         data = layer.get("data")
-
         print("  ", layer.get("name"), len(data))
 
         # for well in data:
@@ -116,6 +118,20 @@ def main():
     # Load production data
     print("Loading production/injection data from PDM ...")
     default_interval = get_default_interval(selection_list=selectors, options=map_types)
+    additional_well_layers = shared_settings.get("additional_well_layers")
+
+    if color is None:
+        color = well_colors.get("default", None)
+
+    well_additional_layers = create_production_layers(
+        field_name=field_name,
+        pdm_provider=pdm_provider,
+        interval_4d=default_interval,
+        wellbore_trajectories=drilled_wells_df,
+        surface_picks=surface_picks,
+        layer_options=additional_well_layers,
+        well_colors=color,
+    )
 
     prod_data = pdm_provider.get_field_prod_data(
         field_name=field_name,
@@ -135,32 +151,44 @@ def main():
     )
     prod_data = volumes_df
 
+    pdm_wellbores = prod_data["WB_UWBI"].tolist()
+    pdm_wells_df = drilled_wells_df[
+        drilled_wells_df["unique_wellbore_identifier"].isin(pdm_wellbores)
+    ]
+
     # Create addition well layers
     additional_well_layers = shared_settings.get("additional_well_layers")
     interval = default_interval
+
+    well_additional_layers = []
 
     print("Additional well layers")
     for key, value in additional_well_layers.items():
         layer_name = key
         color = well_colors.get(layer_name, None)
+        print("  ", key)
 
         if color is None:
             color = well_colors.get("default", None)
 
-        well_layer = create_well_layer(
+        well_layer = create_pdm_well_layer(
             interval_4d=interval,
-            metadata_df=drilled_wells_info,
-            trajectories_df=drilled_wells_df,
+            metadata_df=prod_data,
+            trajectories_df=pdm_wells_df,
             surface_picks=surface_picks,
             prod_data=prod_data,
             color_settings=None,
             layer_name=key,
             label=value,
+            uwi="WB_UWBI",
         )
 
-        data = well_layer.get("data")
+        if well_layer:
+            well_additional_layers.append(well_layer)
 
-        print("  ", value, len(data))
+    for layer in well_additional_layers:
+        data = layer.get("data")
+        print("  ", layer.get("name"), len(data))
 
 
 if __name__ == "__main__":

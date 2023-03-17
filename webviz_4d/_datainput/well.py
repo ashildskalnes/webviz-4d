@@ -4,6 +4,10 @@ import numpy as np
 import xtgeo
 import xtgeo.cxtgeo._cxtgeo as _cxtgeo
 
+from webviz_4d._providers.wellbore_provider._provider_impl_file import (
+    ProviderImplFile,
+)
+
 
 def load_smda_metadata(provider, field):
     metadata = provider.drilled_wellbore_metadata(
@@ -46,7 +50,7 @@ def load_pdm_info(provider, field):
     return dataframe
 
 
-def create_well_layers(
+def create_basic_well_layers(
     basic_well_layers_dict,
     planned_wells_info,
     planned_wells_df,
@@ -56,15 +60,25 @@ def create_well_layers(
     well_colors,
 ):
     basic_well_layers = []
+    print("Creating basic well layers:")
 
     for key, value in basic_well_layers_dict.items():
         layer_name = key
+        label = value
         color = well_colors.get(layer_name, None)
 
         if color is None:
             color = well_colors.get("default", None)
 
-        prod_data = None
+        print("  ", layer_name)
+
+        tooltips = []
+        md_end = np.nan
+        layer_df = pd.DataFrame()
+
+        md_start_list = []
+        wellbores = []
+        colors = []
 
         if layer_name == "planned":
             metadata = planned_wells_info
@@ -76,16 +90,45 @@ def create_well_layers(
             metadata = drilled_wells_info
             trajectories = drilled_wells_df
 
-        well_layer = create_well_layer(
-            interval_4d=None,
-            metadata_df=metadata,
-            trajectories_df=trajectories,
-            surface_picks=surface_picks,
-            prod_data=prod_data,
-            color_settings=None,
-            layer_name=key,
-            label=value,
-        )
+        for row in metadata.iterrows():
+            # print(row)
+            status = False
+
+            df = row[1]
+            wellbore_name = df["unique_wellbore_identifier"]
+
+            md_start = 0
+
+            if layer_name == "reservoir_sections":
+                if surface_picks is not None and not surface_picks.empty:
+                    try:
+                        selected_surface_pick = surface_picks[
+                            surface_picks["unique_wellbore_identifier"] == wellbore_name
+                        ]
+                        md_start = selected_surface_pick["md"].to_numpy()[0]
+
+                        status = True
+                    except:
+                        md_start = np.nan
+            else:
+                status = True
+
+            if status:
+                tooltip = create_basic_tooltip(row, layer_name)
+
+                tooltips.append(tooltip)
+                md_start_list.append(md_start)
+                wellbores.append(wellbore_name)
+                colors.append(color)
+
+        layer_df["unique_wellbore_identifier"] = wellbores
+        layer_df["color"] = colors
+        layer_df["tooltip"] = tooltips
+        layer_df["layer_name"] = "well_layer_" + layer_name
+        layer_df["md_start"] = md_start_list
+        layer_df["md_end"] = md_end
+
+        well_layer = create_well_layer(layer_df, trajectories, label=label)
 
         if well_layer:
             basic_well_layers.append(well_layer)
@@ -93,7 +136,7 @@ def create_well_layers(
     return basic_well_layers
 
 
-def create_well_layer(
+def create_pdm_well_layer(
     interval_4d: list = None,
     metadata_df: pd.DataFrame = None,
     trajectories_df: pd.DataFrame = None,
@@ -103,6 +146,7 @@ def create_well_layer(
     color_settings: dict = {},
     layer_name: str = "",
     label: str = "",
+    uwi="unique_wellbore_identifier",
 ):
     """Make layeredmap wells layer"""
     prod_units = {
@@ -151,18 +195,17 @@ def create_well_layer(
     if interval_4d is not None:
         interval = interval_4d
 
-    # print("Layer name", layer_name)
+    print("Layer name", layer_name)
     for row in metadata_df.iterrows():
         # print(row)
         status = False
-        tooltip = create_tooltip(row, layer_name)
         color = color_settings.get("default")
 
         if layer_name == "planned":
             color = color_settings.get("planned")
 
         df = row[1]
-        wellbore_name = df["unique_wellbore_identifier"]
+        wellbore_name = df[uwi]
 
         md_start = 0
 
@@ -193,7 +236,7 @@ def create_well_layer(
                         prod_data, wellbore_name, fluids
                     )
 
-                    if status and tooltip:
+                    if status:
                         short_name = get_short_wellname(wellbore_name)
                         fluids_text = ""
 
@@ -260,13 +303,9 @@ def create_well_layer(
 
     # print(layer_df)
 
-    well_layer = make_new_smda_well_layer(
-        layer_df,
-        trajectories_df,
-        label=label,
-    )
+    pdm_well_layer = create_well_layer(layer_df, trajectories_df, label=label)
 
-    return well_layer
+    return pdm_well_layer
 
 
 def get_production_data(prod_data, wellbore_name, fluids):
@@ -292,17 +331,15 @@ def get_production_data(prod_data, wellbore_name, fluids):
     return status, fluid_volumes
 
 
-def make_new_smda_well_layer(
-    layer_df,
-    wells_df,
-    label="Drilled wells",
+def create_well_layer(
+    layer_df, wells_df, label="Drilled wells", uwi="unique_wellbore_identifier"
 ):
     """Make layeredmap wells layer"""
     # t0 = time.time()
     data = []
 
     for _index, row in layer_df.iterrows():
-        true_name = row["unique_wellbore_identifier"]
+        true_name = row[uwi]
         well_dataframe = wells_df[wells_df["unique_wellbore_identifier"] == true_name]
 
         polyline_data = get_well_polyline(
@@ -321,15 +358,13 @@ def make_new_smda_well_layer(
     return layer
 
 
-def create_tooltip(row, layer_name):
+def create_basic_tooltip(row, layer_name):
     tooltip = None
 
     if layer_name in [
         "planned",
         "drilled_wells",
         "reservoir_sections",
-        "production",
-        "injection",
     ]:
         df = row[1]
         wellbore_name = df["unique_wellbore_identifier"]
@@ -590,3 +625,65 @@ def check_interval_date(interval, selected_date):
         status = "less"
 
     return status
+
+
+def create_production_layers(
+    field_name: str = "",
+    pdm_provider: ProviderImplFile = None,
+    interval_4d: str = "",
+    wellbore_trajectories: pd.DataFrame = None,
+    surface_picks: pd.DataFrame = None,
+    layer_options: dict = None,
+    well_colors: dict = None,
+):
+    print("Loading production/injection data from PDM ...")
+
+    production_data = pdm_provider.get_field_prod_data(
+        field_name=field_name,
+        start_date=interval_4d[-10:],
+        end_date=interval_4d[:10],
+    )
+
+    injection_data = pdm_provider.get_field_inj_data(
+        field_name=field_name,
+        start_date=interval_4d[-10:],
+        end_date=interval_4d[:10],
+    )
+    volumes = pd.merge(
+        production_data.dataframe,
+        injection_data.dataframe,
+        how="outer",
+    )
+
+    pdm_wellbores = volumes["WB_UWBI"].tolist()
+    pdm_trajectories = wellbore_trajectories[
+        wellbore_trajectories["unique_wellbore_identifier"].isin(pdm_wellbores)
+    ]
+
+    print("Creating interval well layers ...")
+    interval_well_layers = []
+
+    for key, value in layer_options.items():
+        layer_name = key
+        color = well_colors.get(layer_name, None)
+
+        if color is None:
+            color = well_colors.get("default", None)
+
+        well_layer = create_pdm_well_layer(
+            interval_4d=interval_4d,
+            metadata_df=volumes,
+            trajectories_df=pdm_trajectories,
+            surface_picks=surface_picks,
+            prod_data=volumes,
+            color_settings=well_colors,
+            layer_name=key,
+            label=value,
+            uwi="WB_UWBI",
+        )
+
+        if well_layer:
+            print("  Well layer added:", key)
+            interval_well_layers.append(well_layer)
+
+    return interval_well_layers

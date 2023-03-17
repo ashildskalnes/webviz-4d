@@ -1,8 +1,9 @@
 import pandas as pd
 
 from fmu.sumo.explorer.objects.case import Case
+from fmu.sumo.explorer.objects.polygons_collection import PolygonsCollection
 from fmu.sumo.explorer.timefilter import TimeType, TimeFilter
-from webviz_4d._datainput._metadata import sort_realizations
+from webviz_4d._datainput._metadata import get_realization_id
 
 
 def sort_intervals(intervals):
@@ -163,13 +164,13 @@ def create_selector_lists(my_case, mode):
             print("ERROR: Not supported map_type", map_type)
             return None
 
-        print(map_type)
+        # print(map_type)
         # print("  all surfaces:", len(surfaces))
 
         if mode == "timelapse":
             timelapse_surfaces = surfaces.filter(time=time)
             surfaces = timelapse_surfaces
-            print("  timelapse surfaces:", len(timelapse_surfaces))
+            print(map_type, "- timelapse surfaces:", len(timelapse_surfaces))
 
         names = surfaces.names
         attributes = surfaces.tagnames
@@ -365,7 +366,6 @@ def get_polygon_name(sumo_polygons, surface_name):
         elif surface_name.lower() in polygon.name.lower():
             name = polygon.name
 
-    print("DEBUG: get_polygon_name", surface_name, name)
     return name
 
 
@@ -484,3 +484,116 @@ def open_surface_with_xtgeo(surface):
         print("ERROR: non-existing surface")
 
     return surface_object
+
+
+def get_sumo_interval_list(interval):
+    t1 = interval[-10:]
+    t2 = interval[:10]
+
+    if t1 < t2:
+        interval_list = [t1, t2]
+    else:
+        interval_list = [t2, t1]
+
+    return interval_list
+
+
+def get_selected_surface(
+    case: Case = None,
+    map_type: str = "",
+    surface_name: str = "",
+    attribute: str = "",
+    time_interval: list = [],
+    iteration_name: str = "iter-0",
+    realization: str = "",
+):
+    if map_type == "observed":
+        surface = get_observed_surface(
+            case=case,
+            surface_name=surface_name,
+            attribute=attribute,
+            time_interval=time_interval,
+        )
+    elif (
+        map_type == "simulated" and "realization" not in realization
+    ):  # aggregated surface
+        surface = get_aggregated_surface(
+            case=case,
+            surface_name=surface_name,
+            attribute=attribute,
+            time_interval=time_interval,
+            iteration_name=iteration_name,
+            operation=realization,
+        )
+
+    else:
+        realization_split = realization.split("-")
+        real_id = realization_split[1]
+
+        surface = get_realization_surface(
+            case=case,
+            surface_name=surface_name,
+            attribute=attribute,
+            time_interval=time_interval,
+            iteration_name=iteration_name,
+            realization=real_id,
+        )
+
+    if surface is not None:
+        surface = surface.to_regular_surface()
+
+    return surface
+
+
+def get_sumo_zone_polygons(
+    case: Case = None,
+    sumo_polygons: PolygonsCollection = None,
+    polygon_settings: str = "",
+    map_type: str = "",
+    surface_name: str = "",
+    iteration_name: str = "",
+    realization: str = "",
+):
+    default_polygon_name = polygon_settings.get("name")
+    default_polygon_iter = polygon_settings.get("iter")
+    default_polygon_real = polygon_settings.get("real")
+
+    polygon_usage = polygon_settings.get("polygon_usage")
+
+    zones_settings = polygon_usage.get("zones")
+    polygon_iteration = None
+    polygon_realization = None
+
+    polygon_name = get_polygon_name(sumo_polygons, surface_name)
+
+    if polygon_name is None and zones_settings:
+        polygon_name = default_polygon_name
+
+    if polygon_name:
+        if map_type == "simulated":
+            if "realization" in realization:
+                polygon_iteration = iteration_name
+                polygon_realization = realization
+            else:
+                aggregated_settings = polygon_usage.get("aggregated")
+
+                if aggregated_settings:
+                    polygon_iteration = iteration_name
+                    polygon_realization = default_polygon_real
+        else:  # map_type == observed
+            observed_settings = polygon_usage.get("observed")
+
+            if observed_settings:
+                polygon_iteration = default_polygon_iter
+                polygon_realization = default_polygon_real
+
+        if polygon_iteration:
+            polygon_real_id = get_realization_id(polygon_realization)
+
+            polygons = case.polygons.filter(
+                name=polygon_name,
+                iteration=polygon_iteration,
+                realization=polygon_real_id,
+            )
+
+    return polygons
