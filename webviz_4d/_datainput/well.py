@@ -687,3 +687,76 @@ def create_production_layers(
             interval_well_layers.append(well_layer)
 
     return interval_well_layers
+
+
+def get_well_position_data(well_dataframe, md_start, md_end, delta):
+    """Return x- and y-values for a well between given depths"""
+    positions = [[]]
+
+    td = well_dataframe["md"].iloc[-1]
+
+    if not math.isnan(md_start):
+        if md_start > td:
+            print("WARNING: Wellbore: ", well_dataframe["WELLBORE_NAME"].iloc[0])
+            print("md_start:", md_start, "TD:", td)
+
+            return positions
+
+        well_df = well_dataframe[well_dataframe["md"] >= md_start]
+
+        resampled_df = resample_well(well_df, md_start, md_end, delta)
+        positions = resampled_df[["easting", "northing"]].values
+
+    return positions
+
+
+def resample_well(well_df, md_start, md_end, delta):
+    # Resample well trajectory by selecting only positions with a lateral distance larger than the given delta value
+    dfr_new = pd.DataFrame()
+
+    if not md_end or math.isnan(md_end):
+        md_end = well_df["md"].iloc[-1]
+
+    dfr = well_df[(well_df["md"] >= md_start) & (well_df["md"] <= md_end)]
+
+    x = dfr["easting"].values
+    y = dfr["northing"].values
+    tvd = dfr["tvd_msl"].values
+    md = dfr["md"].values
+
+    x_new = [x[0]]
+    y_new = [y[0]]
+    tvd_new = [tvd[0]]
+    md_new = [md[0]]
+    j = 0
+
+    for i in range(1, len(x)):
+        dist = ((x[i] - x[j]) ** 2 + (y[i] - y[j]) ** 2) ** 0.5
+        # print(i, j, md[i], dist)
+
+        if dist > delta:
+            x_new.append(x[i])
+            y_new.append(y[i])
+            tvd_new.append(tvd[i])
+            md_new.append(md[i])
+            j = i
+
+    # Check if the last original positions should be added
+    if md_new[-1] < md[-1]:
+        x_new.append(x[-1])
+        y_new.append(y[-1])
+        tvd_new.append(tvd[-1])
+        md_new.append(md[-1])
+
+    dfr_new["easting"] = x_new
+    dfr_new["northing"] = y_new
+    dfr_new["tvd_msl"] = tvd_new
+    dfr_new["md"] = md_new
+
+    return dfr_new
+
+
+def get_rms_name(wellbore_name):
+    rms_name = wellbore_name.replace("/", "_").replace("NO ", "").replace(" ", "_")
+
+    return rms_name

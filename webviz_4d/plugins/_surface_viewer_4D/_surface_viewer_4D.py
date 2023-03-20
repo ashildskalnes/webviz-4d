@@ -53,16 +53,10 @@ from webviz_4d._datainput._polygons import (
 
 from webviz_4d._datainput._metadata import (
     get_all_map_defaults,
-    get_realization_id,
 )
 
 from webviz_4d._datainput._sumo import (
     create_selector_lists,
-    get_observed_surface,
-    get_aggregated_surface,
-    get_realization_surface,
-    get_polygon_name,
-    print_sumo_objects,
     get_sumo_interval_list,
     get_selected_surface,
     get_sumo_zone_polygons,
@@ -118,8 +112,11 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
         self.top_res_surface_settings = self.shared_settings.get("top_res_surface")
 
+        self.selector_file = selector_file
         self.production_data = production_data
         self.wellfolder = wellfolder
+        self.polygons_folder = polygons_folder
+        self.colormaps_folder = colormaps_folder
         self.map_suffix = map_suffix
         self.delimiter = delimiter
         self.interval_mode = interval_mode
@@ -161,53 +158,8 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if self.basic_well_layers is None:
             self.basic_well_layers = default_basic_well_layers
-            self.well_layer_dir = Path(os.path.join(wellfolder, "well_layers"))
 
-        if self.sumo_name:
-            self.api_usage["sumo"] = True
-            env = "prod"
-            self.sumo = Explorer(env=env)
-            self.my_case = self.sumo.cases.filter(name=self.sumo_name)[0]
-            self.label = "SUMO case: " + self.sumo_name
-            self.iterations = self.my_case.iterations
-            print("SUMO case:", self.my_case.name)
-
-            print("Create selection lists ...")
-            time_mode = "timelapse"
-            self.selection_list = create_selector_lists(
-                self.my_case,
-                time_mode,
-            )
-
-            if self.selection_list is None:
-                sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
-        else:
-            # Read maps metadata from file
-            self.my_case = None
-            self.surface_metadata_file = surface_metadata_file
-            print("Reading maps metadata from", self.surface_metadata_file)
-            self.surface_metadata = (
-                read_csv(csv_file=self.surface_metadata_file)
-                if self.surface_metadata_file is not None
-                else None
-            )
-
-            self.selector_file = selector_file
-            self.selection_list = read_config(get_path(path=self.selector_file))
-
-            self.polygons_folder = polygons_folder
-
-        surface = get_top_res_surface(
-            self.shared_settings.get("top_res_surface"), self.my_case
-        )
-
-        if surface:
-            self.top_res_surface = surface
-        else:
-            self.top_res_surface = None
-
-        # Read custom colormaps
-        self.colormaps_folder = colormaps_folder
+        # Include custom colormaps if wanted
         if self.colormaps_folder is not None:
             self.colormap_files = [
                 get_path(Path(fn))
@@ -241,6 +193,42 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.default_interval is None:
             map_types = ["observed", "simulated"]
             self.default_interval = get_default_interval(self.selection_list, map_types)
+
+        if self.sumo_name:
+            self.api_usage["sumo"] = True
+            env = "prod"
+            self.sumo = Explorer(env=env)
+            self.my_case = self.sumo.cases.filter(name=self.sumo_name)[0]
+            self.label = "SUMO case: " + self.sumo_name
+            self.iterations = self.my_case.iterations
+            print("SUMO case:", self.my_case.name)
+
+            print("Create selection lists ...")
+            time_mode = "timelapse"
+            self.selection_list = create_selector_lists(
+                self.my_case,
+                time_mode,
+            )
+
+            if self.selection_list is None:
+                sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
+        else:
+            # Read maps metadata from file
+            self.my_case = None
+            self.surface_metadata_file = surface_metadata_file
+            print("Reading maps metadata from", self.surface_metadata_file)
+            self.surface_metadata = (
+                read_csv(csv_file=self.surface_metadata_file)
+                if self.surface_metadata_file is not None
+                else None
+            )
+
+            self.selection_list = read_config(get_path(path=self.selector_file))
+            self.well_layer_dir = Path(os.path.join(wellfolder, "well_layers"))
+
+        self.top_res_surface = get_top_res_surface(
+            self.shared_settings.get("top_res_surface"), self.my_case
+        )
 
         print("Default interval", self.default_interval)
 

@@ -20,6 +20,8 @@ from webviz_4d._providers.wellbore_provider.create_well_layers import (
     create_new_well_layer,
 )
 
+from webviz_4d._datainput.well import get_well_position_data
+
 
 def get_info(start_date, stop_date, fluid, volume):
     """Create information string for production/injection wells"""
@@ -62,7 +64,7 @@ def get_well_polyline(
     """Create polyline data - contains well trajectory, color and tooltip"""
     layer_dict = {}
 
-    positions = get_position_data(well_dataframe, md_start, md_end, delta)
+    positions = get_well_position_data(well_dataframe, md_start, md_end, delta)
 
     if len(positions) > 1:
         layer_dict = {
@@ -73,79 +75,6 @@ def get_well_polyline(
         }
 
     return layer_dict
-
-
-def get_position_data(well_dataframe, md_start, md_end, delta):
-    """Return x- and y-values for a well between given depths"""
-    positions = [[]]
-
-    td = well_dataframe["MD"].iloc[-1]
-
-    if not math.isnan(md_start):
-        if md_start > td:
-            print("WARNING: Wellbore: ", well_dataframe["WELLBORE_NAME"].iloc[0])
-            print("md_start:", md_start, "TD:", td)
-
-            return positions
-
-        well_df = well_dataframe[well_dataframe["MD"] >= md_start]
-
-        resampled_df = resample_well(well_df, md_start, md_end, delta)
-        positions = resampled_df[["X_UTME", "Y_UTMN"]].values
-
-    return positions
-
-
-def resample_well(well_df, md_start, md_end, delta):
-    # Resample well trajectory by selecting only positions with a lateral distance larger than the given delta value
-    dfr_new = pd.DataFrame()
-
-    if not md_end or math.isnan(md_end):
-        md_end = well_df["MD"].iloc[-1]
-
-    dfr = well_df[(well_df["MD"] >= md_start) & (well_df["MD"] <= md_end)]
-
-    x = dfr["X_UTME"].values
-    y = dfr["Y_UTMN"].values
-    tvd = dfr["Z_TVDSS"].values
-    md = dfr["MD"].values
-
-    x_new = [x[0]]
-    y_new = [y[0]]
-    tvd_new = [tvd[0]]
-    md_new = [md[0]]
-    j = 0
-
-    for i in range(1, len(x)):
-        dist = ((x[i] - x[j]) ** 2 + (y[i] - y[j]) ** 2) ** 0.5
-        # print(i, j, md[i], dist)
-
-        if dist > delta:
-            x_new.append(x[i])
-            y_new.append(y[i])
-            tvd_new.append(tvd[i])
-            md_new.append(md[i])
-            j = i
-
-    # Check if the last original positions should be added
-    if md_new[-1] < md[-1]:
-        x_new.append(x[-1])
-        y_new.append(y[-1])
-        tvd_new.append(tvd[-1])
-        md_new.append(md[-1])
-
-    dfr_new["X_UTME"] = x_new
-    dfr_new["Y_UTMN"] = y_new
-    dfr_new["Z_TVDSS"] = tvd_new
-    dfr_new["MD"] = md_new
-
-    return dfr_new
-
-
-def get_rms_name(wellbore_name):
-    rms_name = wellbore_name.replace("/", "_").replace("NO ", "").replace(" ", "_")
-
-    return rms_name
 
 
 def get_surface_picks(wellbores_df, surf):

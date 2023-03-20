@@ -1,6 +1,5 @@
-""" Collection of some functions used by the 4D viewer or data preparation scripts """
+""" Collection of some functions used by the 4D viewer"""
 
-import os
 import io
 from pathlib import Path
 import json
@@ -125,14 +124,6 @@ def get_update_dates(welldata, productiondata):
     return update_dates
 
 
-def get_position_data(well_dataframe, md_start):
-    """Return x- and y-values for a well after a given depth"""
-    well_dataframe = well_dataframe[well_dataframe["MD"] > md_start]
-    positions = well_dataframe[["X_UTME", "Y_UTMN"]].values
-
-    return positions
-
-
 def get_plot_label(configuration, interval):
     difference_mode = "normal"
     labels = []
@@ -164,24 +155,3 @@ def get_well_colors(settings):
     """Return well colors from a configuration"""
 
     return settings["well_colors"]
-
-
-def get_colormap(configuration, attribute):
-    colormap = None
-    minval = None
-    maxval = None
-
-    try:
-        attribute_dict = configuration[attribute]
-        # print("attribute_dict", attribute_dict)
-        colormap = attribute_dict["colormap"]
-        minval = attribute_dict["min_value"]
-        minval = attribute_dict["max_value"]
-    except:
-        try:
-            map_settings = configuration("map_settings")
-            colormap = map_settings("default_colormap")
-        except:
-            print("No default colormaps found for ", attribute)
-
-    return colormap, minval, maxval

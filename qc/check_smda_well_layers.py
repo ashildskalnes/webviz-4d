@@ -120,9 +120,6 @@ def main():
     default_interval = get_default_interval(selection_list=selectors, options=map_types)
     additional_well_layers = shared_settings.get("additional_well_layers")
 
-    if color is None:
-        color = well_colors.get("default", None)
-
     well_additional_layers = create_production_layers(
         field_name=field_name,
         pdm_provider=pdm_provider,
@@ -130,7 +127,7 @@ def main():
         wellbore_trajectories=drilled_wells_df,
         surface_picks=surface_picks,
         layer_options=additional_well_layers,
-        well_colors=color,
+        well_colors=well_colors,
     )
 
     prod_data = pdm_provider.get_field_prod_data(

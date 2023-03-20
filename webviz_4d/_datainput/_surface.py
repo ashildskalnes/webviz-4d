@@ -13,6 +13,8 @@ from webviz_4d._datainput._sumo import (
     get_aggregated_surface,
 )
 
+from webviz_4d._datainput.image_processing import get_colormap
+
 
 @CACHE.memoize(timeout=CACHE.TIMEOUT)
 def load_surface(surface_path):

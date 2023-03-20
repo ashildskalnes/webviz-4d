@@ -563,6 +563,7 @@ def get_sumo_zone_polygons(
     zones_settings = polygon_usage.get("zones")
     polygon_iteration = None
     polygon_realization = None
+    polygons = []
 
     polygon_name = get_polygon_name(sumo_polygons, surface_name)
 
