@@ -18,7 +18,6 @@ from webviz_4d._datainput.well import (
     create_pdm_well_layer,
     create_pdm_well_layer,
     get_surface_picks,
-    load_pdm_info,
     create_production_layers,
 )
 

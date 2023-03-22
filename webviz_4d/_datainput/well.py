@@ -2,6 +2,7 @@ import pandas as pd
 import math
 import numpy as np
 import xtgeo
+import time
 import xtgeo.cxtgeo._cxtgeo as _cxtgeo
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
@@ -635,20 +636,28 @@ def create_production_layers(
     surface_picks: pd.DataFrame = None,
     layer_options: dict = None,
     well_colors: dict = None,
+    prod_interval: str = "Day",
 ):
     print("Loading production/injection data from PDM ...")
+    tic = time.perf_counter()
 
     production_data = pdm_provider.get_field_prod_data(
         field_name=field_name,
         start_date=interval_4d[-10:],
         end_date=interval_4d[:10],
+        interval=prod_interval,
     )
 
     injection_data = pdm_provider.get_field_inj_data(
         field_name=field_name,
         start_date=interval_4d[-10:],
         end_date=interval_4d[:10],
+        interval=prod_interval,
     )
+
+    toc = time.perf_counter()
+    print(f"Downloaded production and injection data in {toc - tic:0.4f} seconds")
+
     volumes = pd.merge(
         production_data.dataframe,
         injection_data.dataframe,

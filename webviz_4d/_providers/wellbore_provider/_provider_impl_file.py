@@ -200,12 +200,12 @@ class ProviderImplFile(wb.WellboreProvider):
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         interval: Optional[str] = "Day",
+        field_uuid: Optional[str] = None,
     ) -> wb.ProductionVolumes:
-        dataframe = DataFrame()
         volumes = None
 
         filter = extract_pdm_filter(
-            field_name, wellbore_names, start_date, end_date, interval
+            field_name, wellbore_names, start_date, end_date, interval, field_uuid
         )
         volumes = extract_field_production(self.pdm_address, filter, interval)
 
@@ -218,12 +218,12 @@ class ProviderImplFile(wb.WellboreProvider):
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         interval: Optional[str] = "Day",
+        field_uuid: Optional[str] = None,
     ) -> wb.InjectionVolumes:
-        dataframe = DataFrame()
         volumes = None
 
         filter = extract_pdm_filter(
-            field_name, wellbore_names, start_date, end_date, interval
+            field_name, wellbore_names, start_date, end_date, interval, field_uuid
         )
         volumes = extract_field_injection(self.pdm_address, filter, interval)
 
@@ -255,7 +255,7 @@ class ProviderImplFile(wb.WellboreProvider):
         dataframe = DataFrame()
         dates = None
 
-        filter = extract_pdm_filter(field_name, pdm_wellbores, None, None, None)
+        filter = extract_pdm_filter(field_name, pdm_wellbores)
         dataframe = extract_pdm_wellbores(self.pdm_address, filter)
 
         dates = wb.PdmDates(dataframe)

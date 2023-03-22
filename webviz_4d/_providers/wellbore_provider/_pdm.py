@@ -135,17 +135,18 @@ def extract_production(pdm_address, filter, interval):
 
 
 def extract_field_production(pdm_address, filter, interval):
-    endpoint = pdm_address.api + "/WellBoreProdDayCompact?"
+    endpoint = pdm_address.api + "/WellBoreProd" + interval + "Compact?"
+    prod_time = "PROD_" + interval.upper()
     columns = [
         "WB_UWBI",
         "WB_UUID",
-        "GOV_WB_NAME",
-        "WELL_UWI",
-        "PROD_DAY",
+        # "GOV_WB_NAME",
+        # "WELL_UWI",
+        prod_time,
         "WB_OIL_VOL_SM3",
         "WB_GAS_VOL_SM3",
         "WB_WATER_VOL_M3",
-        "GOV_FIELD_NAME",
+        # "GOV_FIELD_NAME",
     ]
 
     volumes = None
@@ -173,11 +174,12 @@ def extract_field_production(pdm_address, filter, interval):
     else:
         pdm_well_names = daily_df["WB_UWBI"].unique()
 
-        first_date = daily_df["PROD_DAY"].min()
-        last_date = daily_df["PROD_DAY"].max()
-        daily_df = daily_df[
-            daily_df["PROD_DAY"] != last_date
-        ]  # Do not include the last day
+        if interval == "Day":
+            first_date = daily_df[prod_time].min()
+            last_date = daily_df[prod_time].max()
+            daily_df = daily_df[
+                daily_df[prod_time] != last_date
+            ]  # Do not include the last day
 
         for pdm_name in pdm_well_names:
             wellbore_volumes = daily_df[daily_df["WB_UWBI"] == pdm_name]
@@ -197,8 +199,8 @@ def extract_field_production(pdm_address, filter, interval):
         dataframe["GAS_VOL"] = gas_volumes
         dataframe["WATER_VOL"] = water_volumes
 
-        first_date = first_date[:10]
-        second_date = last_date[:10]
+        # first_date = first_date[:10]
+        # second_date = last_date[:10]
 
     volumes = wb.ProductionVolumes(
         oil_unit,
@@ -213,19 +215,18 @@ def extract_field_production(pdm_address, filter, interval):
 
 
 def extract_field_injection(pdm_address, filter, interval):
-    endpoint = pdm_address.api + "/WellBoreInjDayCompact?"
+    endpoint = pdm_address.api + "/WellBoreInj" + interval + "Compact?"
+    prod_time = "PROD_" + interval.upper()
     columns = [
         "WB_UWBI",
         "WB_UUID",
-        "GOV_WB_NAME",
-        "WELL_UWI",
-        "PROD_DAY",
+        # "GOV_WB_NAME",
+        # "WELL_UWI",
+        prod_time,
         "INJ_TYPE",
         "WB_INJ_VOL",
-        "GOV_FIELD_NAME",
+        # "GOV_FIELD_NAME",
     ]
-
-    inj_types = ["GI", "WI", "CI"]
 
     volumes = None
     dataframe = DataFrame()
@@ -247,10 +248,10 @@ def extract_field_injection(pdm_address, filter, interval):
     else:
         pdm_well_names = daily_df["WB_UWBI"].unique()
 
-        first_date = daily_df["PROD_DAY"].min()
-        last_date = daily_df["PROD_DAY"].max()
+        first_date = daily_df[prod_time].min()
+        last_date = daily_df[prod_time].max()
         daily_df = daily_df[
-            daily_df["PROD_DAY"] != last_date
+            daily_df[prod_time] != last_date
         ]  # Do not include the last day
 
         for pdm_name in pdm_well_names:
@@ -320,13 +321,22 @@ def extract_injection(pdm_address, filter):
     return extract_pdm_data(pdm_address.session, endpoint, columns, filter)
 
 
-def extract_pdm_filter(field_name, wellbore_names, start_date, end_date, interval):
+def extract_pdm_filter(
+    field_name: str = None,
+    wellbore_names: list = [],
+    start_date: str = None,
+    end_date: str = None,
+    interval: str = None,
+    field_uuid: str = None,
+):
     filter = ""
 
     if wellbore_names:
         filter = filter + "WB_UWBI=" + wellbore_names[0]
         for i in range(1, len(wellbore_names)):
             filter = filter + "," + wellbore_names[i]
+    elif field_uuid:
+        filter = "FIELD_UUID=" + field_uuid
     else:
         filter = "GOV_FIELD_NAME=" + field_name
 
@@ -341,7 +351,14 @@ def extract_pdm_filter(field_name, wellbore_names, start_date, end_date, interva
 
 def extract_pdm_wellbores(pdm_address, filter):
     endpoint = pdm_address.api + "/WellBoreMaster?"
-    columns = ["WB_UWBI", "WB_START_DATE", "WB_END_DATE", "PURPOSE", "CONTENT"]
+    columns = [
+        "WB_UWBI",
+        "WB_START_DATE",
+        "WB_END_DATE",
+        "PURPOSE",
+        "CONTENT",
+        "FIELD_UUID",
+    ]
 
     return extract_pdm_data(pdm_address.session, endpoint, columns, filter)
 

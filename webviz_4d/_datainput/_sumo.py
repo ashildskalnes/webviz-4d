@@ -130,11 +130,10 @@ def create_selector_lists(my_case, mode):
     iter_name = iteration_names[0]
 
     # time filter for intervals
-    time = TimeFilter(type=TimeType.INTERVAL)
+    time = TimeFilter(time_type=TimeType.INTERVAL)
 
     realization_surfaces = my_case.surfaces.filter(
-        stage="realization",
-        iteration=iter_name,
+        stage="realization", iteration=iter_name, time=time
     )
     print("Surfaces in iteration:", iter_name, len(realization_surfaces))
     realizations = realization_surfaces.realizations
@@ -332,19 +331,21 @@ def get_aggregated_surface(
 
 def create_time_filter(time_interval, exact):
     if len(time_interval) == 0:
-        time = TimeFilter(type=TimeType.NONE)
+        time = TimeFilter(time_type=TimeType.NONE)
     elif len(time_interval) == 1:
-        time = TimeFilter(type=TimeType.TIMESTAMP, start=time_interval[0], exact=exact)
+        time = TimeFilter(
+            time_type=TimeType.TIMESTAMP, start=time_interval[0], exact=exact
+        )
     elif len(time_interval) == 2:
         if time_interval[0] is False and time_interval[1] is False:
-            time = TimeFilter(type=TimeType.NONE)
+            time = TimeFilter(time_type=TimeType.NONE)
         elif time_interval[1] is False:
             time = TimeFilter(
-                type=TimeType.TIMESTAMP, start=time_interval[0], exact=exact
+                time_type=TimeType.TIMESTAMP, start=time_interval[0], exact=exact
             )
         else:
             time = TimeFilter(
-                type=TimeType.INTERVAL,
+                time_type=TimeType.INTERVAL,
                 start=time_interval[0],
                 end=time_interval[1],
                 exact=exact,

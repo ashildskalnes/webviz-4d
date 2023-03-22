@@ -1,5 +1,9 @@
+import os
 import argparse
+
 from fmu.sumo.explorer import Explorer
+
+from webviz_4d._datainput.common import read_config
 from webviz_4d._datainput._polygons import load_sumo_polygons
 from webviz_4d._datainput._sumo import print_sumo_objects
 
@@ -7,12 +11,16 @@ from webviz_4d._datainput._sumo import print_sumo_objects
 def main():
     description = "Test SUMO polygons"
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("sumo_name")
-    # parser.add_argument("polygon_name")
+    parser.add_argument("config_file")
+
     args = parser.parse_args()
 
-    sumo_name = args.sumo_name
-    # polygon_name = args.polygon_name
+    config_file = args.config_file
+    config_file = os.path.abspath(config_file)
+
+    config = read_config(config_file)
+    shared_settings = config.get("shared_settings")
+    sumo_name = shared_settings.get("sumo_name")
     sumo = Explorer(env="prod")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]

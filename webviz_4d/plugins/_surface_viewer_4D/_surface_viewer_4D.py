@@ -423,6 +423,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 surface_picks=self.surface_picks,
                 layer_options=self.additional_well_layers,
                 well_colors=self.well_colors,
+                prod_interval="Day",
             )
 
             for interval_layer in self.interval_well_layers:
@@ -767,6 +768,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                             surface_picks=self.surface_picks,
                             layer_options=self.additional_well_layers,
                             well_colors=self.well_colors,
+                            prod_interval="Day",
                         )
                 else:
                     self.interval_well_layers = []
