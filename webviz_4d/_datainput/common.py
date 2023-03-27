@@ -124,7 +124,7 @@ def get_update_dates(welldata, productiondata):
     return update_dates
 
 
-def get_plot_label(configuration, interval):
+def get_plot_label(date_labels, interval):
     difference_mode = "normal"
     labels = []
 
@@ -136,8 +136,7 @@ def get_plot_label(configuration, interval):
     for date in dates:
         # date = convert_date(date)
         try:
-            labels_dict = configuration["date_labels"]
-            label = labels_dict[int(date)]
+            label = date_labels[int(date)]
         except:
             label = date[:4] + "-" + date[4:6] + "-" + date[6:8]
 
