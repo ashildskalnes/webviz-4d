@@ -86,7 +86,7 @@ class SurfaceViewer4D(WebvizPluginABC):
     def __init__(
         self,
         app,
-        wellfolder: Path = None,
+        well_folder: Path = None,
         production_data: Path = None,
         polygons_folder: Path = None,
         colormaps_folder: Path = None,
@@ -95,7 +95,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         map3_defaults: dict = None,
         map_suffix: str = ".gri",
         default_interval: str = None,
-        settings: Path = None,
+        settings_file: Path = None,
         delimiter: str = "--",
         surface_metadata_file: Path = None,
         attribute_maps_file: Path = None,
@@ -114,7 +114,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         self.selector_file = selector_file
         self.production_data = production_data
-        self.wellfolder = wellfolder
+        self.wellfolder = well_folder
         self.polygons_folder = polygons_folder
         self.colormaps_folder = colormaps_folder
         self.map_suffix = map_suffix
@@ -122,8 +122,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.interval_mode = interval_mode
         self.default_interval = default_interval
 
+        settings_folder = os.path.dirname(os.path.abspath(settings_file))
         self.define_defaults()
-        self.load_settings_info(settings)
+        self.load_settings_info(settings_file)
 
         # Include custom colormaps if wanted
         self.get_additional_colormaps()
@@ -149,9 +150,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         #     self.well_colors = get_well_colors(self.config)
 
         # Read/create defaults
-        if self.default_interval is None:
-            map_types = ["observed", "simulated"]
-            self.default_interval = get_default_interval(self.selection_list, map_types)
 
         if self.sumo_name:
             self.api_usage["sumo"] = True
@@ -183,11 +181,14 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
 
             self.selection_list = read_config(get_path(path=self.selector_file))
-            self.well_layer_dir = Path(os.path.join(wellfolder, "well_layers"))
 
         self.top_res_surface = get_top_res_surface(
             self.shared_settings.get("top_res_surface"), self.my_case
         )
+
+        if self.default_interval is None:
+            map_types = ["observed", "simulated"]
+            self.default_interval = get_default_interval(self.selection_list, map_types)
 
         print("Default interval", self.default_interval)
 
@@ -335,8 +336,9 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             self.pdm_wells_df = load_all_wells(self.pdm_wells_info)
 
+            self.well_layer_dir = Path(os.path.join(settings_folder, "well_layers"))
             layer_overview_file = get_path(
-                Path(self.well_layer_dir / "well_layers.yaml")
+                Path(os.path.join(self.well_layer_dir, "well_layers.yaml"))
             )
             self.well_layers_overview = read_config(layer_overview_file)
 
@@ -348,7 +350,9 @@ class SurfaceViewer4D(WebvizPluginABC):
             basic_layers = self.well_layers_overview.get("basic")
 
             for key, value in basic_layers.items():
-                layer_file = get_path(Path(self.well_layer_dir / "basic" / value))
+                layer_file = get_path(
+                    Path(os.path.join(self.well_layer_dir, "basic", value))
+                )
                 label = self.basic_well_layers.get(key)
 
                 well_layer = make_new_well_layer(
@@ -447,14 +451,12 @@ class SurfaceViewer4D(WebvizPluginABC):
 
     def load_settings_info(self, settings_path):
         if settings_path:
-            config_dir = os.path.dirname(os.path.abspath(settings_path))
             settings = read_config(get_path(path=settings_path))
             self.field_name = settings.get("field_name")
 
             map_settings = settings.get("map_settings")
             self.attribute_settings = map_settings.get("attribute_settings")
             self.default_colormap = map_settings.get("default_colormap", "seismic")
-            self.well_layer_dir = Path(os.path.join(config_dir, "well_layers"))
             self.well_colors = get_well_colors(settings)
             self.polygon_colors = settings.get("polygon_colors")
             self.date_labels = settings.get("date_labels")
@@ -599,7 +601,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         name = data["name"]
         attribute = data["attr"]
 
-        if self.interval_mode == "reverse":
+        if self.interval_mode == "normal":
             time2 = selected_interval[0:10]
             time1 = selected_interval[11:]
         else:
