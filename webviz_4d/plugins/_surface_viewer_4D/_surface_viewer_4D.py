@@ -201,11 +201,6 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.default_interval,
         ]
         # Load polygons
-        self.default_polygon_name = self.shared_settings.get("top_res_surface").get(
-            "name"
-        )
-        print("Default polygon_name", self.default_polygon_name)
-
         if self.sumo_name:
             print("Polygons in SUMO ...")
             iter_name = self.my_case.iterations[0].get("name")

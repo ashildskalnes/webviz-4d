@@ -123,7 +123,7 @@ def get_top_res_surface(surface_info, sumo_case):
 
 def get_top_res_surface_file(surface_info):
     if surface_info is not None:
-        name = surface_info.get("name")
+        name = surface_info.get("file_name")
         print("Load top reservoir surface:", name)
 
         if os.path.isfile(name):
