@@ -77,11 +77,21 @@ def get_settings(config_file):
     config_folder = os.path.dirname(config_file)
 
     config = read_config(config_file)
-    settings_file = config.get("shared_settings").get("settings")
+    settings_file = config.get("shared_settings").get("settings_file")
     settings_file = os.path.join(config_folder, settings_file)
     settings = read_config(settings_file)
 
     return settings, config_folder
+
+
+def get_relative_paths(sumo_objects):
+    relative_paths = []
+
+    for sumo_object in sumo_objects:
+        relative_paths.append(sumo_object.metadata.get("file").get("relative_path"))
+
+    return relative_paths
+
 
 
 def main():
@@ -89,29 +99,39 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("config_file", help="config file")
     parser.add_argument("sumo_id", help="sumo_id")
+    parser.add_argument("--full", help="Scan mode (optional, default=False)")
 
     args = parser.parse_args()
     print(args)
 
     # map_types_list = ["observed", "realizations", "aggregated"]
 
-    sumo_id = args.sumo_id
-
     config_file = args.config_file
-    # config_file = os.path.abspath(config_file)
-    # config_folder = os.path.dirname(config_file)
+    sumo_id = args.sumo_id
+    scan_mode = args.full
 
-    # config = read_config(config_file)
-    # settings_file = config.get("shared_settings").get("settings")
-    # settings_file = os.path.join(config_folder, settings_file)
-    # settings = read_config(settings_file)
-    settings, config_folder = get_settings(config_file)
-    map_settings = settings.get("map_settings")
+    config_file = os.path.abspath(config_file)
+    config_folder = os.path.dirname(config_file)
 
-    surface_metadata_file = map_settings.get("surface_metadata_file")
+    config = read_config(config_file)
+    shared_settings = config.get("shared_settings")
+
+    surface_metadata_file = shared_settings.get("surface_metadata_file")
     surface_metadata_file = os.path.join(config_folder, surface_metadata_file)
 
-    fmu_dir = settings["fmu_directory"]
+    fmu_dir = shared_settings["fmu_directory"]
+
+    sumo = Explorer(env="prod")
+    my_case = sumo.cases.filter(uuid=sumo_id)[0]
+
+    # Some case info
+    print("SUMO:")
+    print(f"  {my_case.name}: {my_case.uuid}")
+    print(" ", my_case.field)
+    print(" ", my_case.status)
+    print(" ", my_case.user)
+
+    print("Searching for all surface files in", fmu_dir, scan_mode, "...")
 
     all_surface_files = glob.glob(
         fmu_dir + os.sep + "**" + os.sep + "*.gri", recursive=True
@@ -127,6 +147,7 @@ def main():
     iter_names = []
 
     for surface_file in all_surface_files:
+        status = True
         map_type, iter_name, real_id, time_lapse = get_metadata(surface_file)
 
         if map_type == "observed":
@@ -135,13 +156,17 @@ def main():
             if time_lapse:
                 observed_timelapse_surfaces.append(surface_file)
         elif map_type == "realization" and "observations" not in surface_file:
-            realization_surfaces.append(surface_file)
+            if not scan_mode:
+                status = bool(real_id == "0")
 
-            if time_lapse:
-                realization_timelapse_surfaces.append(surface_file)
+            if status:
+                realization_surfaces.append(surface_file)
 
-                if iter_name not in iter_names:
-                    iter_names.append(iter_name)
+                if time_lapse:
+                    realization_timelapse_surfaces.append(surface_file)
+
+                    if iter_name not in iter_names:
+                        iter_names.append(iter_name)
 
         elif map_type == "aggregated":
             if "numreal" not in surface_file:
@@ -192,16 +217,6 @@ def main():
             if surface not in meta_filenames:
                 print("WARNING:", surface, "not found in metadata file")
 
-    sumo = Explorer(env="prod")
-    my_case = sumo.cases.filter(uuid=sumo_id)[0]
-
-    # Some case info
-    print("SUMO:")
-    print(f"  {my_case.name}: {my_case.uuid}")
-    print(" ", my_case.field)
-    print(" ", my_case.status)
-    print(" ", my_case.user)
-
     time = TimeFilter(
         time_type=TimeType.INTERVAL,
     )
@@ -211,18 +226,25 @@ def main():
     observed_sumo_surfaces = my_case.surfaces.filter(stage="case")
     print("  Observed surfaces", len(observed_sumo_surfaces))
 
-    # if len(observed_surfaces) > len(observed_sumo_surfaces):
-    # sumo_filepaths = get_sumo_items(observed_sumo_surfaces, "rel_path")
+    if len(observed_surfaces) > len(observed_sumo_surfaces):
+        sumo_filepaths = get_relative_paths(observed_sumo_surfaces)
 
-    # for observed_surface in observed_surfaces:
-    #     if observed_surface not in sumo_filepaths:
-    #         print("WARNING:", surface, "not found in SUMO")
+        for surface in observed_surfaces:
+            if surface not in sumo_filepaths:
+                print("WARNING:", surface, "not found in SUMO")
 
     observed_sumo_timelapse_surfaces = observed_sumo_surfaces.filter(time=time)
     print("    Observed timelapse surfaces", len(observed_sumo_timelapse_surfaces))
 
     realization_sumo_surfaces = my_case.surfaces.filter(stage="realization")
     print("  Realization surfaces", len(realization_sumo_surfaces))
+
+    if len(realization_surfaces) > len(realization_sumo_surfaces):
+        sumo_filepaths = get_relative_paths(realization_sumo_surfaces)
+
+        for surface in realization_surfaces:
+            if surface not in sumo_filepaths:
+                print("WARNING:", surface, "not found in SUMO")
 
     realization_sumo_timelapse_surfaces = realization_sumo_surfaces.filter(time=time)
     print(
@@ -238,6 +260,13 @@ def main():
         "    Aggregated timelapse surfaces",
         len(aggregated_sumo_timelapse_surfaces),
     )
+
+    if len(aggregated_surfaces) > len(aggregated_sumo_surfaces):
+        sumo_filepaths = get_relative_paths(aggregated_sumo_surfaces)
+
+        for surface in aggregated_sumo_surfaces:
+            if surface not in sumo_filepaths:
+                print("WARNING:", surface, "not found in SUMO")
 
 
 if __name__ == "__main__":
