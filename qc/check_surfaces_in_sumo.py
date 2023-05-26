@@ -124,6 +124,12 @@ def compare_surface_collections(metadata, surfaces, sumo_surfaces, fmu_dir, mode
     return missing_files
 
 
+def print_list(file_list):
+    if len(file_list) > 0:
+        for item in file_list:
+            print(item)
+
+
 def main():
     description = "Compare surfaces on disk and sumo"
     parser = argparse.ArgumentParser(description=description)
@@ -287,6 +293,7 @@ def main():
         None, observed_surfaces, observed_sumo_surfaces, fmu_dir, "sumo"
     )
     print("  Missing observed Sumo surfaces", len(missing_observed_sumo_files))
+    # print_list(missing_observed_sumo_files)
 
     missing_observed_sumo_TL_files = compare_surface_collections(
         None,
@@ -315,6 +322,7 @@ def main():
         None, realization_surfaces, realization_sumo_surfaces, fmu_dir, "sumo"
     )
     print("  Missing realization Sumo surfaces", len(missing_realization_sumo_files))
+    # print_list(missing_realization_sumo_files)
 
     missing_realization_sumo_TL_files = compare_surface_collections(
         None,
@@ -341,6 +349,7 @@ def main():
         None, aggregated_surfaces, aggregated_sumo_surfaces, fmu_dir, "sumo"
     )
     print("  Missing aggregated Sumo surfaces", len(missing_aggregated_sumo_files))
+    # print_list(missing_aggregated_sumo_files)
 
     missing_aggregated_sumo_TL_files = compare_surface_collections(
         None,

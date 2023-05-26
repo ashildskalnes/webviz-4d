@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
@@ -46,12 +47,21 @@ def create_fence_dataframe(fence, start_md):
     return fence_df
 
 
-data_dir = "/private/ashska/development/my_forks/fields/johan_sverdrup/"
-wellbore_file = data_dir + "well_data/16_2-G-3_H.w"
-surface_file = (
-    data_dir
-    + "default_config/fmu_data/draupne_fm_1_top--depth_structural_model--mean.gri"
-)
+# data_dir = "/private/ashska/development/my_forks/fields/johan_sverdrup/"
+# wellbore_file = data_dir + "well_data/16_2-G-3_H.w"
+
+# fmu_dir = "/scratch/johan_sverdrup2/share/23p0p1/23p0p1_histandpred_ff_20230208"
+# maps_dir = "realization-0/pred/share/results/maps/depth"
+# surface_file = "draupne_fm_1_js_top--depth_structural_model"
+
+data_dir = "/private/ashska/development/my_forks/fields/drogon/"
+wellbore_file = data_dir + "well_data/55_33-A-4.w"
+
+fmu_dir = "/scratch/fmu/eza/01_drogon_ahm_sumo_seiscubes"
+maps_dir = "realization-0/iter-0/share/results/maps/"
+surface_file = "topvolantis--ds_extract_geogrid"
+
+surface_file = os.path.join(fmu_dir, maps_dir, surface_file + ".gri")
 
 pd.set_option("display.max_rows", None)
 
@@ -118,6 +128,8 @@ if not np.isnan(surf_pick_md):
         print(error)
         surf_dist_est = None
 
+tvd_window = [1500, 1800]
+
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 10))
 fig.suptitle(wellbore.name + " tvdmin= " + str(tvdmin))
 ax1.plot(x_well, y_well, color="black", marker="*", label="trajectory")
@@ -158,6 +170,6 @@ ax3.grid(True)
 ax3.set_title("Fence")
 ax3.set_xlabel("Horizontal distance [m] ")
 ax3.set_ylabel("TVD [m]")
-ax3.set_ylim([tvd_fence[-1], tvd_fence[0]])
+ax3.set_ylim([tvd_window[-1], tvd_window[0]])
 ax3.legend()
 plt.show()

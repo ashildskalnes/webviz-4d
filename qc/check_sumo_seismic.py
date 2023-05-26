@@ -10,15 +10,24 @@ from webviz_4d._datainput._sumo import (
     print_sumo_objects,
 )
 
+import sumo.wrapper
+
 
 def main():
     logging.getLogger("").setLevel(level=logging.WARNING)
-    description = "Compile metadata for SUMO surfaces"
+    description = "Compile metadata for SUMO seismic_cubes"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("sumo_name")
     args = parser.parse_args()
 
     sumo_name = args.sumo_name
+
+    sumo_wrapper = sumo.wrapper.SumoClient("prod")
+    cubes = sumo_wrapper.get(f"/search", query="data.format:openvds")
+    print(
+        "Number of openvds formatted objects I have access to: ",
+        len(cubes.get("hits").get("hits")),
+    )
 
     sumo = Explorer(env="prod")
 
@@ -30,46 +39,46 @@ def main():
     print(my_case.status)
     print(my_case.user)
 
-    # Get all observed surfaces in a case
-    surface_type = "observed"
-    print(surface_type)
+    # Get all observed seismic cubes in a case
+    seismic_type = "observed"
+    print(seismic_type)
 
-    surfaces = my_case.surfaces.filter(stage="case")
-    print_sumo_objects(surfaces)
+    # seismic_cubes = my_case.cubes.filter(stage="case")
+    print_sumo_objects(seismic_cubes)
 
-    # Get sumo instance for one observed surface
-    if len(surfaces) > 0:
-        surface = surfaces[0]
-        selected_time = surface._metadata.get("data").get("time")
+    # Get sumo instance for one observed seismic
+    if len(seismic_cubes) > 0:
+        seismic = seismic_cubes[0]
+        selected_time = seismic._metadata.get("data").get("time")
 
-        selected_surfaces = my_case.surfaces.filter(
-            stage="case", name=surface.name, tagname=surface.tagname
+        selected_surfaces = my_case.seismic_cubes.filter(
+            stage="case", name=seismic.name, tagname=seismic.tagname
         )
 
-        for surface in selected_surfaces:
-            if surface._metadata.get("data").get("time") == selected_time:
+        for seismic in selected_surfaces:
+            if seismic._metadata.get("data").get("time") == selected_time:
                 time_list = decode_time_interval(selected_time)
 
                 print(
-                    surface_type,
-                    "surface:",
-                    surface.name,
-                    surface.tagname,
+                    seismic_type,
+                    "seismic:",
+                    seismic.name,
+                    seismic.tagname,
                     time_list,
                 )
         selected_surface = get_observed_surface(
             case=my_case,
-            surface_name=surface.name,
-            attribute=surface.tagname,
+            surface_name=seismic.name,
+            attribute=seismic.tagname,
             time_interval=time_list,
         )
 
         surface_instance = selected_surface.to_regular_surface()
         print(surface_instance)
 
-    # Get all realization surfaces in an iteration
-    surface_type = "realization"
-    print(surface_type, "surfaces:")
+    # Get all realization seismic_cubes in an iteration
+    seismic_type = "realization"
+    print(seismic_type, "seismic_cubes:")
 
     iterations = my_case.iterations
 
@@ -77,23 +86,25 @@ def main():
         print("WARNING: No iterations found in case")
     else:
         iter_name = my_case.iterations[0].get("name")
-        surfaces = my_case.surfaces.filter(stage="realization", iteration=iter_name)
+        seismic_cubes = my_case.seismic_cubes.filter(
+            stage="realization", iteration=iter_name
+        )
 
         # try:
-        #     print_sumo_objects(surfaces)
+        #     print_sumo_objects(seismic_cubes)
         # except Exception as e:
         #     print(e)
 
-        print("Number of surfaces:", len(surfaces))
+        print("Number of seismic_cubes:", len(seismic_cubes))
 
-        # surfaces = ["dummy"]
+        # seismic_cubes = ["dummy"]
 
-        # Get sumo id for one realization surface
-        if len(surfaces) > 0:
-            surface = surfaces[0]
-            surface_name = surface.name
-            attribute = surface.tagname
-            selected_time = surface._metadata.get("data").get("time")
+        # Get sumo id for one realization seismic
+        if len(seismic_cubes) > 0:
+            seismic = seismic_cubes[0]
+            surface_name = seismic.name
+            attribute = seismic.tagname
+            selected_time = seismic._metadata.get("data").get("time")
             time_interval = decode_time_interval(selected_time)
 
             selected_surface = get_realization_surface(
@@ -116,26 +127,26 @@ def main():
             surface_instance = selected_surface.to_regular_surface()
         print(surface_instance)
 
-        # Get all aggregated surfaces in an iteration
-        surface_type = "aggregation"
+        # Get all aggregated seismic_cubes in an iteration
+        seismic_type = "aggregation"
 
-        surfaces = my_case.surfaces.filter(stage="iteration")
-        print(surface_type, "aggregated surfaces:")
+        seismic_cubes = my_case.seismic_cubes.filter(stage="iteration")
+        print(seismic_type, "aggregated seismic_cubes:")
 
         try:
-            print_sumo_objects(surfaces)
+            print_sumo_objects(seismic_cubes)
         except Exception as e:
             print(e)
 
-        print("Number of surfaces:", len(surfaces))
+        print("Number of seismic_cubes:", len(seismic_cubes))
 
-        # Get sumo id for one aggregated surface
-        if len(surfaces) > 0:
-            surface = surfaces[0]
+        # Get sumo id for one aggregated seismic
+        if len(seismic_cubes) > 0:
+            seismic = seismic_cubes[0]
 
-            surface_name = surface.name
-            attribute = surface.tagname
-            selected_time = surface._metadata.get("data").get("time")
+            surface_name = seismic.name
+            attribute = seismic.tagname
+            selected_time = seismic._metadata.get("data").get("time")
             time_interval = decode_time_interval(selected_time)
 
             selected_surface = get_aggregated_surface(
@@ -155,7 +166,7 @@ def main():
                 selected_surface._metadata.get("fmu").get("aggregation"),
             )
 
-            surface_instance = surface.to_regular_surface()
+            surface_instance = seismic.to_regular_surface()
             print(surface_instance)
 
 
