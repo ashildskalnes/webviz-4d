@@ -233,7 +233,7 @@ def get_zone_layer(polygon_layers, zone_name):
     return None
 
 
-def create_sumo_layer(polygon_df):
+def create_polygon_layer(polygon_df):
     """Create sumo layer"""
     all_positions = []
     positions = []
@@ -290,7 +290,7 @@ def load_sumo_polygons(polygons, polygon_colors):
             else:
                 color = default_colors.get(name)
 
-            polygon_df = create_sumo_layer(polygon.to_dataframe())
+            polygon_df = create_polygon_layer(polygon.to_dataframe())
 
             polygon_layer = make_new_polyline_layer(
                 polygon_df, name, polygon.tagname, color

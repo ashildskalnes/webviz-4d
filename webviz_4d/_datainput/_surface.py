@@ -137,6 +137,8 @@ def get_top_res_surface_file(surface_info):
 
 
 def get_sumo_top_res_surface(surface_info, sumo_case):
+    surface = None
+
     if surface_info is not None:
         name = surface_info.get("name")
         tagname = surface_info.get("tag_name")

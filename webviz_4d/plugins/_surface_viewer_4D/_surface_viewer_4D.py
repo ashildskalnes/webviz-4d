@@ -110,7 +110,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.label = self.shared_settings.get("label", self.fmu_directory)
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
-        self.top_res_surface_settings = self.shared_settings.get("top_res_surface")
+        self.top_res_surface_settings = self.shared_settings.get("top_reservoir")
 
         self.selector_file = selector_file
         self.production_data = production_data
@@ -155,7 +155,15 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.api_usage["sumo"] = True
             env = "prod"
             self.sumo = Explorer(env=env)
-            self.my_case = self.sumo.cases.filter(name=self.sumo_name)[0]
+            cases = self.sumo.cases.filter(name=self.sumo_name)
+
+            if len(cases) ==1:
+                self.my_case = cases[0]
+            else:
+                print("ERROR: Number of selected cases =", len(cases))
+                print("       Execution stopped")
+                exit(1)
+
             self.label = "SUMO case: " + self.sumo_name
             self.iterations = self.my_case.iterations
             print("SUMO case:", self.my_case.name)
@@ -183,7 +191,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.selection_list = read_config(get_path(path=self.selector_file))
 
         self.top_res_surface = get_top_res_surface(
-            self.shared_settings.get("top_res_surface"), self.my_case
+            self.top_res_surface_settings, self.my_case
         )
 
         if self.default_interval is None:
