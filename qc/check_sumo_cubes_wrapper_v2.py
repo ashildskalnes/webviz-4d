@@ -100,7 +100,7 @@ def add_metadata(metadata):
 
 def main():
     # Connect to Sumo and list openvds formatted objects
-    sumo_wrapper = sumo.wrapper.SumoClient("dev")
+    sumo_wrapper = sumo.wrapper.SumoClient("prod")
     cubes = sumo_wrapper.get(f"/search", query="data.format:openvds", size=100)
     print(
         "Number of openvds formatted objects I have access to: ",

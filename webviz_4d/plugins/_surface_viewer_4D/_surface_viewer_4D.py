@@ -157,7 +157,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.sumo = Explorer(env=env)
             cases = self.sumo.cases.filter(name=self.sumo_name)
 
-            if len(cases) ==1:
+            if len(cases) == 1:
                 self.my_case = cases[0]
             else:
                 print("ERROR: Number of selected cases =", len(cases))

@@ -13,16 +13,18 @@ from webviz_4d._datainput.common import read_config
 def main():
     description = "Compile metadata for SUMO surfaces"
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("config_file")
+    parser.add_argument("sumo_name")
 
     args = parser.parse_args()
 
-    config_file = args.config_file
-    config_file = os.path.abspath(config_file)
+    # config_file = args.config_file
+    # config_file = os.path.abspath(config_file)
 
-    config = read_config(config_file)
-    shared_settings = config.get("shared_settings")
-    sumo_name = shared_settings.get("sumo_name")
+    # config = read_config(config_file)
+    # shared_settings = config.get("shared_settings")
+    # sumo_name = shared_settings.get("sumo_name")
+
+    sumo_name = args.sumo_name
 
     sumo = Explorer(env="prod")
     my_case = sumo.cases.filter(name=sumo_name)[0]
@@ -32,7 +34,6 @@ def main():
     print(my_case.field)
     print(my_case.status)
     print(my_case.user)
-    print(my_case.)
 
     # Create selectors
     mode = "timelapse"

@@ -122,6 +122,7 @@ def get_tag_values(surfaces, tag_name):
 
 def create_selector_lists(my_case, mode):
     iterations = my_case.iterations
+    print(iterations)
 
     iteration_names = []
     for iteration in iterations:
@@ -243,6 +244,17 @@ def get_time_string(time_interval):
     return time_string
 
 
+def time_filter(surfaces, time_interval):
+    for surface in surfaces:
+        time = surface._metadata.get("data").get("time")
+        time_list = decode_time_interval(time)
+
+        if time_list == time_interval:
+            return surface
+
+    return None
+
+
 def get_observed_surface(
     case: Case = None,
     surface_name: str = None,
@@ -261,17 +273,6 @@ def get_observed_surface(
         selected_surface = None
 
     return selected_surface
-
-
-def time_filter(surfaces, time_interval):
-    for surface in surfaces:
-        time = surface._metadata.get("data").get("time")
-        time_list = decode_time_interval(time)
-
-        if time_list == time_interval:
-            return surface
-
-    return None
 
 
 def get_realization_surface(
@@ -357,6 +358,87 @@ def create_time_filter(time_interval, exact):
     return time
 
 
+def get_observed_cube(
+    case: Case = None,
+    name: str = None,
+    tagname: str = None,
+    time_interval: list = [],
+):
+    time = create_time_filter(time_interval, True)
+    cubes = case.cubes.filter(stage="case", name=name, tagname=tagname, time=time)
+
+    if len(cubes) == 1:
+        selected_cube = cubes[0]
+    else:
+        print("WARNING: Number of seismic cubes found =", str(len(cubes)))
+        selected_cube = None
+
+    return selected_cube
+
+
+def get_observed_cubes(
+    case: Case = None,
+    names: str = [],
+    tagnames: str = [],
+    time_interval: list = [],
+    iterations: list = [],
+    realizations: list = [],
+):
+    time = create_time_filter(time_interval, True)
+
+    if iterations is None and realizations is None:
+        selected_cubes = case.cubes.filter(
+            stage="case", name=names, tagname=tagnames, time=time
+        )
+    else:
+        cubes = case.cubes.filter(
+            names=names,
+            tagnames=tagnames,
+            time_interval=time,
+            iterations=iterations,
+            realizations=realizations,
+        )
+        selected_cubes = []
+
+        for cube in cubes:
+            if cube.metadata.get("is_observation"):
+                selected_cubes.append(cube)
+
+    return selected_cubes
+
+
+def get_realization_cube(
+    case: Case = None,
+    name: str = None,
+    tagname: str = None,
+    time_interval: list = [],
+    iteration_name: str = "iter-0",
+    realization: int = 0,
+):
+    time = create_time_filter(time_interval, True)
+
+    selected_cubes = case.cubes.filter(
+        stage="realization",
+        name=name,
+        tagname=tagname,
+        time=time,
+        iteration=iteration_name,
+        realization=realization,
+    )
+
+    if len(selected_cubes) == 1:
+        selected_cube = selected_cubes[0]
+    else:
+        print("WARNING: Number of seismic cubes found =", str(len(selected_cubes)))
+
+        if len(selected_cubes) > 1:
+            print_sumo_objects(selected_cubes)
+
+        selected_cube = None
+
+    return selected_cube
+
+
 def get_polygon_name(sumo_polygons, surface_name):
     # Check if there exists a polygon with the same name as the surface
     name = None
@@ -410,13 +492,13 @@ def print_sumo_objects(sumo_objects):
                 index,
                 sumo_object.name,
                 sumo_object.tagname,
-                "content =",
+                "content=",
                 content,
-                "time =",
+                "time=",
                 time_list,
-                "operation =",
+                "operation=",
                 operation,
-                "iter =",
+                "iter=",
                 iteration,
                 "real=",
                 realization,

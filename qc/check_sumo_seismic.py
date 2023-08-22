@@ -4,13 +4,14 @@ import logging
 from fmu.sumo.explorer import Explorer
 from webviz_4d._datainput._sumo import (
     decode_time_interval,
-    get_observed_surface,
-    get_realization_surface,
-    get_aggregated_surface,
+    get_observed_cubes,
+    get_realization_cube,
     print_sumo_objects,
 )
 
-import sumo.wrapper
+from webviz_4d._datainput._oneseismic import OneseismicClient
+
+endpoint = "https://server-oneseismictest-dev.playground.radix.equinor.com"
 
 
 def main():
@@ -21,15 +22,7 @@ def main():
     args = parser.parse_args()
 
     sumo_name = args.sumo_name
-
-    sumo_wrapper = sumo.wrapper.SumoClient("prod")
-    cubes = sumo_wrapper.get(f"/search", query="data.format:openvds")
-    print(
-        "Number of openvds formatted objects I have access to: ",
-        len(cubes.get("hits").get("hits")),
-    )
-
-    sumo = Explorer(env="prod")
+    sumo = Explorer(env="prod", keep_alive="3m")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
     print(f"{my_case.name}: {my_case.uuid}")
@@ -39,26 +32,27 @@ def main():
     print(my_case.status)
     print(my_case.user)
 
-    # Get all observed seismic cubes in a case
+    # Get all observed seismic cubes on case level
     seismic_type = "observed"
     print(seismic_type)
 
-    # seismic_cubes = my_case.cubes.filter(stage="case")
+    seismic_cubes = my_case.cubes.filter(stage="case")
     print_sumo_objects(seismic_cubes)
 
-    # Get sumo instance for one observed seismic
+    # Get sumo instance for one observed seismic cube
     if len(seismic_cubes) > 0:
         seismic = seismic_cubes[0]
         selected_time = seismic._metadata.get("data").get("time")
 
-        selected_surfaces = my_case.seismic_cubes.filter(
+        selected_cubes = my_case.cubes.filter(
             stage="case", name=seismic.name, tagname=seismic.tagname
         )
 
-        for seismic in selected_surfaces:
+        for seismic in selected_cubes:
             if seismic._metadata.get("data").get("time") == selected_time:
                 time_list = decode_time_interval(selected_time)
 
+                print("")
                 print(
                     seismic_type,
                     "seismic:",
@@ -66,108 +60,81 @@ def main():
                     seismic.tagname,
                     time_list,
                 )
-        selected_surface = get_observed_surface(
+        cubes = get_observed_cubes(
             case=my_case,
-            surface_name=seismic.name,
-            attribute=seismic.tagname,
+            names=[seismic.name],
+            tagnames=[seismic.tagname],
             time_interval=time_list,
         )
 
-        surface_instance = selected_surface.to_regular_surface()
-        print(surface_instance)
+        if len(cubes) == 1:
+            selected_cube = cubes[0]
+
+            url = selected_cube.url
+            url = url.replace(":443", "")
+            sas = selected_cube.sas
+
+            cube_instance = OneseismicClient(host=endpoint, vds=url, sas=sas)
+            print(cube_instance.get_metadata())
+        else:
+            print("WARNING: Number of seismic cubes found =", str(len(cubes)))
+
+    # Get all observed seismic cubes in iteration/realization level
+    iter_name = my_case.iterations[0].get("name")
+    real = 0
+    seismic_type = "observed in iteration/realization", iter_name, real
+    print(seismic_type)
+
+    seismic_cubes = get_observed_cubes(
+        case=my_case, iterations=[iter_name], realizations=[real]
+    )
+    print_sumo_objects(seismic_cubes)
 
     # Get all realization seismic_cubes in an iteration
     seismic_type = "realization"
     print(seismic_type, "seismic_cubes:")
 
-    iterations = my_case.iterations
+    print("Iteration:", iter_name)
+    seismic_cubes = my_case.cubes.filter(stage="realization", iteration=iter_name)
 
-    if len(iterations) == 0:
-        print("WARNING: No iterations found in case")
-    else:
-        iter_name = my_case.iterations[0].get("name")
-        seismic_cubes = my_case.seismic_cubes.filter(
-            stage="realization", iteration=iter_name
+    print("Number of seismic_cubes:", len(seismic_cubes))
+
+    try:
+        print_sumo_objects(seismic_cubes)
+    except Exception as e:
+        print(e)
+
+    # Get sumo id for one realization seismic
+    if len(seismic_cubes) > 0:
+        seismic = seismic_cubes[0]
+        name = seismic.name
+        tagname = seismic.tagname
+        selected_time = seismic._metadata.get("data").get("time")
+        time_interval = decode_time_interval(selected_time)
+
+        selected_cube = get_realization_cube(
+            case=my_case,
+            name=name,
+            tagname=tagname,
+            time_interval=time_interval,
+            iteration_name=iter_name,
+            realization=0,
         )
 
-        # try:
-        #     print_sumo_objects(seismic_cubes)
-        # except Exception as e:
-        #     print(e)
+        print(
+            selected_cube.name,
+            selected_cube.tagname,
+            time_interval,
+            selected_cube.iteration,
+            selected_cube.realization,
+        )
 
-        print("Number of seismic_cubes:", len(seismic_cubes))
+        url = selected_cube.url
+        url = url.replace(":443", "")
+        sas = selected_cube.sas
 
-        # seismic_cubes = ["dummy"]
-
-        # Get sumo id for one realization seismic
-        if len(seismic_cubes) > 0:
-            seismic = seismic_cubes[0]
-            surface_name = seismic.name
-            attribute = seismic.tagname
-            selected_time = seismic._metadata.get("data").get("time")
-            time_interval = decode_time_interval(selected_time)
-
-            selected_surface = get_realization_surface(
-                case=my_case,
-                surface_name=surface_name,
-                attribute=attribute,
-                time_interval=time_interval,
-                iteration_name=iter_name,
-                realization=0,
-            )
-
-            print(
-                selected_surface.name,
-                selected_surface.tagname,
-                time_interval,
-                selected_surface.iteration,
-                selected_surface.realization,
-            )
-
-            surface_instance = selected_surface.to_regular_surface()
-        print(surface_instance)
-
-        # Get all aggregated seismic_cubes in an iteration
-        seismic_type = "aggregation"
-
-        seismic_cubes = my_case.seismic_cubes.filter(stage="iteration")
-        print(seismic_type, "aggregated seismic_cubes:")
-
-        try:
-            print_sumo_objects(seismic_cubes)
-        except Exception as e:
-            print(e)
-
-        print("Number of seismic_cubes:", len(seismic_cubes))
-
-        # Get sumo id for one aggregated seismic
-        if len(seismic_cubes) > 0:
-            seismic = seismic_cubes[0]
-
-            surface_name = seismic.name
-            attribute = seismic.tagname
-            selected_time = seismic._metadata.get("data").get("time")
-            time_interval = decode_time_interval(selected_time)
-
-            selected_surface = get_aggregated_surface(
-                case=my_case,
-                surface_name=surface_name,
-                attribute=attribute,
-                time_interval=time_interval,
-                iteration_name=iter_name,
-                operation="mean",
-            )
-
-            print(
-                selected_surface.name,
-                selected_surface.tagname,
-                time_interval,
-                selected_surface.iteration,
-                selected_surface._metadata.get("fmu").get("aggregation"),
-            )
-
-            surface_instance = seismic.to_regular_surface()
-            print(surface_instance)
+        cube_instance = OneseismicClient(host=endpoint, vds=url, sas=sas)
+        print(cube_instance.get_metadata())
 
 
 if __name__ == "__main__":
