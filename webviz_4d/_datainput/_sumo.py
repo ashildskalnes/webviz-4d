@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from fmu.sumo.explorer.objects.case import Case
@@ -358,85 +359,43 @@ def create_time_filter(time_interval, exact):
     return time
 
 
-def get_observed_cube(
-    case: Case = None,
-    name: str = None,
-    tagname: str = None,
-    time_interval: list = [],
-):
-    time = create_time_filter(time_interval, True)
-    cubes = case.cubes.filter(stage="case", name=name, tagname=tagname, time=time)
+def check_metadata(sumo_objects, selected_metatadata, value):
+    selected_objects = []
 
-    if len(cubes) == 1:
-        selected_cube = cubes[0]
-    else:
-        print("WARNING: Number of seismic cubes found =", str(len(cubes)))
-        selected_cube = None
+    for sumo_object in sumo_objects:
+        if selected_metatadata == "operation":
+            metadata = (
+                sumo_object._metadata.get("fmu").get("aggregation").get("operation")
+            )
+        else:
+            metadata = sumo_object._metadata.get("data").get(selected_metatadata)
 
-    return selected_cube
+        if value is None:
+            if metadata is None:
+                selected_objects.append(sumo_object)
+        else:
+            if metadata == value:
+                selected_objects.append(sumo_object)
 
+    if len(selected_objects) == 0:
+        print("WARNING: No selected objects")
 
-def get_observed_cubes(
-    case: Case = None,
-    names: str = [],
-    tagnames: str = [],
-    time_interval: list = [],
-    iterations: list = [],
-    realizations: list = [],
-):
-    time = create_time_filter(time_interval, True)
-
-    if iterations is None and realizations is None:
-        selected_cubes = case.cubes.filter(
-            stage="case", name=names, tagname=tagnames, time=time
-        )
-    else:
-        cubes = case.cubes.filter(
-            names=names,
-            tagnames=tagnames,
-            time_interval=time,
-            iterations=iterations,
-            realizations=realizations,
-        )
-        selected_cubes = []
-
-        for cube in cubes:
-            if cube.metadata.get("is_observation"):
-                selected_cubes.append(cube)
-
-    return selected_cubes
+    return selected_objects
 
 
-def get_realization_cube(
-    case: Case = None,
-    name: str = None,
-    tagname: str = None,
-    time_interval: list = [],
-    iteration_name: str = "iter-0",
-    realization: int = 0,
-):
-    time = create_time_filter(time_interval, True)
+def get_aggregations(sumo_objects):
+    selected_objects = []
 
-    selected_cubes = case.cubes.filter(
-        stage="realization",
-        name=name,
-        tagname=tagname,
-        time=time,
-        iteration=iteration_name,
-        realization=realization,
-    )
+    for sumo_object in sumo_objects:
+        fmu = sumo_object.metadata.get("fmu")
 
-    if len(selected_cubes) == 1:
-        selected_cube = selected_cubes[0]
-    else:
-        print("WARNING: Number of seismic cubes found =", str(len(selected_cubes)))
+        if "aggregation" in fmu.keys():
+            selected_objects.append(sumo_object)
 
-        if len(selected_cubes) > 1:
-            print_sumo_objects(selected_cubes)
+    if len(selected_objects) == 0:
+        print("WARNING: No selected objects")
 
-        selected_cube = None
-
-    return selected_cube
+    return selected_objects
 
 
 def get_polygon_name(sumo_polygons, surface_name):
@@ -464,51 +423,99 @@ def get_iteration_id(iterations, iteration_name):
 
 def print_sumo_objects(sumo_objects):
     if len(sumo_objects) > 0:
-        index = 0
-        names = []
-        tagnames = []
+        if type(sumo_objects) == list:
+            sumo_objects_list = [sumo_objects]
+        else:
+            sumo_objects_list = sumo_objects
 
-        for sumo_object in sumo_objects:
-            # object_type = sumo_object._metadata.get("class")
-            content = sumo_object._metadata.get("data").get("content")
-            iteration = sumo_object.iteration
-            realization = sumo_object.realization
+        if len(sumo_objects_list) > 0:
+            index = 0
+            names = []
+            tagnames = []
+            domains = []
+            stratigraphics = []
+            predictions = []
+            observations = []
+            contents = []
+            time1s = []
+            time2s = []
+            operations = []
+            iterations = []
+            realizations = []
 
-            aggregation = sumo_object._metadata.get("fmu").get("aggregation")
+            for index, sumo_object in enumerate(sumo_objects):
+                # object_type = sumo_object._metadata.get("class")
+                content = sumo_object._metadata.get("data").get("content")
+                iteration = sumo_object.iteration
+                realization = sumo_object.realization
+                prediction = sumo_object._metadata.get("data").get("is_prediction")
+                observation = sumo_object._metadata.get("data").get("is_observation")
+                content = sumo_object._metadata.get("data").get("content")
+                domain = sumo_object._metadata.get("data").get("vertical_domain")
+                stratigraphic = sumo_object._metadata.get("data").get("stratigraphic")
+                aggregation = sumo_object._metadata.get("fmu").get("aggregation")
 
-            if aggregation:
-                operation = aggregation.get("operation")
-            else:
-                operation = None
+                if aggregation:
+                    operation = aggregation.get("operation")
+                else:
+                    operation = None
 
-            time = sumo_object._metadata.get("data").get("time")
-            time_list = decode_time_interval(time)
+                time = sumo_object._metadata.get("data").get("time")
+                time_list = decode_time_interval(time)
 
-            names.append(sumo_object.name)
-            tagnames.append(sumo_object.tagname)
+                names.append(sumo_object.name)
+                contents.append(content)
+                tagnames.append(sumo_object.tagname)
+                time1s.append(time_list[0])
+                time2s.append(time_list[1])
+                domains.append(domain)
+                stratigraphics.append(stratigraphic)
+                predictions.append(prediction)
+                observations.append(observation)
+                iterations.append(iteration)
+                realizations.append(realization)
+                operations.append(operation)
 
-            print(
-                "  ",
-                index,
-                sumo_object.name,
-                sumo_object.tagname,
-                "content=",
-                content,
-                "time=",
-                time_list,
-                "operation=",
-                operation,
-                "iter=",
-                iteration,
-                "real=",
-                realization,
+            list_of_tuples = list(
+                zip(
+                    names,
+                    contents,
+                    tagnames,
+                    time1s,
+                    time2s,
+                    domains,
+                    stratigraphics,
+                    predictions,
+                    observations,
+                    iterations,
+                    realizations,
+                    operations,
+                )
             )
-            index += 1
 
-        df = pd.DataFrame()
-        df["Name"] = names
-        df["Tagname"] = tagnames
+            headers = [
+                "Name",
+                "Content",
+                "Tagname",
+                "Time1",
+                "Time2",
+                "Domain",
+                "Stratigraphic",
+                "Prediction",
+                "Observation",
+                "Iteration",
+                "Realization",
+                "Operation",
+            ]
+            df = pd.DataFrame(list_of_tuples, columns=headers)
+            metadata_df = df.sort_values(
+                by=["Name", "Tagname", "Realization", "Time1", "Time2"]
+            )
+            pd.set_option("display.max_rows", None)
+            print("Number of selected objects", metadata_df.shape[0])
 
+            if metadata_df.shape[0] > 0:
+                print(metadata_df)
     else:
         "WARNING: No SUMO objects"
 

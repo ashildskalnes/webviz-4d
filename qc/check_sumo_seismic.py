@@ -3,9 +3,7 @@ import argparse
 import logging
 from fmu.sumo.explorer import Explorer
 from webviz_4d._datainput._sumo import (
-    decode_time_interval,
-    get_observed_cubes,
-    get_realization_cube,
+    check_metadata,
     print_sumo_objects,
 )
 
@@ -32,8 +30,26 @@ def main():
     print(my_case.status)
     print(my_case.user)
 
+    # Get overview of all cubes in case
+    print("Number of seismic cubes:", len(my_case.cubes))
+    print("Pre-processed:", len(my_case.cubes.filter(stage="case")))
+
+    for iteration in my_case.iterations:
+        iteration_cubes = my_case.cubes.filter(iteration=iteration.get("name"))
+        print(
+            iteration.get("name"),
+            ":",
+            len(iteration_cubes),
+        )
+        observed_cubes = check_metadata(iteration_cubes, "is_observation", True)
+        print("  observations:", len(observed_cubes))
+
+        prediction_cubes = check_metadata(iteration_cubes, "is_prediction", True)
+        print("  predictions:", len(prediction_cubes))
+    print()
+
     # Get all observed seismic cubes on case level
-    seismic_type = "observed"
+    seismic_type = "Observations on case level (pre-processed)"
     print(seismic_type)
 
     seismic_cubes = my_case.cubes.filter(stage="case")
@@ -44,97 +60,77 @@ def main():
         seismic = seismic_cubes[0]
         selected_time = seismic._metadata.get("data").get("time")
 
-        selected_cubes = my_case.cubes.filter(
+        cubes = my_case.cubes.filter(
             stage="case", name=seismic.name, tagname=seismic.tagname
         )
 
-        for seismic in selected_cubes:
-            if seismic._metadata.get("data").get("time") == selected_time:
-                time_list = decode_time_interval(selected_time)
+        selected_cube = check_metadata(cubes, "time", selected_time)
+        print()
+        print("One selected observed cube")
+        print_sumo_objects(selected_cube)
 
-                print("")
-                print(
-                    seismic_type,
-                    "seismic:",
-                    seismic.name,
-                    seismic.tagname,
-                    time_list,
-                )
-        cubes = get_observed_cubes(
-            case=my_case,
-            names=[seismic.name],
-            tagnames=[seismic.tagname],
-            time_interval=time_list,
-        )
+        if len(selected_cube) == 1:
+            cube = selected_cube[0]
 
-        if len(cubes) == 1:
-            selected_cube = cubes[0]
-
-            url = selected_cube.url
+            url = cube.url
             url = url.replace(":443", "")
-            sas = selected_cube.sas
+            sas = cube.sas
 
             cube_instance = OneseismicClient(host=endpoint, vds=url, sas=sas)
+            print("VDS metadata")
             print(cube_instance.get_metadata())
         else:
-            print("WARNING: Number of seismic cubes found =", str(len(cubes)))
+            print("WARNING: Number of seismic cubes found =", str(len(selected_cube)))
 
     # Get all observed seismic cubes in iteration/realization level
     iter_name = my_case.iterations[0].get("name")
     real = 0
-    seismic_type = "observed in iteration/realization", iter_name, real
-    print(seismic_type)
+    seismic_type = "Observations in iteration/realization"
 
-    seismic_cubes = get_observed_cubes(
-        case=my_case, iterations=[iter_name], realizations=[real]
+    print()
+    print(seismic_type, iter_name, real)
+
+    seismic_cubes = my_case.cubes.filter(iteration=iter_name, realization=real)
+    observed_cubes = check_metadata(seismic_cubes, "is_observation", True)
+    print_sumo_objects(observed_cubes)
+
+    # Get all realization seismic_cubes in an realization
+    seismic_type = "Predictions in iteration/realization"
+    print()
+    print(seismic_type, iter_name, real)
+
+    seismic_cubes = my_case.cubes.filter(
+        stage="realization", iteration=iter_name, realization=real
     )
-    print_sumo_objects(seismic_cubes)
 
-    # Get all realization seismic_cubes in an iteration
-    seismic_type = "realization"
-    print(seismic_type, "seismic_cubes:")
-
-    print("Iteration:", iter_name)
-    seismic_cubes = my_case.cubes.filter(stage="realization", iteration=iter_name)
-
-    print("Number of seismic_cubes:", len(seismic_cubes))
-
-    try:
-        print_sumo_objects(seismic_cubes)
-    except Exception as e:
-        print(e)
+    prediction_cubes = check_metadata(seismic_cubes, "is_prediction", True)
+    print_sumo_objects(prediction_cubes)
 
     # Get sumo id for one realization seismic
-    if len(seismic_cubes) > 0:
-        seismic = seismic_cubes[0]
-        name = seismic.name
-        tagname = seismic.tagname
+    if len(prediction_cubes) > 0:
+        seismic = prediction_cubes[0]
         selected_time = seismic._metadata.get("data").get("time")
-        time_interval = decode_time_interval(selected_time)
 
-        selected_cube = get_realization_cube(
-            case=my_case,
-            name=name,
-            tagname=tagname,
-            time_interval=time_interval,
-            iteration_name=iter_name,
-            realization=0,
-        )
+        cubes = seismic_cubes.filter(name=seismic.name, tagname=seismic.tagname)
+        time_cubes = check_metadata(cubes, "time", selected_time)
+        selected_cube = check_metadata(time_cubes, "is_prediction", True)
 
-        print(
-            selected_cube.name,
-            selected_cube.tagname,
-            time_interval,
-            selected_cube.iteration,
-            selected_cube.realization,
-        )
+        print()
+        print("One selected prediction cube")
+        print_sumo_objects(selected_cube)
 
-        url = selected_cube.url
-        url = url.replace(":443", "")
-        sas = selected_cube.sas
+        if len(selected_cube) == 1:
+            cube = selected_cube[0]
 
-        cube_instance = OneseismicClient(host=endpoint, vds=url, sas=sas)
-        print(cube_instance.get_metadata())
+            url = cube.url
+            url = url.replace(":443", "")
+            sas = cube.sas
+
+            cube_instance = OneseismicClient(host=endpoint, vds=url, sas=sas)
+            print("VDS metadata")
+            print(cube_instance.get_metadata())
+        else:
+            print("WARNING: Number of seismic cubes found =", str(len(selected_cube)))
 
 
 if __name__ == "__main__":
