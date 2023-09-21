@@ -9,8 +9,7 @@ from webviz_config.common_cache import CACHE
 from .image_processing import array_to_png, get_colormap
 
 from webviz_4d._datainput._sumo import (
-    get_realization_surface,
-    get_aggregated_surface,
+    get_sumo_top_res_surface,
 )
 
 from webviz_4d._datainput.image_processing import get_colormap
@@ -114,7 +113,7 @@ def make_surface_layer(
 
 def get_top_res_surface(surface_info, sumo_case):
     if sumo_case:
-        surface = get_sumo_top_res_surface(surface_info, sumo_case)
+        surface = get_sumo_top_res_surface(sumo_case, surface_info)
     else:
         surface = get_top_res_surface_file(surface_info)
 
@@ -133,47 +132,6 @@ def get_top_res_surface_file(surface_info):
             return None
     else:
         print("WARNING: Top reservoir surface not defined")
-        return None
-
-
-def get_sumo_top_res_surface(surface_info, sumo_case):
-    surface = None
-
-    if surface_info is not None:
-        name = surface_info.get("name")
-        tagname = surface_info.get("tag_name")
-        iter_name = surface_info.get("iter")
-        real = surface_info.get("real")
-        time_interval = [False, False]
-
-        print("Load top reservoir surface from SUMO:", name, tagname, iter_name, real)
-
-        if "realization" in real:
-            real_id = real.split("-")[1]
-            surface = get_realization_surface(
-                case=sumo_case,
-                surface_name=name,
-                attribute=tagname,
-                time_interval=time_interval,
-                iteration_name=iter_name,
-                realization=real_id,
-            )
-        else:
-            surface = get_aggregated_surface(
-                case=sumo_case,
-                surface_name=name,
-                attribute=tagname,
-                time_interval=time_interval,
-                iteration_name=iter_name,
-                operation=real,
-            )
-
-    if surface:
-        return surface.to_regular_surface()
-    else:
-        print(
-            "ERROR: Top reservoir surface not loaded from SUMO",
-        )
         return None
 
 

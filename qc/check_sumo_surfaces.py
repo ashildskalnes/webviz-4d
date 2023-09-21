@@ -14,9 +14,15 @@ def main():
     description = "Compile metadata for SUMO surfaces"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("sumo_name")
+    parser.add_argument("--mode", action="store_true", help="Overview/Details")
     args = parser.parse_args()
 
     sumo_name = args.sumo_name
+
+    if args.mode:
+        mode = args.mode
+    else:
+        mode = "Overview"
 
     sumo = Explorer(env="prod", keep_alive="15m")
 
@@ -32,31 +38,39 @@ def main():
     print("Number of surfaces:", len(my_case.surfaces))
     print("Pre-processed:", len(my_case.surfaces.filter(stage="case")))
 
-    # for iteration in my_case.iterations:
-    #     iteration_surfaces = my_case.surfaces.filter(iteration=iteration.get("name"))
-    #     print(
-    #         iteration.get("name"),
-    #         ":",
-    #         len(iteration_surfaces),
-    #     )
+    for iteration in my_case.iterations:
+        iteration_surfaces = my_case.surfaces.filter(iteration=iteration.get("name"))
+        print(
+            iteration.get("name"),
+            ":",
+            len(iteration_surfaces),
+        )
 
-    #     prediction_surfaces = check_metadata(iteration_surfaces, "is_prediction", True)
-    #     print("  predictions:", len(prediction_surfaces))
-    # print()
+        prediction_surfaces = check_metadata(iteration_surfaces, "is_prediction", True)
+        print("  predictions:", len(prediction_surfaces))
+    print()
 
     # Get all surfaces on case level
-    seismic_type = "Surfaces on case level (pre-processed)"
+    seismic_type = "Surfaces on case level (pre-processed):"
     print(seismic_type)
 
     seismic_surfaces = my_case.surfaces.filter(stage="case")
     observed_surfaces = check_metadata(seismic_surfaces, "is_observation", True)
-    print("Observations")
-    print_sumo_objects(observed_surfaces)
+    print("Observations:")
+
+    if mode == "Details":
+        print_sumo_objects(observed_surfaces)
+    else:
+        print("  ", len(observed_surfaces))
 
     print()
-    print("Predictions")
+    print("Predictions:")
     prediction_surfaces = check_metadata(seismic_surfaces, "is_prediction", True)
-    print_sumo_objects(prediction_surfaces)
+
+    if mode == "Details":
+        print_sumo_objects(prediction_surfaces)
+    else:
+        print("  ", len(prediction_surfaces))
 
     # Get sumo instance for one case surface
     if len(observed_surfaces) > 0:
@@ -92,7 +106,11 @@ def main():
     realization_surfaces = my_case.surfaces.filter(
         stage="realization", iteration=iter_name, realization=real
     )
-    print_sumo_objects(realization_surfaces)
+
+    if mode == "Details":
+        print_sumo_objects(realization_surfaces)
+    else:
+        print("  ", len(realization_surfaces))
 
     # Get sumo instance for one realization surface
     if len(realization_surfaces) > 0:
@@ -130,7 +148,11 @@ def main():
             aggregated_surfaces = get_aggregations(surfaces)
 
         print(surface_type, iter_name)
-        print_sumo_objects(aggregated_surfaces)
+
+        if mode == "Details":
+            print_sumo_objects(aggregated_surfaces)
+        else:
+            print("  ", len(aggregated_surfaces))
 
         # Get sumo instance for one aggregated surface
         if len(aggregated_surfaces) > 0:

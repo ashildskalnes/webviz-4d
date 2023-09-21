@@ -32,7 +32,13 @@ def find_number(surfacepath, txt):
 def get_metadata(surface_file):
     delimiter = "--"
     ind = []
-    blocked_dirs = ["tmp_rec", "tmp_prm", "maps_backup", "difference_from_reference"]
+    blocked_dirs = [
+        "tmp_rec",
+        "tmp_prm",
+        "maps_backup",
+        "difference_from_reference",
+        "maps_tscorr_backup",
+    ]
 
     real_id = None
     iter_name = None
@@ -104,20 +110,27 @@ def compare_surface_collections(metadata, surfaces, sumo_surfaces, fmu_dir, mode
     missing_files = []
 
     if mode == "sumo":
-        if len(surfaces) > len(sumo_surfaces):
+        if len(surfaces) != len(sumo_surfaces):
             sumo_filepaths = get_absolute_paths(sumo_surfaces, fmu_dir)
+            missing_files_sumo = list(set(surfaces).difference(sumo_filepaths))
+            missing_files_disk = list(set(sumo_filepaths).difference(surfaces))
 
-            for surface in surfaces:
-                if surface not in sumo_filepaths:
-                    missing_files.append(surface)
-                    # print("WARNING:", surface, "not found in SUMO")
+            print("  WARNING: Files that are missing on disk:", len(missing_files_disk))
+            print("  WARNING: Files that are missing in sumo:", len(missing_files_sumo))
     elif mode == "meta":
-        if len(surfaces) > len(metadata.index):
+        if len(surfaces) != len(metadata.index):
             metadata_filenames = metadata["filename"].to_list()
-            for surface in surfaces:
-                if surface not in metadata_filenames:
-                    missing_files.append(surface)
-                    # print("WARNING:", surface, "not found in metadata file")
+            missing_files_meta = list(set(surfaces).difference(metadata_filenames))
+            missing_files_disk = list(set(metadata_filenames).difference(surfaces))
+
+            print(
+                "   WARNING: Files that are missing on disk:",
+                len(missing_files_disk),
+            )
+            print(
+                "   WARNING: Files that are missing in metadata file:",
+                len(missing_files_meta),
+            )
     else:
         print("ERROR: Unknown mode:", mode)
 
@@ -134,8 +147,6 @@ def main():
     description = "Compare surfaces on disk and sumo"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("config_file", help="config file")
-    parser.add_argument("sumo_id", help="sumo_id")
-    parser.add_argument("--full", help="Scan mode (optional, default=False)")
 
     args = parser.parse_args()
     print(args)
@@ -143,36 +154,27 @@ def main():
     # map_types_list = ["observed", "realizations", "aggregated"]
 
     config_file = args.config_file
-    sumo_id = args.sumo_id
-    scan_mode = args.full
-
     config_file = os.path.abspath(config_file)
     config_folder = os.path.dirname(config_file)
 
     config = read_config(config_file)
     shared_settings = config.get("shared_settings")
+    sumo_name = shared_settings.get("sumo_name")
+
+    sumo = Explorer(env="prod", keep_alive="5m")
+    my_case = sumo.cases.filter(name=sumo_name)[0]
+    print(f"{my_case.name}: {my_case.uuid}")
+
+    # Some case info
+    print(my_case.field)
+    print(my_case.status)
+    print(my_case.user)
 
     surface_metadata_file = shared_settings.get("surface_metadata_file")
     surface_metadata_file = os.path.join(config_folder, surface_metadata_file)
 
     fmu_dir = shared_settings["fmu_directory"]
-
-    sumo = Explorer(env="prod")
-    my_case = sumo.cases.filter(uuid=sumo_id)[0]
-
-    # Some case info
-    print("SUMO:")
-    print(f"  {my_case.name}: {my_case.uuid}")
-    print(" ", my_case.field)
-    print(" ", my_case.status)
-    print(" ", my_case.user)
-
-    if scan_mode:
-        txt = "Full"
-    else:
-        txt = "realization-0"
-
-    print("Searching for all surface files in", fmu_dir, txt, "...")
+    print("Searching for all surface files in", fmu_dir, "...")
 
     all_surface_files = glob.glob(
         fmu_dir + os.sep + "**" + os.sep + "*.gri", recursive=True
@@ -197,9 +199,6 @@ def main():
             if time_lapse:
                 observed_timelapse_surfaces.append(surface_file)
         elif map_type == "realization" and "observations" not in surface_file:
-            if not scan_mode:
-                status = bool(real_id == "0")
-
             if status:
                 realization_surfaces.append(surface_file)
 
@@ -209,70 +208,66 @@ def main():
                     if iter_name not in iter_names:
                         iter_names.append(iter_name)
 
-        elif map_type == "aggregated":
+        elif map_type == "aggregated" and "observations" not in surface_file:
             if "numreal" not in surface_file:
                 aggregated_surfaces.append(surface_file)
 
                 if time_lapse:
                     aggregated_timelapse_surfaces.append(surface_file)
-
+    print()
     print(
-        "  Observed surfaces:",
+        "Observed surfaces:",
         len(observed_surfaces),
-        "TL",
+        "(TL:",
         len(observed_timelapse_surfaces),
+        ")",
     )
     print(
-        "  Realization surfaces:",
+        "Realization surfaces:",
         len(realization_surfaces),
-        "TL",
+        "(TL:",
         len(realization_timelapse_surfaces),
+        ")",
     )
     print(
-        "  Aggregated surfaces:",
+        "Aggregated surfaces:",
         len(aggregated_surfaces),
-        "TL",
+        "(TL:",
         len(aggregated_timelapse_surfaces),
+        ")",
     )
-    print("  Iterations:", sorted(iter_names))
+    print()
+    print("Iterations:", sorted(iter_names))
 
+    print()
     print("Loading metadata from:", surface_metadata_file)
     surface_metadata = pd.read_csv(surface_metadata_file, low_memory=False)
 
     observed_metadata = surface_metadata[surface_metadata["map_type"] == "observed"]
-    print("  Observed timelapse surfaces", len(observed_metadata.index))
+    print("Observed timelapse surfaces", len(observed_metadata.index))
 
     missing_observed_tl_files = compare_surface_collections(
         observed_metadata, observed_timelapse_surfaces, None, fmu_dir, "meta"
     )
-    print("    Missing observed TL surfaces", len(missing_observed_tl_files))
 
     realization_metadata = surface_metadata[surface_metadata["map_type"] == "simulated"]
-
-    # If scan_mode == False, search only for realization-0
     real_string = "realization"
-    if not scan_mode:
-        real_string = real_string + "-0"
-
     realization_metadata = realization_metadata[
         realization_metadata["fmu_id.realization"].str.contains(real_string)
     ]
-    print("  Realization timelapse surfaces", len(realization_metadata.index))
+    print("Realization timelapse surfaces", len(realization_metadata.index))
 
     missing_realization_tl_files = compare_surface_collections(
         realization_metadata, realization_timelapse_surfaces, None, fmu_dir, "meta"
     )
-    print("    Missing realization TL surfaces", len(missing_realization_tl_files))
 
-    aggregated_metadata = surface_metadata[
-        ~surface_metadata["fmu_id.realization"].str.contains("realization")
-    ]
-    print("  Aggregated timelapse surfaces", len(aggregated_metadata.index))
+    aggregated_metadata = surface_metadata[~surface_metadata["statistics"].isna()]
+
+    print("Aggregated timelapse surfaces", len(aggregated_metadata.index))
 
     missing_aggregated_tl_files = compare_surface_collections(
         aggregated_metadata, aggregated_timelapse_surfaces, None, fmu_dir, "meta"
     )
-    print("    Missing Aggregated TL surfaces", len(missing_aggregated_tl_files))
 
     time = TimeFilter(
         time_type=TimeType.INTERVAL,
@@ -285,16 +280,16 @@ def main():
     print(
         "Observed surfaces",
         len(observed_sumo_surfaces),
-        "TL",
+        "(TL:",
         len(observed_sumo_timelapse_surfaces),
+        ")",
     )
 
     missing_observed_sumo_files = compare_surface_collections(
         None, observed_surfaces, observed_sumo_surfaces, fmu_dir, "sumo"
     )
-    print("  Missing observed Sumo surfaces", len(missing_observed_sumo_files))
-    # print_list(missing_observed_sumo_files)
 
+    print("Timelapse:")
     missing_observed_sumo_TL_files = compare_surface_collections(
         None,
         observed_timelapse_surfaces,
@@ -302,28 +297,24 @@ def main():
         fmu_dir,
         "sumo",
     )
-    print("  Missing observed Sumo TL surfaces", len(missing_observed_sumo_TL_files))
 
     # Realization surfaces
-    if scan_mode:
-        realization_sumo_surfaces = my_case.surfaces.filter(stage="realization")
-    else:
-        realization_sumo_surfaces = my_case.surfaces.filter(realization=["0"])
-
+    realization_sumo_surfaces = my_case.surfaces.filter(stage="realization")
     realization_sumo_timelapse_surfaces = realization_sumo_surfaces.filter(time=time)
+    print()
     print(
         "Realization surfaces",
         len(realization_sumo_surfaces),
-        "TL",
+        "(TL:",
         len(realization_sumo_timelapse_surfaces),
+        ")",
     )
 
     missing_realization_sumo_files = compare_surface_collections(
         None, realization_surfaces, realization_sumo_surfaces, fmu_dir, "sumo"
     )
-    print("  Missing realization Sumo surfaces", len(missing_realization_sumo_files))
-    # print_list(missing_realization_sumo_files)
 
+    print("Timelapse:")
     missing_realization_sumo_TL_files = compare_surface_collections(
         None,
         realization_timelapse_surfaces,
@@ -331,35 +322,30 @@ def main():
         fmu_dir,
         "sumo",
     )
-    print(
-        "  Missing realization Sumo TL surfaces", len(missing_realization_sumo_TL_files)
-    )
 
     # Aggregated surfaces
     aggregated_sumo_surfaces = my_case.surfaces.filter(stage="iteration")
     aggregated_sumo_timelapse_surfaces = aggregated_sumo_surfaces.filter(time=time)
+    print()
     print(
-        "  Aggregated surfaces",
+        "Aggregated surfaces",
         len(aggregated_sumo_surfaces),
-        "TL",
+        "(TL:",
         len(aggregated_sumo_timelapse_surfaces),
+        ")",
     )
 
     missing_aggregated_sumo_files = compare_surface_collections(
         None, aggregated_surfaces, aggregated_sumo_surfaces, fmu_dir, "sumo"
     )
-    print("  Missing aggregated Sumo surfaces", len(missing_aggregated_sumo_files))
-    # print_list(missing_aggregated_sumo_files)
 
+    print("Timelapse:")
     missing_aggregated_sumo_TL_files = compare_surface_collections(
         None,
         aggregated_timelapse_surfaces,
         aggregated_sumo_timelapse_surfaces,
         fmu_dir,
         "sumo",
-    )
-    print(
-        "  Missing aggregated Sumo TL surfaces", len(missing_aggregated_sumo_TL_files)
     )
 
 

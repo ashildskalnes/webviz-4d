@@ -20,7 +20,7 @@ pages:
   - title: Observed and simulated maps
     content:
       - SurfaceViewer4D:
-          wellfolder: ./well_data
+          well_data: ./well_data
           production_data: ./production_data
           polygon_data: ./polygon_data
           colormaps_folder: ./colormaps/

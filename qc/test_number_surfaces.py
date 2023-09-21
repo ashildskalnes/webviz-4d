@@ -12,8 +12,7 @@ def main():
 
     sumo_name = args.sumo_name
 
-    # sumo = Explorer(env="prod", keep_alive="15m")
-    sumo = Explorer(env="prod")
+    sumo = Explorer(env="prod", keep_alive="15m")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
     print(f"{my_case.name}: {my_case.uuid}")

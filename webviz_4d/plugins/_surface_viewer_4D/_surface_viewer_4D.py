@@ -110,7 +110,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.label = self.shared_settings.get("label", self.fmu_directory)
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
-        self.top_res_surface_settings = self.shared_settings.get("top_reservoir")
+        self.top_res_surface_settings = self.shared_settings.get("top_res_surface")
 
         self.selector_file = selector_file
         self.production_data = production_data

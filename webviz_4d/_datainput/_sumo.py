@@ -537,33 +537,33 @@ def check_timelapse(surfaces, times):
     return timelapse_surfaces
 
 
-def get_sumo_top_res_surface(my_case, shared_settings):
-    top_res_surface = shared_settings.get("top_res_surface")
-    iter_name = my_case.iterations[0].get("name")
+# def get_sumo_top_res_surface(my_case, shared_settings):
+#     top_res_surface = shared_settings.get("top_res_surface")
+#     iter_name = my_case.iterations[0].get("name")
 
-    if top_res_surface is not None:
-        name = top_res_surface.get("name")
-        tagname = top_res_surface.get("tag_name")
-        time_interval = [False, False]
+#     if top_res_surface is not None:
+#         name = top_res_surface.get("name")
+#         tagname = top_res_surface.get("tag_name")
+#         time_interval = [False, False]
 
-        surface = get_realization_surface(
-            case=my_case,
-            surface_name=name,
-            attribute=tagname,
-            time_interval=time_interval,
-            iteration_name=iter_name,
-        )
+#         surface = get_realization_surface(
+#             case=my_case,
+#             surface_name=name,
+#             attribute=tagname,
+#             time_interval=time_interval,
+#             iteration_name=iter_name,
+#         )
 
-    if surface:
-        return surface.to_regular_surface()
-    else:
-        print(
-            "ERROR: Top reservoir surface not loaded from SUMO:",
-            name,
-            tagname,
-            time_interval,
-        )
-        return None
+#     if surface:
+#         return surface.to_regular_surface()
+#     else:
+#         print(
+#             "ERROR: Top reservoir surface not loaded from SUMO:",
+#             name,
+#             tagname,
+#             time_interval,
+#         )
+#         return None
 
 
 def open_surface_with_xtgeo(surface):
@@ -688,3 +688,45 @@ def get_sumo_zone_polygons(
             )
 
     return polygons
+
+
+def get_sumo_top_res_surface(sumo_case, surface_info):
+    print("DEBUG", surface_info)
+    surface = None
+
+    if surface_info is not None:
+        name = surface_info.get("name")
+        tagname = surface_info.get("tag_name")
+        iter_name = surface_info.get("iter")
+        real = surface_info.get("real")
+        time_interval = [False, False]
+
+        print("Load top reservoir surface from SUMO:", name, tagname, iter_name, real)
+
+        if "realization" in real:
+            real_id = real.split("-")[1]
+            surface = get_realization_surface(
+                case=sumo_case,
+                surface_name=name,
+                attribute=tagname,
+                time_interval=time_interval,
+                iteration_name=iter_name,
+                realization=real_id,
+            )
+        else:
+            surface = get_aggregated_surface(
+                case=sumo_case,
+                surface_name=name,
+                attribute=tagname,
+                time_interval=time_interval,
+                iteration_name=iter_name,
+                operation=real,
+            )
+
+    if surface:
+        return surface.to_regular_surface()
+    else:
+        print(
+            "ERROR: Top reservoir surface not loaded from SUMO",
+        )
+        return None
