@@ -16,7 +16,7 @@ def main():
     config_file = args.config_file
     config = read_config(config_file)
     shared_settings = config.get("shared_settings")
-    surface_info = shared_settings.get("top_res_surface")
+    surface_info = shared_settings.get("top_reservoir")
     sumo_name = shared_settings.get("sumo_name")
     sumo = Explorer(env="prod", keep_alive="15m")
 
@@ -27,6 +27,8 @@ def main():
 
     if top_res_surface:
         print(top_res_surface)
+
+    print()
 
 
 if __name__ == "__main__":

@@ -270,7 +270,7 @@ def get_observed_surface(
     if len(surfaces) == 1:
         selected_surface = surfaces[0]
     else:
-        print("WARNING: Number of surfaces found =", str(len(surfaces)))
+        print("WARNING: Number of SUMO surfaces found =", str(len(surfaces)))
         selected_surface = None
 
     return selected_surface

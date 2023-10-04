@@ -1,8 +1,8 @@
-#!/bin/bash 
+#!/bin/bash
 #set -x
 
-if [ -d "venv" ]; then 
-    rm -rf venv 
+if [ -d "venv" ]; then
+    rm -rf venv
 fi
 
 python -m venv venv
@@ -12,20 +12,16 @@ echo "Installing all necessary packages ..."
 
 pip install --upgrade pip
 pip install urllib3==1.26.15
-pip install libecl 
-pip install webviz-config
-pip install webviz-subsurface
+pip install -r requirements.txt
+pip install git+ssh://git@github.com/equinor/webviz-config
 pip install webviz-config-equinor
+pip install PyGObject==3.44.1
 pip install black
-pip install python-dotenv
-pip install msal_extensions
-pip install pygobject
-pip install requests
-pip install requests_toolbelt
+pip install pylint
+pip install pytest
 pip install git+https://github.com/equinor/sumo-wrapper-python.git
 pip install git+https://github.com/equinor/fmu-sumo.git
 
-pip install .
+pip install -e .
 
 echo "WebViz-4D installation completed"
-
