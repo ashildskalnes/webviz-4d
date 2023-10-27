@@ -42,7 +42,7 @@ def main():
     my_case = sumo.cases.filter(name=sumo_name)[0]
     print("SUMO case:", my_case.name)
 
-    top_res_surface_info = shared_settings.get("top_res_surface")
+    top_res_surface_info = shared_settings.get("top_reservoir")
     print(top_res_surface_info)
 
     realization = "realization-0"
@@ -66,7 +66,7 @@ def main():
         # related to zones and observed/aggregated surfaces
         map_types = ["simulated", "observed", "aggregated"]
 
-        top_res_surface_settings = config.get("shared_settings").get("top_res_surface")
+        top_res_surface_settings = config.get("shared_settings").get("top_reservoir")
         ensemble = iter_name
         real = realization
 

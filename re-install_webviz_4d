@@ -12,15 +12,16 @@ echo "Installing all necessary packages ..."
 
 pip install --upgrade pip
 pip install urllib3==1.26.15
-pip install -r requirements.txt
-pip install git+ssh://git@github.com/equinor/webviz-config
+#pip install -r requirements.txt
+pip install webviz-config
 pip install webviz-config-equinor
+pip install webviz-subsurface
 pip install PyGObject==3.44.1
+pip install python-dotenv
 pip install black
 pip install pylint
 pip install pytest
-pip install git+https://github.com/equinor/sumo-wrapper-python.git
-pip install git+https://github.com/equinor/fmu-sumo.git
+pip install fmu-sumo
 
 pip install -e .
 

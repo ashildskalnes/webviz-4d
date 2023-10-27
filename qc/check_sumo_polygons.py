@@ -11,17 +11,11 @@ from webviz_4d._datainput._sumo import print_sumo_objects
 def main():
     description = "Test SUMO polygons"
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("config_file")
-
+    parser.add_argument("sumo_name")
     args = parser.parse_args()
 
-    config_file = args.config_file
-    config_file = os.path.abspath(config_file)
-
-    config = read_config(config_file)
-    shared_settings = config.get("shared_settings")
-    sumo_name = shared_settings.get("sumo_name")
-    sumo = Explorer(env="prod")
+    sumo_name = args.sumo_name
+    sumo = Explorer(env="prod", keep_alive="20m")
 
     my_case = sumo.cases.filter(name=sumo_name)[0]
     print(f"{my_case.name}: {my_case.uuid}")
@@ -34,10 +28,14 @@ def main():
 
     # Load polygons from sumo
     iter_name = my_case.iterations[0].get("name")
-    real_id = 0
+    real_id = 1
 
-    sumo_polygons = my_case.polygons.filter(iteration=iter_name, realization=real_id)
+    selected_polygon = "Draupne Fm. 1 JS Top"
+    sumo_polygons = my_case.polygons.filter(
+        iteration=iter_name, realization=real_id, name=selected_polygon
+    )
 
+    print("DEBUG: number of polygons", len(sumo_polygons))
     print_sumo_objects(sumo_polygons)
 
     polygon_layers = load_sumo_polygons(sumo_polygons, None)

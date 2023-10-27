@@ -135,26 +135,12 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.colormap_settings = read_csv(csv_file=self.attribute_maps_file)
             print("Colormaps settings loaded from file", self.attribute_maps_file)
 
-        # Read settings
-        # self.settings_path = settings
-        # config_dir = os.path.dirname(os.path.abspath(self.settings_path))
-        # self.well_layer_dir = Path(os.path.join(config_dir, "well_layers"))
-
-        # if self.settings_path:
-        #     self.config = read_config(get_path(path=self.settings_path))
-        #     self.field_name = self.config.get("field_name")
-
-        #     map_settings = self.config.get("map_settings")
-        #     self.attribute_settings = map_settings.get("attribute_settings")
-        #     self.default_colormap = map_settings.get("default_colormap", "seismic")
-        #     self.well_colors = get_well_colors(self.config)
-
-        # Read/create defaults
-
+        # Get maps information
         if self.sumo_name:
             self.api_usage["sumo"] = True
             env = "prod"
-            self.sumo = Explorer(env=env)
+            self.sumo = Explorer(env=env, keep_alive="20m")
+            # self.sumo = Explorer(env=env)
             cases = self.sumo.cases.filter(name=self.sumo_name)
 
             if len(cases) == 1:
@@ -164,6 +150,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 print("       Execution stopped")
                 exit(1)
 
+            self.field_name = self.my_case.field
             self.label = "SUMO case: " + self.sumo_name
             self.iterations = self.my_case.iterations
             print("SUMO case:", self.my_case.name)
@@ -204,18 +191,25 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.map_defaults = get_all_map_defaults(self.selection_list, map_default_list)
 
         self.selected_intervals = [
-            self.default_interval,
-            self.default_interval,
-            self.default_interval,
+            map1_defaults.get("interval"),
+            map2_defaults.get("interval"),
+            map3_defaults.get("interval"),
         ]
+
         # Load polygons
         if self.sumo_name:
             print("Polygons in SUMO ...")
-            iter_name = self.my_case.iterations[0].get("name")
+            iter_name = self.top_res_surface_settings.get("iter")
+            top_res_name = self.top_res_surface_settings.get("name")
+            real = self.top_res_surface_settings.get("real")
+
+            items = real.split("-")
+            real_id = items[1]
 
             self.sumo_polygons = self.my_case.polygons.filter(
-                iteration=iter_name, realization=0
+                iteration=iter_name, realization=real_id, name=top_res_name
             )
+
             for polygon in self.sumo_polygons:
                 print("  - ", polygon.name, polygon.tagname)
 
@@ -253,12 +247,12 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             print("Loading drilled well data from SMDA ...")
             self.drilled_wells_info = load_smda_metadata(
-                self.smda_provider, self.field_name[0]
+                self.smda_provider, self.field_name
             )
             # print(self.drilled_wells_info)
 
             self.drilled_wells_df = load_smda_wellbores(
-                self.smda_provider, self.field_name[0]
+                self.smda_provider, self.field_name
             )
             # print(self.drilled_wells_df)
 
@@ -270,9 +264,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if "planned" in self.basic_well_layers:
                 print("Loading planned well data from POZO ...")
-                planned_wells = load_planned_wells(
-                    self.pozo_provider, self.field_name[0]
-                )
+                planned_wells = load_planned_wells(self.pozo_provider, self.field_name)
                 self.planned_wells_info = planned_wells.metadata.dataframe
                 self.planned_wells_df = planned_wells.trajectories.dataframe
 
@@ -286,7 +278,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.well_colors,
             )
 
-            self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name[0])
+            self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name)
             pdm_wellbores = self.pdm_wells_info["WB_UWBI"].tolist()
             self.pdm_wells_df = self.drilled_wells_df[
                 self.drilled_wells_df["unique_wellbore_identifier"].isin(pdm_wellbores)
@@ -378,9 +370,9 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if "PDM" in str(production_data):
             self.interval_well_layers = create_production_layers(
-                field_name=self.field_name[0],
+                field_name=self.field_name,
                 pdm_provider=self.pdm_provider,
-                interval_4d=default_interval,
+                interval_4d=self.default_interval,
                 wellbore_trajectories=self.drilled_wells_df,
                 surface_picks=self.surface_picks,
                 layer_options=self.additional_well_layers,
@@ -455,7 +447,6 @@ class SurfaceViewer4D(WebvizPluginABC):
     def load_settings_info(self, settings_path):
         if settings_path:
             settings = read_config(get_path(path=settings_path))
-            self.field_name = settings.get("field_name")
 
             map_settings = settings.get("map_settings")
             self.attribute_settings = map_settings.get("attribute_settings")
@@ -692,17 +683,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return min_max
 
-        # def get_interval_list(interval_string):
-        #     t1 = interval_string[-10:]
-        #     t2 = interval_string[:10]
-
-        #     if t1 < t2:
-        #         interval_list = [t1, t2]
-        #     else:
-        #         interval_list = [t2, t1]
-
-        return interval_list
-
     def make_map(self, data, ensemble, real, attribute_settings, map_idx):
         data = json.loads(data)
         selected_zone = data.get("name")
@@ -813,7 +793,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                         self.selected_intervals[map_idx] = interval
                     else:
                         self.interval_well_layers = create_production_layers(
-                            field_name=self.field_name[0],
+                            field_name=self.field_name,
                             pdm_provider=self.pdm_provider,
                             interval_4d=interval,
                             wellbore_trajectories=self.drilled_wells_df,

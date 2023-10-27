@@ -44,7 +44,9 @@ class SurfaceSelector:
         self.selections = selections
         self.map_defaults = map_defaults
         self.current_selections = map_defaults
-        self.current_selections["interval"] = default_interval
+        self.current_selections["interval"] = map_defaults.get(
+            "interval", default_interval
+        )
 
         self._storage_id = f"{str(uuid4())}-surface-selector"
         self.set_ids()

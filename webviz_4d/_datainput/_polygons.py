@@ -290,7 +290,8 @@ def load_sumo_polygons(polygons, polygon_colors):
             else:
                 color = default_colors.get(name)
 
-            polygon_df = create_polygon_layer(polygon.to_dataframe())
+            polygon_pandas = polygon.to_pandas()
+            polygon_df = create_polygon_layer(polygon_pandas)
 
             polygon_layer = make_new_polyline_layer(
                 polygon_df, name, polygon.tagname, color

@@ -123,7 +123,6 @@ def get_tag_values(surfaces, tag_name):
 
 def create_selector_lists(my_case, mode):
     iterations = my_case.iterations
-    print(iterations)
 
     iteration_names = []
     for iteration in iterations:
@@ -362,7 +361,8 @@ def create_time_filter(time_interval, exact):
 def check_metadata(sumo_objects, selected_metatadata, value):
     selected_objects = []
 
-    for sumo_object in sumo_objects:
+    for index, sumo_object in enumerate(sumo_objects):
+        print(index, sumo_object.name, sumo_object.tagname)
         if selected_metatadata == "operation":
             metadata = (
                 sumo_object._metadata.get("fmu").get("aggregation").get("operation")
@@ -691,7 +691,6 @@ def get_sumo_zone_polygons(
 
 
 def get_sumo_top_res_surface(sumo_case, surface_info):
-    print("DEBUG", surface_info)
     surface = None
 
     if surface_info is not None:

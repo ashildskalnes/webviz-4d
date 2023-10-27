@@ -1,1 +1,0 @@
-webviz-subsurface-components==0.4.15
