@@ -35,7 +35,6 @@ def main():
         iteration=iter_name, realization=real_id, name=selected_polygon
     )
 
-    print("DEBUG: number of polygons", len(sumo_polygons))
     print_sumo_objects(sumo_polygons)
 
     polygon_layers = load_sumo_polygons(sumo_polygons, None)

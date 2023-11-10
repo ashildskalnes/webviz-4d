@@ -13,10 +13,11 @@ def extract_data(session, endpoint, selection, filter):
 
     filter = filter.replace(" ", "%20").replace("/", "%2F")
 
-    if selection != "":
-        endpoint = endpoint + "_items=9000" + "&_projection=" + selection + "&" + filter
-    else:
-        endpoint = endpoint + "_items=9000" + "&" + filter
+    # if selection != "":
+    #     endpoint = endpoint + "_items=9000" + "&_projection=" + selection + "&" + filter
+    # else:
+    #     endpoint = endpoint + "_items=9000" + "&" + filter
+    endpoint = endpoint + "_items=9000" + "&" + filter
 
     response = session.get(endpoint)
 

@@ -632,10 +632,10 @@ def create_production_layers(
     field_name: str = "",
     pdm_provider: ProviderImplFile = None,
     interval_4d: str = "",
-    wellbore_trajectories: pd.DataFrame = None,
-    surface_picks: pd.DataFrame = None,
-    layer_options: dict = None,
-    well_colors: dict = None,
+    wellbore_trajectories: pd.DataFrame = pd.DataFrame(),
+    surface_picks: pd.DataFrame = pd.DataFrame(),
+    layer_options: dict = {},
+    well_colors: dict = {},
     prod_interval: str = "Day",
 ):
     print("Loading production/injection data from PDM ...")

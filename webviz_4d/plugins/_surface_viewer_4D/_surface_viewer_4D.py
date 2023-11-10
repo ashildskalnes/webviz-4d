@@ -7,6 +7,7 @@ import os
 import numpy as np
 import xtgeo
 import logging
+from pprint import pprint
 
 from fmu.sumo.explorer import Explorer
 
@@ -66,6 +67,8 @@ from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 
+from webviz_4d._datainput._auto4d import create_auto4d_lists, load_metadata
+
 from ._webvizstore import read_csv, read_csvs, find_files, get_path
 from ._callbacks import (
     set_first_map,
@@ -99,7 +102,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         delimiter: str = "--",
         surface_metadata_file: Path = None,
         attribute_maps_file: Path = None,
-        interval_mode: str = "reverse",
+        interval_mode: str = "normal",
         selector_file: Path = None,
     ):
         super().__init__()
@@ -107,6 +110,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.fmu_directory = self.shared_settings["fmu_directory"]
         self.sumo_name = self.shared_settings.get("sumo_name")
+        self.auto4d_directory = self.shared_settings.get("auto4d_directory")
         self.label = self.shared_settings.get("label", self.fmu_directory)
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
@@ -153,17 +157,31 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.field_name = self.my_case.field
             self.label = "SUMO case: " + self.sumo_name
             self.iterations = self.my_case.iterations
-            print("SUMO case:", self.my_case.name)
+            print("SUMO case:", self.my_case.name, self.field_name)
 
-            print("Create selection lists ...")
-            time_mode = "timelapse"
-            self.selection_list = create_selector_lists(
-                self.my_case,
-                time_mode,
+            # print("Create selection lists ...")
+            # time_mode = "timelapse"
+            # self.selection_list = create_selector_lists(
+            #     self.my_case,
+            #     time_mode,
+            # )
+
+            # if self.selection_list is None:
+            #     sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
+        if self.auto4d_directory:
+            self.label = "auto4d maps: " + self.auto4d_directory
+            print("auto4d maps:", self.auto4d_directory)
+            self.surface_metadata = load_metadata(self.auto4d_directory)
+            print(self.surface_metadata)
+
+            print("Create auto4d selection lists ...")
+            self.selection_list = create_auto4d_lists(
+                self.surface_metadata, interval_mode
             )
+            pprint(self.selection_list)
 
             if self.selection_list is None:
-                sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
+                sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
         else:
             # Read maps metadata from file
             self.my_case = None
@@ -184,8 +202,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.default_interval is None:
             map_types = ["observed", "simulated"]
             self.default_interval = get_default_interval(self.selection_list, map_types)
-
-        print("Default interval", self.default_interval)
 
         map_default_list = [map1_defaults, map2_defaults, map3_defaults]
         self.map_defaults = get_all_map_defaults(self.selection_list, map_default_list)
@@ -249,18 +265,14 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.drilled_wells_info = load_smda_metadata(
                 self.smda_provider, self.field_name
             )
-            # print(self.drilled_wells_info)
 
             self.drilled_wells_df = load_smda_wellbores(
                 self.smda_provider, self.field_name
             )
-            # print(self.drilled_wells_df)
 
             self.surface_picks = get_surface_picks(
                 self.drilled_wells_df, self.top_res_surface
             )
-            # print("SMDA surface_picks:")
-            # print(self.surface_picks)
 
             if "planned" in self.basic_well_layers:
                 print("Loading planned well data from POZO ...")
@@ -548,7 +560,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
     def ensembles(self, map_number):
         map_type = self.map_defaults[map_number]["map_type"]
-        return self.selection_list[map_type]["ensemble"]
+        return self.selection_list[map_type]["iteration"]
 
     def realizations(self, map_number):
         map_type = self.map_defaults[map_number]["map_type"]
@@ -607,12 +619,12 @@ class SurfaceViewer4D(WebvizPluginABC):
         try:
             selected_metadata = self.surface_metadata[
                 (self.surface_metadata["fmu_id.realization"] == real)
-                & (self.surface_metadata["fmu_id.ensemble"] == ensemble)
+                & (self.surface_metadata["fmu_id.iteration"] == ensemble)
                 & (self.surface_metadata["map_type"] == map_type)
                 & (self.surface_metadata["data.time.t1"] == time1)
                 & (self.surface_metadata["data.time.t2"] == time2)
                 & (self.surface_metadata["data.name"] == name)
-                & (self.surface_metadata["data.content"] == attribute)
+                & (self.surface_metadata["data.attribute"] == attribute)
             ]
 
             filepath = selected_metadata["filename"].values[0]
@@ -712,8 +724,13 @@ class SurfaceViewer4D(WebvizPluginABC):
                 sim_info = "-"
                 surface_layers = []
                 label = "-"
-
         else:
+            surface_file = self.get_real_runpath(data, ensemble, real, map_type)
+
+            if os.path.isfile(surface_file):
+                surface = load_surface(surface_file)
+
+        if self.auto4d_directory:
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
 
             if os.path.isfile(surface_file):

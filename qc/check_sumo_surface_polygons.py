@@ -112,8 +112,6 @@ def main():
                                 iteration = default_polygon_iter
                                 realization = default_polygon_real
 
-                        print("   DEBUG polygon", polygon_name, iteration, realization)
-
                         if iteration:
                             real_id = get_realization_id(realization)
 
