@@ -5,7 +5,7 @@ import datetime
 import json
 import os
 import numpy as np
-import xtgeo
+import pandas as pd
 import logging
 from pprint import pprint
 
@@ -112,6 +112,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.sumo_name = self.shared_settings.get("sumo_name")
         self.auto4d_directory = self.shared_settings.get("auto4d_directory")
         self.label = self.shared_settings.get("label", self.fmu_directory)
+
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
         self.top_res_surface_settings = self.shared_settings.get("top_reservoir")
@@ -122,7 +123,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.polygons_folder = polygons_folder
         self.colormaps_folder = colormaps_folder
         self.map_suffix = map_suffix
-        self.delimiter = delimiter
         self.interval_mode = interval_mode
         self.default_interval = default_interval
 
@@ -172,13 +172,11 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.label = "auto4d maps: " + self.auto4d_directory
             print("auto4d maps:", self.auto4d_directory)
             self.surface_metadata = load_metadata(self.auto4d_directory)
-            print(self.surface_metadata)
 
             print("Create auto4d selection lists ...")
             self.selection_list = create_auto4d_lists(
                 self.surface_metadata, interval_mode
             )
-            pprint(self.selection_list)
 
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
@@ -279,6 +277,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 planned_wells = load_planned_wells(self.pozo_provider, self.field_name)
                 self.planned_wells_info = planned_wells.metadata.dataframe
                 self.planned_wells_df = planned_wells.trajectories.dataframe
+
+            self.planned_wells_info = pd.DataFrame()
+            self.planned_wells_df = pd.DataFrame()
 
             self.well_basic_layers = create_basic_well_layers(
                 self.basic_well_layers,
@@ -707,7 +708,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         surface = None
 
-        if self.sumo_name:
+        if self.sumo_name and self.auto4d_directory is None:
             interval_list = get_sumo_interval_list(selected_interval)
             surface = get_selected_surface(
                 case=self.my_case,
@@ -724,6 +725,12 @@ class SurfaceViewer4D(WebvizPluginABC):
                 sim_info = "-"
                 surface_layers = []
                 label = "-"
+        if self.auto4d_directory:
+            surface_file = self.get_real_runpath(data, ensemble, real, map_type)
+
+            if os.path.isfile(surface_file):
+                surface = load_surface(surface_file)
+
         else:
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
 
@@ -802,7 +809,10 @@ class SurfaceViewer4D(WebvizPluginABC):
             interval = data["date"]
 
             # Load new interval layers if selected interval has changed
-            if interval != self.selected_intervals[map_idx]:
+            if (
+                interval != self.selected_intervals[map_idx]
+                or interval != self.default_interval
+            ):
                 if get_dates(interval)[0] <= self.production_update:
                     if "PDM" not in str(self.production_data):
                         index = self.interval_names.index(interval)

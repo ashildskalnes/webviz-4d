@@ -7,26 +7,12 @@ shared_settings:
     simulated_maps: 
         realization_names: [realization-*]
         ensemble_names: [iter-0]
-        map_directories: [share/results/maps]
-        
-    observed_maps: 
-        realization_names: [realization-0]
-        ensemble_names: [iter-0]
-        map_directories: [share/observations/maps/]  
+        map_directories: [share/results/maps] 
            
     polygon_layers:
-        faults: 
-            tagname: faultlines
-            label: Faults
-            format: rms  
-        goc: 
-            tagname: outline_goc
-            label: GOC
-            format: rms   
-        fwl: 
-            tagname: outline_fwl
-            label: FWL
-            format: rms    
+        faults: Faults
+        owc_outline: Initial OWC 
+        prm_receivers: PRM receivers    
         
     well_data: &well_data ./well_data 
     production_data: &production_data ./production_data   
@@ -60,7 +46,7 @@ pages:
           map1_defaults:
             attribute: 4d_diff_rms
             name: all
-            map_type: observed
+            map_type: simulated
             ensemble: iter-0
             realization: realization-0
           map2_defaults: 

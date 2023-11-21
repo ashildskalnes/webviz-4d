@@ -124,7 +124,33 @@ def get_update_dates(welldata, productiondata):
     return update_dates
 
 
-def get_plot_label(date_labels, interval):
+# def get_plot_label(date_labels, interval):
+#     difference_mode = "normal"
+#     labels = []
+
+#     dates = [
+#         interval[:4] + interval[5:7] + interval[8:10],
+#         interval[11:15] + interval[16:18] + interval[19:21],
+#     ]
+
+#     for date in dates:
+#         # date = convert_date(date)
+#         try:
+#             label = date_labels[int(date)]
+#         except:
+#             label = date[:4] + "-" + date[4:6] + "-" + date[6:8]
+
+#         labels.append(label)
+
+#     if difference_mode == "normal":
+#         label = str(labels[0]) + " - " + str(labels[1])
+#     else:
+#         label = str(labels[1]) + " - " + str(labels[0])
+
+#     return label
+
+
+def get_plot_label(configuration, interval):
     difference_mode = "normal"
     labels = []
 
@@ -136,7 +162,8 @@ def get_plot_label(date_labels, interval):
     for date in dates:
         # date = convert_date(date)
         try:
-            label = date_labels[int(date)]
+            labels_dict = configuration["date_labels"]
+            label = labels_dict[int(date)]
         except:
             label = date[:4] + "-" + date[4:6] + "-" + date[6:8]
 
@@ -154,3 +181,58 @@ def get_well_colors(settings):
     """Return well colors from a configuration"""
 
     return settings["well_colors"]
+
+
+def get_object_colors(settings, object_type):
+    """Return object colors from settings if existing"""
+
+    well_colors = {
+        "default": "black",
+        "oil_production": "green",
+        "gas_production": "salmon",
+        "gas_injection": "red",
+        "water_injection": "cyan",
+        "wag_injection": "gold",
+        "planned": "purple",
+    }
+
+    polygon_colors = {
+        "default": "gray",
+        "owc_outline": "lightslategray",
+        "goc_outline": "red",
+        "faults": "gray",
+        "prm_receivers": "darkgray",
+        "4D_undershoot": "salmon",
+        "injectites": "khaki",
+    }
+
+    object_colors = {"polygon_colors": polygon_colors, "well_colors": well_colors}
+
+    if object_type in object_colors.keys():
+        if settings is not None and object_type in settings.keys():
+            colors = settings[object_type]
+        else:
+            colors = object_colors[object_type]
+    else:
+        colors = None
+
+    return colors
+
+
+def get_last_date(selection_list):
+    observed_items = selection_list.get("observed")
+
+    if observed_items is not None:
+        observed_intervals = observed_items.get("interval")
+
+        observed_dates = []
+        for interval in observed_intervals:
+            dates = get_dates(interval)
+            observed_dates.append(dates[0])
+            observed_dates.append(dates[1])
+
+        last_date = max(observed_dates)
+    else:
+        last_date = None
+
+    return last_date
