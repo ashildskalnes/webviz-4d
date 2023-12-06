@@ -684,11 +684,11 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             return dataset_id
         except:
-            path = ""
+            dataset_id = None
             print("WARNING: selected map not found. Selection criteria are:")
             print(map_type, real, ensemble, name, attribute, time1, time2)
 
-        return path
+        return dataset_id
 
     def create_additional_well_layers(self, interval):
         interval_overview = self.well_layers_overview.get("additional").get(interval)
@@ -762,10 +762,16 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if self.osdu_field:
             dataset_id = self.get_osdu_dataset_id(data, ensemble, real, map_type)
-
-            dataset = self.osdu_service.get_horizon_map(file_id=dataset_id)
-            blob = io.BytesIO(dataset.content)
-            surface = xtgeo.surface_from_file(blob)
+            
+            if dataset_id is None:
+                heading = "Selected map doesn't exist"
+                sim_info = "-"
+                surface_layers = []
+                label = "-"
+            else:
+                dataset = self.osdu_service.get_horizon_map(file_id=dataset_id)
+                blob = io.BytesIO(dataset.content)
+                surface = xtgeo.surface_from_file(blob)
 
         elif self.sumo_name and self.auto4d_directory is None:
             interval_list = get_sumo_interval_list(selected_interval)

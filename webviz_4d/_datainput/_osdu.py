@@ -41,7 +41,7 @@ def extract_osdu_metadata(osdu_service):
             ow_name=horizon.ow_top_horizon[3:11]
 
             if ow_name == "IUTU+JS+":
-                ow_name = "IUTU_JS"
+                ow_name = "IUTU_JS"          
                 
             monitor_date=horizon.monitor_date
             base_date=horizon.base_date
@@ -57,8 +57,7 @@ def extract_osdu_metadata(osdu_service):
                     base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
                 )
             times1.append(date_reformat)
-            attribute = seismic_content + "_" + horizon_content
-            attributes.append(attribute)
+            
 
             dataset_ids = osdu_service.get_dataset_ids(horizon)
             # print("DEBUG datasets")
@@ -68,7 +67,16 @@ def extract_osdu_metadata(osdu_service):
                 dataset_info = osdu_service.get_dataset_info(dataset_id)
 
                 if dataset_info and dataset_info.source == "OpenWorks":
+                    print("DEBUG", dataset_info.name)
+
+                    if "dTS" in dataset_info.name:
+                        seismic_content = "dTS"
+
+                        print("DEBUG dTS")
+
                     datasets.append(dataset_id)
+                    attribute = seismic_content + "_" + horizon_content
+                    attributes.append(attribute)
                     
         zipped_list = list(
             zip(
