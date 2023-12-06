@@ -87,7 +87,7 @@ def create_basic_well_layers(
         if layer_name == "drilled_wells":
             metadata = drilled_wells_info
             trajectories = drilled_wells_df
-        elif layer_name == "reservoir_sections":
+        elif layer_name == "reservoir_section":
             metadata = drilled_wells_info
             trajectories = drilled_wells_df
 
@@ -100,7 +100,7 @@ def create_basic_well_layers(
 
             md_start = 0
 
-            if layer_name == "reservoir_sections":
+            if layer_name == "reservoir_section":
                 if surface_picks is not None and not surface_picks.empty:
                     try:
                         selected_surface_pick = surface_picks[

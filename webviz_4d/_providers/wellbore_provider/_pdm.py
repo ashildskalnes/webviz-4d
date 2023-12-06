@@ -69,7 +69,7 @@ def extract_pdm_data_compact(session, endpoint, columns, filter):
     actual_endpoint = (
         endpoint + "columns=" + columns_string + "&top=" + str(top) + "&" + filter
     )
-    print(actual_endpoint)
+    #print(actual_endpoint)
 
     df_prod = DataFrame()
     frames = []
