@@ -116,7 +116,7 @@ class Config(BaseSettings, BaseConfigManager):
     INGESTION_WORKFLOW_URL: str = f"{INSTANCE}/api/workflow/v1"
 
     if ACCESS_TOKEN == f"{INSTANCE}/dummy":
-        load_dotenv(dotenv_path="c:/Users/ashska/.env", override=True)
+        load_dotenv(dotenv_path=os.path.join(os.path.expanduser("~"),".env"), override=True)
         ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 
     def get(self, section: str, option: str, default: Optional[str] = None) -> str:

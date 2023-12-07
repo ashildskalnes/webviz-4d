@@ -685,6 +685,7 @@ def create_production_layers(
     prod_interval: str = "Day",
 ):
     print("Loading production/injection data from PDM ...")
+    print("  - 4D interval:", interval_4d)
     tic = time.perf_counter()
 
     production_data = pdm_provider.get_field_prod_data(
