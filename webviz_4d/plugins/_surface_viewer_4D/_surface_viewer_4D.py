@@ -64,7 +64,7 @@ from webviz_4d._datainput._sumo import (
     get_sumo_zone_polygons,
 )
 
-from webviz_4d._datainput._osdu import Config, DefaultOsduService, extract_osdu_metadata
+#from webviz_4d._datainput._osdu import Config, DefaultOsduService, extract_osdu_metadata
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
@@ -113,7 +113,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.fmu_directory = self.shared_settings["fmu_directory"]
         self.sumo_name = self.shared_settings.get("sumo_name")
-        self.auto4d_directory = self.shared_settings.get("auto4d_directory")
+        self.auto4d = self.shared_settings.get("auto4d")
         self.osdu_field = self.shared_settings.get("osdu_field")
         self.label = self.shared_settings.get("label", self.fmu_directory)
 
@@ -172,10 +172,23 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             # if self.selection_list is None:
             #     sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
-        if self.auto4d_directory:
+        if self.auto4d:
+            self.auto4d_directory = self.auto4d.get("folder")
             self.label = "auto4d maps: " + self.auto4d_directory
             print("auto4d maps:", self.auto4d_directory)
-            self.surface_metadata = load_metadata(self.auto4d_directory)
+
+            metadata_format = self.auto4d.get("metadata_format")
+
+            if metadata_format == "a4dmeta":
+                file_ext = ".a4dmeta"
+                acquisition_dates_file = self.auto4d.get("dates_file")
+                acquisitions = read_config(os.path.join(self.auto4d_directory, acquisition_dates_file))
+                acquisition_dates = acquisitions.get("acquisitions")
+            else:
+                file_ext = ".json"
+                acquisition_dates = None
+
+            self.surface_metadata = load_metadata(self.auto4d_directory, file_ext, acquisition_dates)
 
             print("Create auto4d selection lists ...")
             self.selection_list = create_auto4d_lists(
@@ -184,21 +197,21 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
-        elif self.osdu_field:
-            self.osdu_service = DefaultOsduService()
-            self.label = "OSDU: " + self.osdu_field
-            print(self.label)
-            
-            self.surface_metadata = extract_osdu_metadata(self.osdu_service)
-            print(self.surface_metadata)
+        # elif self.osdu_field:
+        #     self.osdu_service = DefaultOsduService()
+        #     self.label = "OSDU: " + self.osdu_field
+        #     print(self.label)
 
-            print("Create OSDU selection lists ...")
-            self.selection_list = create_auto4d_lists(
-                self.surface_metadata, interval_mode
-            )
+        #     self.surface_metadata = extract_osdu_metadata(self.osdu_service)
+        #     print(self.surface_metadata)
 
-            if self.selection_list is None:
-                sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
+        #     print("Create OSDU selection lists ...")
+        #     self.selection_list = create_auto4d_lists(
+        #         self.surface_metadata, interval_mode
+        #     )
+
+        #     if self.selection_list is None:
+        #         sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
 
         else:
             # Read maps metadata from file
@@ -654,7 +667,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             print(map_type, real, ensemble, name, attribute, time1, time2)
 
         return path
-    
+
     def get_osdu_dataset_id(self, data, ensemble, real, map_type):
         selected_interval = data["date"]
         name = data["name"]
@@ -762,7 +775,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if self.osdu_field:
             dataset_id = self.get_osdu_dataset_id(data, ensemble, real, map_type)
-            
+
             if dataset_id is None:
                 heading = "Selected map doesn't exist"
                 sim_info = "-"
@@ -797,15 +810,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 surface = load_surface(surface_file)
         else:
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
-
             if os.path.isfile(surface_file):
                 surface = load_surface(surface_file)
-
-        # if self.auto4d_directory:
-        #     surface_file = self.get_real_runpath(data, ensemble, real, map_type)
-
-        #     if os.path.isfile(surface_file):
-        #         surface = load_surface(surface_file)
 
         if surface:
             metadata = self.get_map_scaling(data, map_type, real)
