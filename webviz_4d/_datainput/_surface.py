@@ -17,7 +17,12 @@ from webviz_4d._datainput.image_processing import get_colormap
 
 @CACHE.memoize(timeout=CACHE.TIMEOUT)
 def load_surface(surface_path):
-    return xtgeo.surface_from_file(surface_path)
+    if ".map" in str(surface_path):
+        fformat = "ijxyz"
+    else:
+        fformat="irap_binary"
+
+    return xtgeo.surface_from_file(surface_path, fformat=fformat)
 
 
 @CACHE.memoize(timeout=CACHE.TIMEOUT)
