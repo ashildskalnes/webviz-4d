@@ -11,10 +11,8 @@ from webviz_4d._datainput.common import (
 )
 
 
-def load_metadata(auto4d_dir):
+def load_metadata(auto4d_dir, file_ext, acquisition_dates):
     metadata = pd.DataFrame()
-    file_ext = ".json"
-    json_files = glob.glob(auto4d_dir + "/.*" + file_ext)
 
     names = []
     attributes = []
@@ -30,34 +28,62 @@ def load_metadata(auto4d_dir):
         "filename",
     ]
 
-    for json_file in json_files:
-        # Opening JSON file
-        with open(json_file) as json_file:
-            json_data = json.load(json_file)
+    if file_ext==".json":
+        metadata_files = glob.glob(auto4d_dir + "/.*" + file_ext)
 
-            surface = json_data.get("OW Top Horizon")
-            names.append(surface[3:11])
+        for metadata_file in metadata_files:
+            # Opening JSON file
+            with open(metadata_file) as metadata_file:
+                metadata = json.load(metadata_file)
+                name = metadata.get("OW Horizon name")
+                surface_name = metadata.get("OW Top Horizon")
+                monitor_date = metadata.get("Monitor reference date")
+                base_date = metadata.get("Base reference date")
+                seismic_content = metadata.get("Seismic content")
+                horizon_content = metadata.get("Horizon content")
 
-            name = json_data.get("OW Horizon name")
-            filename = os.path.join(auto4d_dir, name + ".gri")
-            filenames.append(filename)
+                filename = os.path.join(auto4d_dir, name + ".map")
+                time1 = (
+                    base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
+                )
+                time2 = (
+                    monitor_date[6:10] + "-" + monitor_date[3:5] + "-" + monitor_date[0:2]
+                )
+                attribute = seismic_content + "_" + horizon_content
 
-            monitor_date = json_data.get("Monitor reference date")
-            date_reformat = (
-                monitor_date[6:10] + "-" + monitor_date[3:5] + "-" + monitor_date[0:2]
-            )
-            times2.append(date_reformat)
+                names.append(surface_name[3:11])
+                filenames.append(filename)
+                attributes.append(attribute)
+                times1.append(time1)
+                times2.append(time2)
+    elif file_ext==".a4dmeta":
+        acquisitions = acquisition_dates
+        metadata_files = glob.glob(auto4d_dir + "/*" + file_ext)
 
-            base_date = json_data.get("Base reference date")
-            date_reformat = (
-                base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
-            )
-            times1.append(date_reformat)
+        for metadata_file in metadata_files:
+            with open(metadata_file) as metadata_file:
+                metadata = json.load(metadata_file)
+                name = metadata.get("OW_Horizon_Name")
+                surface_name = metadata.get("OW_Top_Horizon")
+                horizon_content = metadata.get("Horizon_content")
 
-            seismic_content = json_data.get("Seismic content")
-            horizon_content = json_data.get("Horizon content")
-            attribute = seismic_content + "_" + horizon_content
-            attributes.append(attribute)
+                name_parts = name.split("_")
+                interval_4d = name_parts[3]
+                time1 = str(acquisitions.get(interval_4d[5:9]))
+                time2 = str(acquisitions.get(interval_4d[:4] ))
+                seismic_content = name_parts[4]
+
+                attribute = seismic_content + "_" + horizon_content
+                filename = os.path.join(auto4d_dir, name + ".map")
+
+                names.append(surface_name[3:11])
+                filenames.append(filename)
+                attributes.append(attribute)
+                times1.append(time1)
+                times2.append(time2)
+    else:
+        print("ERROR: Unsupported file extension", file_ext)
+        return metadata
 
     zipped_list = list(
         zip(
@@ -152,20 +178,21 @@ def main():
     config_folder = os.path.abspath(config_folder)
 
     shared_settings = config.get("shared_settings")
-    auto4d_dir = shared_settings.get("auto4d_directory")
+    auto4d = shared_settings.get("auto4d")
+    auto4d_dir = auto4d.get("folder")
     interval_mode = shared_settings.get("interval_mode", "normal")
-    # markdown_file = os.path.join(config_folder, "content.md")
 
-    # metadata_file = shared_settings.get("surface_metadata_file")
-    # metadata_file = os.path.join(config_folder, metadata_file)
+    # My metadata format
+    file_ext = ".json"
+    dates = None
+    metadata = load_metadata(auto4d_dir, file_ext, dates)
 
-    # print("Surface metadata_file", metadata_file)
-
-    # if os.path.isfile(metadata_file):
-    #     os.remove(metadata_file)
-    #     print("  - file removed")
-
-    metadata = load_metadata(auto4d_dir)
+    # Auto4d metadata format
+    file_ext = ".a4dmeta"
+    dates_file = "js_acquisition_dates.yaml"
+    dates = read_config(os.path.join(auto4d_dir, dates_file))
+    acquisitions = dates.get("acquisitions")
+    metadata = load_metadata(auto4d_dir, file_ext, acquisitions)
 
     # Create selectors
     selectors = create_auto4d_lists(metadata, interval_mode)
