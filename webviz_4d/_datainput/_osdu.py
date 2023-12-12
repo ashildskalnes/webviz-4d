@@ -57,22 +57,15 @@ def extract_osdu_metadata(osdu_service):
                     base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
                 )
             times1.append(date_reformat)
-            
-
             dataset_ids = osdu_service.get_dataset_ids(horizon)
-            # print("DEBUG datasets")
-            # print(dataset_ids)
+
 
             for dataset_id in dataset_ids:
                 dataset_info = osdu_service.get_dataset_info(dataset_id)
 
                 if dataset_info and dataset_info.source == "OpenWorks":
-                    print("DEBUG", dataset_info.name)
-
                     if "dTS" in dataset_info.name:
                         seismic_content = "dTS"
-
-                        print("DEBUG dTS")
 
                     datasets.append(dataset_id)
                     attribute = seismic_content + "_" + horizon_content
@@ -257,12 +250,13 @@ class DefaultOsduService():
             file_id = file_id.rstrip(":")
         # Get the download url for the data
         expiry_time: str = (
-            "2M"  # TODO: Find out best expiry time, for the time being it is 1 minute
+            "1M"  # TODO: Find out best expiry time, for the time being it is 1 minute
         )
-        #print(self.access_token)
+        url=f'{self.base_client.config_manager.get("", "FILE_DMS_URL")}/files/{file_id}/downloadURL?expiryTime={expiry_time}'
+        print("OSDU: get_horizon_map:", url)
         result = self.base_client.make_request(
             method=HttpMethod.GET,
-            url=f'{self.base_client.config_manager.get("", "FILE_DMS_URL")}/files/{file_id}/downloadURL?expiryTime={expiry_time}',
+            url=url,
             bearer_token=self.access_token
         )
         result.raise_for_status()
