@@ -114,7 +114,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.fmu_directory = self.shared_settings["fmu_directory"]
         self.sumo_name = self.shared_settings.get("sumo_name")
         self.auto4d_directory = self.shared_settings.get("auto4d_directory")
-        self.osdu_field = self.shared_settings.get("osdu_field")
+        self.osdu= self.shared_settings.get("osdu")
         self.label = self.shared_settings.get("label", self.fmu_directory)
 
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
@@ -184,8 +184,9 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
-        elif self.osdu_field:
+        elif self.osdu:
             self.osdu_service = DefaultOsduService()
+            self.osdu_field = self.osdu.get("field")
             self.label = "OSDU: " + self.osdu_field
             print(self.label)
             
