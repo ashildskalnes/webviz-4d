@@ -28,7 +28,7 @@ def load_metadata(auto4d_dir, file_ext, acquisition_dates):
         "filename",
     ]
 
-    if file_ext==".json":
+    if file_ext == ".json":
         metadata_files = glob.glob(auto4d_dir + "/.*" + file_ext)
 
         for metadata_file in metadata_files:
@@ -43,11 +43,13 @@ def load_metadata(auto4d_dir, file_ext, acquisition_dates):
                 horizon_content = metadata.get("Horizon content")
 
                 filename = os.path.join(auto4d_dir, name + ".map")
-                time1 = (
-                    base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
-                )
+                time1 = base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
                 time2 = (
-                    monitor_date[6:10] + "-" + monitor_date[3:5] + "-" + monitor_date[0:2]
+                    monitor_date[6:10]
+                    + "-"
+                    + monitor_date[3:5]
+                    + "-"
+                    + monitor_date[0:2]
                 )
                 attribute = seismic_content + "_" + horizon_content
 
@@ -56,22 +58,26 @@ def load_metadata(auto4d_dir, file_ext, acquisition_dates):
                 attributes.append(attribute)
                 times1.append(time1)
                 times2.append(time2)
-    elif file_ext==".a4dmeta":
+    elif file_ext == ".a4dmeta":
         acquisitions = acquisition_dates
         metadata_files = glob.glob(auto4d_dir + "/*" + file_ext)
 
         for metadata_file in metadata_files:
             with open(metadata_file) as metadata_file:
                 metadata = json.load(metadata_file)
-                name = metadata.get("OW_Horizon_Name")
-                surface_name = metadata.get("OW_Top_Horizon")
-                horizon_content = metadata.get("Horizon_content")
-
+                name = metadata.get("output_file").replace(".map", "")
                 name_parts = name.split("_")
-                interval_4d = name_parts[3]
-                time1 = str(acquisitions.get(interval_4d[5:9]))
-                time2 = str(acquisitions.get(interval_4d[:4] ))
-                seismic_content = name_parts[4]
+                surface_name = metadata.get("OSDU_Top_Horizon")
+                horizon_content = name_parts[-1]
+                process_info = metadata.get("Process_inputs")
+                segy = process_info.get("segy")
+                segy_name = segy.get("name")
+                segy_name_parts = segy_name.split("_")
+
+                interval_4d = segy_name_parts[2]
+                time1 = str(acquisitions.get(interval_4d[6:10]))
+                time2 = str(acquisitions.get(interval_4d[:4]))
+                seismic_content = segy_name_parts[3]
 
                 attribute = seismic_content + "_" + horizon_content
                 filename = os.path.join(auto4d_dir, name + ".map")
@@ -183,9 +189,9 @@ def main():
     interval_mode = shared_settings.get("interval_mode", "normal")
 
     # My metadata format
-    file_ext = ".json"
-    dates = None
-    metadata = load_metadata(auto4d_dir, file_ext, dates)
+    # file_ext = ".json"
+    # dates = None
+    # metadata = load_metadata(auto4d_dir, file_ext, dates)
 
     # Auto4d metadata format
     file_ext = ".a4dmeta"
