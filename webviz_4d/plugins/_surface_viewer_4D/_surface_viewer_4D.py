@@ -8,18 +8,15 @@ import os
 import numpy as np
 import xtgeo
 import logging
-from pprint import pprint
 
 from fmu.sumo.explorer import Explorer
 
 from webviz_config import WebvizPluginABC
-
 from webviz_4d._datainput._surface import (
     make_surface_layer,
     load_surface,
     get_top_res_surface,
 )
-
 from webviz_4d._datainput.common import (
     read_config,
     get_well_colors,
@@ -28,7 +25,6 @@ from webviz_4d._datainput.common import (
     get_dates,
     get_default_interval,
 )
-
 from webviz_4d._datainput.well import (
     load_all_wells,
     load_smda_metadata,
@@ -42,7 +38,6 @@ from webviz_4d._datainput.well import (
 from webviz_4d._datainput._production import (
     make_new_well_layer,
 )
-
 from webviz_4d._private_plugins.surface_selector import SurfaceSelector
 from webviz_4d._datainput._colormaps import load_custom_colormaps
 from webviz_4d._datainput._polygons import (
@@ -52,26 +47,20 @@ from webviz_4d._datainput._polygons import (
     load_sumo_polygons,
     get_fault_polygon_tag,
 )
-
 from webviz_4d._datainput._metadata import (
     get_all_map_defaults,
 )
-
 from webviz_4d._datainput._sumo import (
     create_selector_lists,
     get_sumo_interval_list,
     get_selected_surface,
     get_sumo_zone_polygons,
 )
-
 from webviz_4d._datainput._osdu import get_osdu_service, extract_osdu_metadata
-
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
-
 from webviz_4d._datainput._auto4d import create_auto4d_lists, load_metadata
-
 from ._webvizstore import read_csv, read_csvs, find_files, get_path
 from ._callbacks import (
     set_first_map,
@@ -82,7 +71,6 @@ from ._callbacks import (
 from ._layout import set_layout
 
 import warnings
-
 warnings.filterwarnings("ignore")
 
 
@@ -92,36 +80,39 @@ class SurfaceViewer4D(WebvizPluginABC):
     def __init__(
         self,
         app,
-        well_folder: Path = None,
-        production_data: Path = None,
-        polygons_folder: Path = None,
-        colormaps_folder: Path = None,
+        label: str = None,
+        maps_source: str = "FMU",
+        maps_info: str = "./surface_metadata.csv",
+        well_data: str = "./well_data",
+        polygon_data: str = "../polygon_data",
+        production_data: str = "./production_data",
+        completion_data: str = None,
+        interval_mode: str = "normal",
+        settings_file: Path= "./settings.yml",
         map1_defaults: dict = None,
         map2_defaults: dict = None,
         map3_defaults: dict = None,
-        map_suffix: str = ".gri",
-        default_interval: str = None,
-        settings_file: Path = None,
-        delimiter: str = "--",
-        surface_metadata_file: Path = None,
-        attribute_maps_file: Path = None,
-        interval_mode: str = "normal",
-        selector_file: Path = None,
     ):
         super().__init__()
         logging.getLogger("").setLevel(level=logging.WARNING)
-        self.shared_settings = app.webviz_settings["shared_settings"]
-        self.fmu_directory = self.shared_settings["fmu_directory"]
-        self.sumo_name = self.shared_settings.get("sumo_name")
-        self.auto4d_directory = self.shared_settings.get("auto4d_directory")
-        self.osdu= self.shared_settings.get("osdu")
-        self.label = self.shared_settings.get("label", self.fmu_directory)
 
+        # "Constants" 
+        self.map_suffix =".gri"
+        self.surface_scaling_file = Path("./surface_scaling.csv")
+        self.colormaps_folder = Path("../colormaps")
+        self.selector_file = Path("./selectors.yml")
+
+        # From shared settings
+        self.shared_settings = app.webviz_settings["shared_settings"]
+        self.field_name = self.shared_settings["field"]
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
         self.top_res_surface_settings = self.shared_settings.get("top_reservoir")
+        self.default_interval = self.shared_settings.get("default_interval")
 
-        self.selector_file = selector_file
+        # From spesific config
+        self.label = label
+        self.maps_source
         self.production_data = production_data
         self.wellfolder = well_folder
         self.polygons_folder = polygons_folder
@@ -138,10 +129,10 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.get_additional_colormaps()
 
         # Read attribute maps settings (min-/max-values)
-        self.attribute_maps_file = attribute_maps_file
-        if self.attribute_maps_file is not None:
-            self.colormap_settings = read_csv(csv_file=self.attribute_maps_file)
-            print("Colormaps settings loaded from file", self.attribute_maps_file)
+        self.surface_scaling_file = surface_scaling_file
+        if self.surface_scaling_file is not None:
+            self.colormap_settings = read_csv(csv_file=self.surface_scaling_file)
+            print("Colormaps settings loaded from file", self.surface_scaling_file)
 
         # Get maps information
         if self.sumo_name:
@@ -504,7 +495,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         ]
         for fn in [
             self.surface_metadata_file,
-            self.attribute_maps_file,
+            self.surface_scaling_file,
         ]:
             if fn is not None:
                 store_functions.append(
