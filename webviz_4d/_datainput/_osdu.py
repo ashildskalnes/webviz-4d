@@ -1,3 +1,4 @@
+import sys
 import os
 import pandas as pd
 from typing import Optional
@@ -6,20 +7,30 @@ import requests
 import numpy as np
 from dotenv import load_dotenv
 
-from osdu_api.clients.search.search_client import SearchClient
-from osdu_api.clients.dataset.dataset_dms_client import DatasetDmsClient
-from osdu_api.clients.base_client import BaseClient
-from osdu_api.configuration.base_config_manager import BaseConfigManager
-from osdu_api.clients.storage.schema_client import SchemaClient as StorageSchemaClient
-from osdu_api.model.http_method import HttpMethod
-from osdu_api.model.search.query_request import QueryRequest
-from dataclasses import dataclass
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import BaseModel
+if sys.version_info >= (3,9):
+    from osdu_api.clients.search.search_client import SearchClient
+    from osdu_api.clients.dataset.dataset_dms_client import DatasetDmsClient
+    from osdu_api.clients.base_client import BaseClient
+    from osdu_api.configuration.base_config_manager import BaseConfigManager
+    from osdu_api.clients.storage.schema_client import SchemaClient as StorageSchemaClient
+    from osdu_api.model.http_method import HttpMethod
+    from osdu_api.model.search.query_request import QueryRequest
+    from dataclasses import dataclass
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+    from pydantic import BaseModel
+
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+def get_osdu_service():  
+    if sys.version_info >= (3,9):
+        osdu_service = DefaultOsduService()
+    else:
+        osdu_service = None
+
+    return osdu_service
+
 
 def extract_osdu_metadata(osdu_service):
         names = []
@@ -355,6 +366,7 @@ class DefaultOsduService():
     
 
 def main():
+    version = sys.version
     osdu_service = DefaultOsduService()
     surface_metadata = extract_osdu_metadata(osdu_service)
     print(surface_metadata)

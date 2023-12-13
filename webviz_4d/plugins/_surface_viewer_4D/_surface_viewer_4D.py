@@ -64,7 +64,7 @@ from webviz_4d._datainput._sumo import (
     get_sumo_zone_polygons,
 )
 
-from webviz_4d._datainput._osdu import Config, DefaultOsduService, extract_osdu_metadata
+from webviz_4d._datainput._osdu import get_osdu_service, extract_osdu_metadata
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
@@ -185,7 +185,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
         elif self.osdu:
-            self.osdu_service = DefaultOsduService()
+            self.osdu_service = get_osdu_service()
             self.osdu_field = self.osdu.get("field")
             self.label = "OSDU: " + self.osdu_field
             print(self.label)
