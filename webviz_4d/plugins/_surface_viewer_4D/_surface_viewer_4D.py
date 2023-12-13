@@ -64,7 +64,7 @@ from webviz_4d._datainput._sumo import (
     get_sumo_zone_polygons,
 )
 
-#from webviz_4d._datainput._osdu import Config, DefaultOsduService, extract_osdu_metadata
+from webviz_4d._datainput._osdu import Config, DefaultOsduService, extract_osdu_metadata
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
@@ -113,7 +113,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.fmu_directory = self.shared_settings["fmu_directory"]
         self.sumo_name = self.shared_settings.get("sumo_name")
-        self.auto4d = self.shared_settings.get("auto4d")
+        self.auto4d_directory = self.shared_settings.get("auto4d_directory")
         self.osdu_field = self.shared_settings.get("osdu_field")
         self.label = self.shared_settings.get("label", self.fmu_directory)
 
@@ -172,8 +172,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             # if self.selection_list is None:
             #     sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
-        if self.auto4d:
-            self.auto4d_directory = self.auto4d.get("folder")
+        if self.auto4d_directory:
             self.label = "auto4d maps: " + self.auto4d_directory
             print("auto4d maps:", self.auto4d_directory)
 
@@ -197,21 +196,21 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
-        # elif self.osdu_field:
-        #     self.osdu_service = DefaultOsduService()
-        #     self.label = "OSDU: " + self.osdu_field
-        #     print(self.label)
+        elif self.osdu_field:
+            self.osdu_service = DefaultOsduService()
+            self.label = "OSDU: " + self.osdu_field
+            print(self.label)
+            
+            self.surface_metadata = extract_osdu_metadata(self.osdu_service)
+            print(self.surface_metadata)
 
-        #     self.surface_metadata = extract_osdu_metadata(self.osdu_service)
-        #     print(self.surface_metadata)
+            print("Create OSDU selection lists ...")
+            self.selection_list = create_auto4d_lists(
+                self.surface_metadata, interval_mode
+            )
 
-        #     print("Create OSDU selection lists ...")
-        #     self.selection_list = create_auto4d_lists(
-        #         self.surface_metadata, interval_mode
-        #     )
-
-        #     if self.selection_list is None:
-        #         sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
+            if self.selection_list is None:
+                sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
 
         else:
             # Read maps metadata from file
@@ -230,9 +229,9 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.top_res_surface_settings, self.my_case
         )
 
-        if self.default_interval is None:
-            map_types = ["observed", "simulated"]
-            self.default_interval = get_default_interval(self.selection_list, map_types)
+        # if self.default_interval is None:
+        #     map_types = ["observed", "simulated"]
+        #     self.default_interval = get_default_interval(self.selection_list, map_types)
 
         map_default_list = [map1_defaults, map2_defaults, map3_defaults]
         self.map_defaults = get_all_map_defaults(self.selection_list, map_default_list)
@@ -412,6 +411,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.interval_names.append(interval)
 
         if "PDM" in str(production_data):
+            print("DEBUG default interval", self.default_interval)
             self.interval_well_layers = create_production_layers(
                 field_name=self.field_name,
                 pdm_provider=self.pdm_provider,
