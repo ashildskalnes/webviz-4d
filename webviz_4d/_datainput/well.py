@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import math
 import numpy as np
@@ -37,9 +38,13 @@ def load_planned_wells(provider, field):
         field_name=field,
     )
 
-    dataframe = planned_wells.trajectories.dataframe
-    unique_wellbores = dataframe["unique_wellbore_identifier"].unique()
-    print(" - planned wellbores:", len(unique_wellbores))
+    if planned_wells is not None:
+        dataframe = planned_wells.trajectories.dataframe
+        unique_wellbores = dataframe["unique_wellbore_identifier"].unique()
+        print(" - planned wellbores:", len(unique_wellbores))
+    else:
+        planned_wells = None
+        print("WARNING: No planned wellbores found for", field)
 
     return planned_wells
 
@@ -816,3 +821,18 @@ def get_rms_name(wellbore_name):
     rms_name = wellbore_name.replace("/", "_").replace("NO ", "").replace(" ", "_")
 
     return rms_name
+
+
+def main():
+    field ="JOHAN SVERDRUP"
+    omnia_env = ".omniaapi"
+    home = os.path.expanduser("~")
+    omnia_env_path = os.path.expanduser(os.path.join(home, omnia_env))
+    pozo_provider = ProviderImplFile(omnia_env_path, "POZO")
+
+    planned_wells = load_planned_wells(pozo_provider, field)
+    print(planned_wells)
+
+
+if __name__ == '__main__':
+    main()

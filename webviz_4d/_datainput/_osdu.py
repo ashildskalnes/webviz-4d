@@ -284,7 +284,7 @@ class DefaultOsduService():
             return file_result
         
         except IndexError:
-            raise Exception("The data format is not correct format (ijzyz)")
+            raise Exception("The data format is not correct format (irap_binary)")
         except Exception as e:
             raise Exception(f"Something went wrong with horizon download, {e}")
 
@@ -366,7 +366,6 @@ class DefaultOsduService():
     
 
 def main():
-    version = sys.version
     osdu_service = DefaultOsduService()
     surface_metadata = extract_osdu_metadata(osdu_service)
     print(surface_metadata)

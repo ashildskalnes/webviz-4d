@@ -6,6 +6,7 @@ import datetime
 import json
 import os
 import numpy as np
+import pandas as pd
 import xtgeo
 import logging
 
@@ -81,12 +82,11 @@ class SurfaceViewer4D(WebvizPluginABC):
         self,
         app,
         label: str = None,
-        maps_source: str = "FMU",
-        maps_info: str = "./surface_metadata.csv",
-        well_data: str = "./well_data",
-        polygon_data: str = "../polygon_data",
-        production_data: str = "./production_data",
-        completion_data: str = None,
+        maps: dict = None,
+        polygons: dict = None,
+        wellbores: dict = None,
+        production: dict = None,
+        completions: dict = None,
         interval_mode: str = "normal",
         settings_file: Path= "./settings.yml",
         map1_defaults: dict = None,
@@ -97,88 +97,83 @@ class SurfaceViewer4D(WebvizPluginABC):
         logging.getLogger("").setLevel(level=logging.WARNING)
 
         # "Constants" 
-        self.map_suffix =".gri"
-        self.surface_scaling_file = Path("./surface_scaling.csv")
-        self.colormaps_folder = Path("../colormaps")
-        self.selector_file = Path("./selectors.yml")
+        
 
         # From shared settings
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.field_name = self.shared_settings["field"]
-        self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
+        self.basic_well_layers = self.shared_settings.get("basic_well_layers")
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
         self.top_res_surface_settings = self.shared_settings.get("top_reservoir")
         self.default_interval = self.shared_settings.get("default_interval")
 
         # From spesific config
         self.label = label
-        self.maps_source
-        self.production_data = production_data
-        self.wellfolder = well_folder
-        self.polygons_folder = polygons_folder
-        self.colormaps_folder = colormaps_folder
-        self.map_suffix = map_suffix
+        self.maps_source = maps.get("source")
+        self.maps_data = maps.get("data")
+        self.polygon_source = polygons.get("source")
+        self.polygon_data= polygons.get("data")
+        self.drilled_wellbores_source = wellbores.get("drilled").get("source")
+        self.drilled_wellbores_data = wellbores.get("drilled").get("data")
+        self.planned_wellbores_source = wellbores.get("planned").get("source")
+        self.planned_wellbores_data = wellbores.get("planned").get("data")
+        self.production_source = production.get("source")
+        self.production_data = production.get("data")
+        self.completion_source = completions.get("source")
+        self.completion_data = completions.get("source")
         self.interval_mode = interval_mode
-        self.default_interval = default_interval
 
         settings_folder = os.path.dirname(os.path.abspath(settings_file))
+        self.colormaps_folder = Path(os.path.join(settings_folder, "../colormaps"))
+        self.surface_scaling_file = Path(os.path.join(settings_folder, "./surface_scaling.csv"))
+        self.selector_file = Path(os.path.join(settings_folder, "./selector_file.yml"))
         self.define_defaults()
         self.load_settings_info(settings_file)
+
+        sumo_env = None
+        omnia_env = ".omniaapi"
+        home = os.path.expanduser("~")
+        omnia_env_path = os.path.expanduser(os.path.join(home, omnia_env))
 
         # Include custom colormaps if wanted
         self.get_additional_colormaps()
 
         # Read attribute maps settings (min-/max-values)
-        self.surface_scaling_file = surface_scaling_file
-        if self.surface_scaling_file is not None:
+        if self.maps_source == "FMU":
             self.colormap_settings = read_csv(csv_file=self.surface_scaling_file)
             print("Colormaps settings loaded from file", self.surface_scaling_file)
 
+
         # Get maps information
-        if self.sumo_name:
-            self.api_usage["sumo"] = True
-            env = "prod"
-            self.sumo = Explorer(env=env, keep_alive="20m")
-            # self.sumo = Explorer(env=env)
-            cases = self.sumo.cases.filter(name=self.sumo_name)
+        if self.maps_source == "SUMO":
+            sumo_env = "prod"
+            self.sumo = Explorer(env=sumo_env, keep_alive="20m")
+            cases = self.sumo.cases.filter(name=self.source_data)
 
             if len(cases) == 1:
                 self.my_case = cases[0]
             else:
                 print("ERROR: Number of selected cases =", len(cases))
-                print("       Execution stopped")
-                exit(1)
+                sys.exit("Execution stopped")
 
             self.field_name = self.my_case.field
-            self.label = "SUMO case: " + self.sumo_name
+            self.label = "SUMO case: " + self.maps_data
             self.iterations = self.my_case.iterations
             print("SUMO case:", self.my_case.name, self.field_name)
 
-            # print("Create selection lists ...")
-            # time_mode = "timelapse"
-            # self.selection_list = create_selector_lists(
-            #     self.my_case,
-            #     time_mode,
-            # )
-
-            # if self.selection_list is None:
-            #     sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
-        if self.auto4d_directory:
-            self.label = "auto4d maps: " + self.auto4d_directory
-            print("auto4d maps:", self.auto4d_directory)
-            self.surface_metadata = load_metadata(self.auto4d_directory)
-
-            print("Create auto4d selection lists ...")
-            self.selection_list = create_auto4d_lists(
-                self.surface_metadata, interval_mode
+            print("Create selection lists ...")
+            time_mode = "timelapse"
+            self.selection_list = create_selector_lists(
+                self.my_case,
+                time_mode,
             )
 
             if self.selection_list is None:
-                sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
-        elif self.osdu:
+                sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
+
+        elif self.maps_source == "OSDU":
             self.osdu_service = get_osdu_service()
-            self.osdu_field = self.osdu.get("field")
-            self.label = "OSDU: " + self.osdu_field
+            self.label = "OSDU: " + self.field_name
             print(self.label)
             
             self.surface_metadata = extract_osdu_metadata(self.osdu_service)
@@ -190,12 +185,26 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
 
             if self.selection_list is None:
-                sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
+                sys.exit("ERROR: No timelapse surfaces found in OSDU")
 
-        else:
-            # Read maps metadata from file
-            self.my_case = None
-            self.surface_metadata_file = surface_metadata_file
+        elif self.maps_source == "auto4d":
+            self.auto4d_folder= self.maps_data
+            self.label = "auto4d: " + self.auto4d_folder
+            print(self.label)
+
+            self.surface_metadata = load_metadata(self.auto4d_folder)
+            print(self.surface_metadata)
+
+            print("Create auto4d selection lists ...")
+            self.selection_list = create_auto4d_lists(
+                self.surface_metadata, interval_mode
+            )
+
+            if self.selection_list is None:
+                sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_folder)
+        
+        elif self.maps_source == "FMU":
+            self.surface_metadata_file = self.map_data
             print("Reading maps metadata from", self.surface_metadata_file)
             self.surface_metadata = (
                 read_csv(csv_file=self.surface_metadata_file)
@@ -205,9 +214,92 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             self.selection_list = read_config(get_path(path=self.selector_file))
 
-        self.top_res_surface = get_top_res_surface(
-            self.top_res_surface_settings, self.my_case
-        )
+        else:
+           sys.exit("ERROR: Unknown source for attribute maps", self.maps_source)
+
+
+        # Load top reservoir surface 
+        top_res_source = self.top_res_surface_settings.get("source")
+
+        if top_res_source == "SUMO":
+            if sumo_env is None:
+                sumo_env = "prod"
+                sumo_name = self.top_res_surface_settings.get("data")
+                self.sumo = Explorer(env=sumo_env, keep_alive="20m")
+                cases = self.sumo.cases.filter(name=sumo_name)
+
+                if len(cases) == 1:
+                    self.my_case = cases[0]
+                else:
+                    print("WARNING: Number of selected cases =", len(cases))
+                    print("       Top reservoir surface has not been loaded")
+                    self.my_case = None
+            
+            self.top_res_surface = get_top_res_surface(
+                self.top_res_surface_settings, self.my_case
+            )
+        else:
+            self.top_res_surface = None
+            print("WARNING: Top reservoir surface not supported from", top_res_source)
+
+        # Load polygons
+        if self.polygon_source == "SUMO":
+            self.source_data = self.polygon_data
+            
+            if sumo_env is None:
+                sumo_env = "prod"
+                self.sumo = Explorer(env=sumo_env, keep_alive="20m")
+                cases = self.sumo.cases.filter(name=self.source_data)
+
+                if len(cases) == 1:
+                    self.my_case = cases[0]
+                else:
+                    print("WARNING: Number of selected cases =", len(cases))
+                    print("       No polygons have been loaded")
+                    self.my_case = None
+
+            if self.source_data:
+                print("Polygons in SUMO ...")
+                iter_name = self.top_res_surface_settings.get("iter")
+                top_res_name = self.top_res_surface_settings.get("name")
+                real = self.top_res_surface_settings.get("real")
+
+                items = real.split("-")
+                real_id = items[1]
+
+                self.sumo_polygons = self.my_case.polygons.filter(
+                    iteration=iter_name, realization=real_id, name=top_res_name
+                )
+
+                for polygon in self.sumo_polygons:
+                    print("  - ", polygon.name, polygon.tagname)
+
+                self.fault_polygon_tag = get_fault_polygon_tag(self.sumo_polygons)
+        elif self.polygon_source == "FMU" and self.polygon_data is not None:
+            self.polygon_files = [
+                get_path(Path(fn))
+                for fn in json.load(find_files(self.polygon_data, ".csv"))
+            ]
+            print("Reading polygons from:", self.polygon_data)
+            self.polygon_layers = load_polygons(self.polygon_files, self.polygon_colors)
+
+            # Load zone fault if existing
+            self.zone_faults_folder = Path(os.path.join(self.polygon_data, "rms"))
+            self.zone_faults_files = [
+                get_path(Path(fn))
+                for fn in json.load(find_files(self.zone_faults_folder, ".csv"))
+            ]
+
+            print("Reading zone polygons from:", self.zone_faults_folder)
+            self.zone_polygon_layers = load_zone_polygons(
+                self.zone_faults_files, self.polygon_colors
+            )
+        else:
+            self.polygon_layers = None
+            self.zone_polygon_layers = None
+            print("WARNING: Unknown Polygon source:", self.polygon_source)
+            print("       No polygons have been loaded")
+
 
         if self.default_interval is None:
             map_types = ["observed", "simulated"]
@@ -222,114 +314,25 @@ class SurfaceViewer4D(WebvizPluginABC):
             map3_defaults.get("interval"),
         ]
 
-        # Load polygons
-        if self.sumo_name:
-            print("Polygons in SUMO ...")
-            iter_name = self.top_res_surface_settings.get("iter")
-            top_res_name = self.top_res_surface_settings.get("name")
-            real = self.top_res_surface_settings.get("real")
-
-            items = real.split("-")
-            real_id = items[1]
-
-            self.sumo_polygons = self.my_case.polygons.filter(
-                iteration=iter_name, realization=real_id, name=top_res_name
-            )
-
-            for polygon in self.sumo_polygons:
-                print("  - ", polygon.name, polygon.tagname)
-
-            self.fault_polygon_tag = get_fault_polygon_tag(self.sumo_polygons)
-        elif self.polygons_folder is not None:
-            self.polygon_files = [
-                get_path(Path(fn))
-                for fn in json.load(find_files(self.polygons_folder, ".csv"))
-            ]
-            print("Reading polygons from:", self.polygons_folder)
-            self.polygon_layers = load_polygons(self.polygon_files, self.polygon_colors)
-
-            # Load zone fault if existing
-            self.zone_faults_folder = Path(os.path.join(self.polygons_folder, "rms"))
-            self.zone_faults_files = [
-                get_path(Path(fn))
-                for fn in json.load(find_files(self.zone_faults_folder, ".csv"))
-            ]
-
-            print("Reading zone polygons from:", self.zone_faults_folder)
-            self.zone_polygon_layers = load_zone_polygons(
-                self.zone_faults_files, self.polygon_colors
-            )
-        # Read update dates and well data
+        # Load drilled wellbores and metadata  
         #    self.drilled_wells_df: dataframe with wellpaths (x- and y positions) for all drilled wells
         #    self.drilled_wells_info: dataframe with metadata for all drilled wells
-
-        if "SMDA" in str(self.wellfolder):
-            omnia_env = ".omniaapi"
-            home = os.path.expanduser("~")
-            env_path = os.path.expanduser(os.path.join(home, omnia_env))
-            self.smda_provider = ProviderImplFile(env_path, "SMDA")
-            self.pozo_provider = ProviderImplFile(env_path, "POZO")
-            self.pdm_provider = ProviderImplFile(env_path, "PDM")
-
-            print("Loading drilled well data from SMDA ...")
-            self.drilled_wells_info = load_smda_metadata(
-                self.smda_provider, self.field_name
-            )
-
-            self.drilled_wells_df = load_smda_wellbores(
-                self.smda_provider, self.field_name
-            )
-
-            self.surface_picks = get_surface_picks(
-                self.drilled_wells_df, self.top_res_surface
-            )
-
-            if "planned" in self.basic_well_layers:
-                print("Loading planned well data from POZO ...")
-                planned_wells = load_planned_wells(self.pozo_provider, self.field_name)
-                self.planned_wells_info = planned_wells.metadata.dataframe
-                self.planned_wells_df = planned_wells.trajectories.dataframe
-
-            self.well_basic_layers = create_basic_well_layers(
-                self.basic_well_layers,
-                self.planned_wells_info,
-                self.planned_wells_df,
-                self.drilled_wells_info,
-                self.drilled_wells_df,
-                self.surface_picks,
-                self.well_colors,
-            )
-
-            self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name)
-            pdm_wellbores = self.pdm_wells_info["WB_UWBI"].tolist()
-            self.pdm_wells_df = self.drilled_wells_df[
-                self.drilled_wells_df["unique_wellbore_identifier"].isin(pdm_wellbores)
-            ]
-
-            self.intervals = None
-            self.interval_names = None
-            self.all_interval_layers = []
-            self.interval_well_layers = []
-
-            self.well_update = str(datetime.date.today())
-            self.production_update = str(datetime.date.today())
-
-        if "SMDA" not in str(self.wellfolder):
-            print("Loading well data from", self.wellfolder)
+        if self.drilled_wellbores_source == "FMU":
+            print("Loading well data from", self.well_data)
 
             self.wellbore_info = read_csv(
-                csv_file=Path(self.wellfolder) / "wellbore_info.csv"
+                csv_file=Path(self.well_data) / "wellbore_info.csv"
             )
             update_dates = get_update_dates(
-                welldata=get_path(Path(self.wellfolder) / ".welldata_update.yaml"),
+                welldata=get_path(Path(self.well_data) / ".welldata_update.yaml"),
                 productiondata=get_path(
-                    Path(self.wellfolder) / ".production_update.yaml"
+                    Path(self.well_data) / ".production_update.yaml"
                 ),
             )
             self.well_update = update_dates["well_update_date"]
             self.production_update = update_dates["production_last_date"]
             self.all_wells_info = read_csv(
-                csv_file=Path(self.wellfolder) / "wellbore_info.csv"
+                csv_file=Path(self.well_data) / "wellbore_info.csv"
             )
 
             self.all_wells_info["file_name"] = self.all_wells_info["file_name"].apply(
@@ -389,8 +392,64 @@ class SurfaceViewer4D(WebvizPluginABC):
                 interval_layers = self.create_additional_well_layers(interval)
                 self.all_interval_layers.append(interval_layers)
                 self.interval_names.append(interval)
+        elif self.drilled_wellbores_source == "SMDA":          
+            self.smda_provider = ProviderImplFile(omnia_env_path, "SMDA")
+            print("Loading drilled wellbores from SMDA ...")
+            self.drilled_wells_info = load_smda_metadata(
+                self.smda_provider, self.field_name
+            )
 
-        if "PDM" in str(production_data):
+            self.drilled_wells_df = load_smda_wellbores(
+                self.smda_provider, self.field_name
+            )
+
+            self.surface_picks = get_surface_picks(
+                self.drilled_wells_df, self.top_res_surface
+            )
+        else:
+            sys.exit("ERROR: Unknown source for drilled wellbores", self.drilled_wellbores_source)
+
+        # Load planned wellbores and metadata
+        self.planned_wells_df = pd.DataFrame()
+        self.planned_wells_info = pd.DataFrame()
+        if self.planned_wellbores_source == "POZO":
+            self.pozo_provider = ProviderImplFile(omnia_env_path, "POZO")
+
+            if "planned" in self.basic_well_layers:
+                print("Loading planned wellbores from POZO ...")
+                planned_wells = load_planned_wells(self.pozo_provider, self.field_name)
+                self.planned_wells_info = planned_wells.metadata.dataframe
+                self.planned_wells_df = planned_wells.trajectories.dataframe
+        elif self.planned_wellbores_source is not None:
+            sys.exit("ERROR: Unknown source for planned wellbores", self.planned_wells_df_source)
+
+        self.well_basic_layers = create_basic_well_layers(
+            self.basic_well_layers,
+            self.planned_wells_info,
+            self.planned_wells_df,
+            self.drilled_wells_info,
+            self.drilled_wells_df,
+            self.surface_picks,
+            self.well_colors,
+        )
+
+        # Load production/injection and create additional well layers
+        if self.production_source == "PDM":
+            self.pdm_provider = ProviderImplFile(omnia_env_path, "PDM")
+            self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name)
+            pdm_wellbores = self.pdm_wells_info["WB_UWBI"].tolist()
+            self.pdm_wells_df = self.drilled_wells_df[
+                self.drilled_wells_df["unique_wellbore_identifier"].isin(pdm_wellbores)
+            ]
+
+            self.intervals = None
+            self.interval_names = None
+            self.all_interval_layers = []
+            self.interval_well_layers = []
+
+            self.well_update = str(datetime.date.today())
+            self.production_update = str(datetime.date.today())
+
             self.interval_well_layers = create_production_layers(
                 field_name=self.field_name,
                 pdm_provider=self.pdm_provider,
@@ -405,13 +464,16 @@ class SurfaceViewer4D(WebvizPluginABC):
             for interval_layer in self.interval_well_layers:
                 data = interval_layer.get("data")
                 print("  ", interval_layer.get("name"), len(data))
-        else:
+        elif self.production_source == "FMU":
             # Find production and injection layers for the default interval
             if self.interval_names:
                 index = self.interval_names.index(self.default_interval)
                 self.interval_well_layers = self.all_interval_layers[index]
             else:
                 self.interval_well_layers = None
+        else:
+            print("WARNING: Unknown production source:", self.production_source)
+            print("       No production data have been loaded")
 
         # Create selectors (attributes, names and dates) for all 3 maps
         self.selector = SurfaceSelector(
@@ -445,6 +507,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.interval_well_layers = {}
         self.polygon_layers = None
         self.zone_polygon_layers = None
+        self.map_suffix =".gri"
 
         # Define default well layers
         default_basic_well_layers = {
@@ -458,13 +521,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.basic_well_layers is None:
             self.basic_well_layers = default_basic_well_layers
 
-        self.api_usage = {
-            "sumo": False,
-            "pozo": False,
-            "smda": False,
-            "pdm": False,
-            "ssdl": False,
-        }
 
     def load_settings_info(self, settings_path):
         if settings_path:
@@ -478,12 +534,12 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.date_labels = settings.get("date_labels")
 
     def get_additional_colormaps(self):
+        print("Reading custom colormaps from:", self.colormaps_folder)
         if self.colormaps_folder is not None:
             colormap_files = [
                 get_path(Path(fn))
                 for fn in json.load(find_files(self.colormaps_folder, ".csv"))
             ]
-            print("Reading custom colormaps from:", self.colormaps_folder)
             load_custom_colormaps(colormap_files)
 
     def add_webvizstore(self) -> List[Tuple[Callable, list]]:
@@ -514,9 +570,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 (get_path, [{"path": fn} for fn in self.colormap_files])
             )
 
-        if self.polygons_folder is not None:
+        if self.polygon_data is not None:
             store_functions.append(
-                (find_files, [{"folder": self.polygons_folder, "suffix": ".csv"}])
+                (find_files, [{"folder": self.polygon_data, "suffix": ".csv"}])
             )
             store_functions.append(
                 (get_path, [{"path": fn} for fn in self.polygon_files])
@@ -532,9 +588,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.selector_file is not None:
             store_functions.append((get_path, [{"path": self.selector_file}]))
 
-        if self.wellfolder is not None:
+        if self.well_data is not None:
             store_functions.append(
-                (read_csv, [{"csv_file": Path(self.wellfolder) / "wellbore_info.csv"}])
+                (read_csv, [{"csv_file": Path(self.well_data) / "wellbore_info.csv"}])
             )
             for fn in list(self.wellbore_info["file_name"]):
                 store_functions.append((get_path, [{"path": Path(fn)}]))
@@ -543,8 +599,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 (
                     get_path,
                     [
-                        {"path": Path(self.wellfolder) / ".welldata_update.yaml"},
-                        {"path": Path(self.wellfolder) / ".production_update.yaml"},
+                        {"path": Path(self.well_data) / ".welldata_update.yaml"},
+                        {"path": Path(self.well_data) / ".production_update.yaml"},
                     ],
                 )
             )
@@ -660,6 +716,8 @@ class SurfaceViewer4D(WebvizPluginABC):
             time2 = selected_interval[11:]
 
         self.surface_metadata.replace(np.nan, "", inplace=True)
+        print("DEBUG: dataset_ids")
+        print(self.surface_metadata["dataset_id"])
 
         try:
             selected_metadata = self.surface_metadata[
@@ -673,13 +731,12 @@ class SurfaceViewer4D(WebvizPluginABC):
             ]
 
             dataset_id = selected_metadata["dataset_id"].values[0]
-
-            return dataset_id
         except:
             dataset_id = None
-            print("WARNING: selected map not found. Selection criteria are:")
+            print("WARNING: Selected map not found, selection criteria are:")
             print(map_type, real, ensemble, name, attribute, time1, time2)
 
+        print("DEBUG dataset_id", dataset_id)
         return dataset_id
 
     def create_additional_well_layers(self, interval):
@@ -752,7 +809,10 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         surface = None
 
-        if self.osdu_field:
+        print("Loading attribute maps from", self.maps_source)
+
+        if self.maps_source == "OSDU":
+
             dataset_id = self.get_osdu_dataset_id(data, ensemble, real, map_type)
             
             if dataset_id is None:
@@ -765,7 +825,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 blob = io.BytesIO(dataset.content)
                 surface = xtgeo.surface_from_file(blob)
 
-        elif self.sumo_name and self.auto4d_directory is None:
+        elif self.maps_source == "SUMO":
             interval_list = get_sumo_interval_list(selected_interval)
             surface = get_selected_surface(
                 case=self.my_case,
@@ -782,22 +842,12 @@ class SurfaceViewer4D(WebvizPluginABC):
                 sim_info = "-"
                 surface_layers = []
                 label = "-"
-        elif self.auto4d_directory:
+
+        elif self.maps_source == "FMU" or self.maps_source == "auto4d":
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
 
             if os.path.isfile(surface_file):
                 surface = load_surface(surface_file)
-        else:
-            surface_file = self.get_real_runpath(data, ensemble, real, map_type)
-
-            if os.path.isfile(surface_file):
-                surface = load_surface(surface_file)
-
-        # if self.auto4d_directory:
-        #     surface_file = self.get_real_runpath(data, ensemble, real, map_type)
-
-        #     if os.path.isfile(surface_file):
-        #         surface = load_surface(surface_file)
 
         if surface:
             metadata = self.get_map_scaling(data, map_type, real)
@@ -818,7 +868,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             ]
 
             # Check if there are polygon layers available for the selected zone, iteration and and realization
-            if self.sumo_name:
+            if self.source_data:
                 self.polygons = get_sumo_zone_polygons(
                     case=self.my_case,
                     sumo_polygons=self.sumo_polygons,
