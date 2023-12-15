@@ -100,7 +100,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         default_interval: str = None,
         settings_file: Path = None,
         delimiter: str = "--",
-        surface_metadata_file: Path = None,
         attribute_maps_file: Path = None,
         interval_mode: str = "normal",
         selector_file: Path = None,
@@ -126,6 +125,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.map_suffix = map_suffix
         self.interval_mode = interval_mode
         self.default_interval = default_interval
+        surface_metadata_file = None
 
         settings_folder = os.path.dirname(os.path.abspath(settings_file))
         self.define_defaults()
@@ -732,6 +732,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 label = "-"
         if self.auto4d_directory:
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
+            print("DEBUG surface file", surface_file)
 
             if os.path.isfile(surface_file):
                 surface = load_surface(surface_file)

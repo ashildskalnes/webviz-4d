@@ -1,0 +1,2 @@
+map type,name,attribute,interval,prm_label,realization,minimum value,maximum value,mean value,std value,lower_limit,upper_limit,file_path
+observed,statfjord_gp,quadr_full_max,20210515_20191001,PRM21spr-PRM19aut,realization-0,-446.116119384766,954.102783203125,13.2433328527935,61.002878588292,,,/private/ashska/development/my_forks/fields/johan_sverdrup/default_config//fmu_data/realization-0/pred/share/observations/maps/statfjord_gp--quadr_full_max--20210515_20191001.gri

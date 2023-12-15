@@ -42,7 +42,7 @@ def load_metadata(auto4d_dir, file_ext, acquisition_dates):
                 seismic_content = metadata.get("Seismic content")
                 horizon_content = metadata.get("Horizon content")
 
-                filename = os.path.join(auto4d_dir, name + ".map")
+                filename = os.path.join(auto4d_dir, name + ".gri")
                 time1 = base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
                 time2 = (
                     monitor_date[6:10]
