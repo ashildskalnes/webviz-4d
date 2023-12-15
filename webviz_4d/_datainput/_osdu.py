@@ -2,7 +2,7 @@ import sys
 import os
 import pandas as pd
 from typing import Optional
-
+import pprint
 import requests
 import numpy as np
 from dotenv import load_dotenv
@@ -155,9 +155,9 @@ class Schema(BaseModel):
 class SeismicHorizon(Schema):
     name: str
     datasets: list[str]
-    interpretation_name: str
+    #interpretation_name: str
     bin_grid_id: str
-    role: str
+    #role: str
     remark: str
 
 
@@ -191,10 +191,10 @@ def parse_seismic_horizon(horizon: dict) -> SeismicHorizon:
         type=horizon.get("type"),
         version=horizon.get("version"),
         name=horizon.get("data").get("Name"),
-        datasets=horizon.get("data").get("Datasets"),
-        interpretation_name=horizon.get("data").get("InterpretationName"),
+        datasets=horizon.get("data").get("Datasets", []),
+        interpretation_name=horizon.get("data").get("InterpretationName","UNKNOWN"),
         bin_grid_id=horizon.get("data").get("BinGridID"),
-        role=horizon.get("data").get("Role"),
+        role=horizon.get("data").get("Role","UNKNOWN"),
         remark=horizon.get("data").get("Remark"),
     )
 
@@ -212,10 +212,9 @@ class DefaultOsduService():
         self.dataset_dms_client = DatasetDmsClient(**client_config)
         self.storage_schema_client = StorageSchemaClient(**client_config)
 
-    def get_seismic_horizons(self, bin_grid_version: str = "") -> list[SeismicHorizon]:
-        query = "" if bin_grid_version else ""
+    def get_seismic_horizons(self) -> list[SeismicHorizon]:
         query_request = QueryRequest(
-            "osdu:wks:work-product-component--SeismicHorizon:1.2.0", query
+            "osdu:wks:work-product-component--SeismicHorizon:1.2.0", ""
         )
         result = self.search_client.query_records(query_request, bearer_token=self.access_token)
 
@@ -254,8 +253,9 @@ class DefaultOsduService():
             )
             for bin_grid in result.json().get("results")
         ]
+    
 
-    def get_horizon_map(self, file_id: str) -> np.ndarray:
+    def get_signed_url(self, file_id: str) -> np.ndarray:
         # Some file id taken from metadata can sometimes end with ':', so remove it just in case
         if file_id.endswith(":"):
             file_id = file_id.rstrip(":")
@@ -264,7 +264,7 @@ class DefaultOsduService():
             "1M"  # TODO: Find out best expiry time, for the time being it is 1 minute
         )
         url=f'{self.base_client.config_manager.get("", "FILE_DMS_URL")}/files/{file_id}/downloadURL?expiryTime={expiry_time}'
-        print("OSDU: get_horizon_map:", url)
+        print("         OSDU: get_horizon_map:", url)
         result = self.base_client.make_request(
             method=HttpMethod.GET,
             url=url,
@@ -273,6 +273,11 @@ class DefaultOsduService():
         result.raise_for_status()
         # Extract download url
         signed_url = result.json().get("SignedUrl")
+
+        return signed_url
+
+    def get_horizon_map(self, file_id: str) -> np.ndarray:
+        signed_url = self.get_signed_url(file_id)
 
         try:
             file_result = requests.get(signed_url)
