@@ -1,0 +1,2 @@
+map type;name;attribute;interval;prm_label;realization;minimum value;maximum value;mean value;std value;lower_limit;upper_limit;file_path
+observed;total;max;20201001_20191001;PRM20-PRM19;realization-0;-3.11403656;4.561784744;0.015366743;0.236670218;;;./total--max--20201001_20191001.gri

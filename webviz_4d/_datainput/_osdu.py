@@ -67,12 +67,8 @@ def extract_osdu_metadata(osdu_service):
                 dataset_info = osdu_service.get_dataset_info(dataset_id)
 
                 if dataset_info and dataset_info.source == "OpenWorks":
-                    print("DEBUG", dataset_info.name)
-
                     if "dTS" in dataset_info.name:
                         seismic_content = "dTS"
-
-                        print("DEBUG dTS")
 
                     datasets.append(dataset_id)
                     attribute = seismic_content + "_" + horizon_content

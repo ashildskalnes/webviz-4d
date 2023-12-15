@@ -138,14 +138,15 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.get_additional_colormaps()
 
         # Read attribute maps settings (min-/max-values)
+        self.colormap_settings = None
         self.attribute_maps_file = attribute_maps_file
-        if self.attribute_maps_file is not None:
-            self.colormap_settings = read_csv(csv_file=self.attribute_maps_file)
-            print("Colormaps settings loaded from file", self.attribute_maps_file)
+
+        # if self.attribute_maps_file is not None:
+        #     self.colormap_settings = read_csv(csv_file=self.attribute_maps_file)
+        #     print("Colormaps settings loaded from file", self.attribute_maps_file)
 
         # Get maps information
         if self.sumo_name:
-            self.api_usage["sumo"] = True
             env = "prod"
             self.sumo = Explorer(env=env, keep_alive="20m")
             # self.sumo = Explorer(env=env)
@@ -411,7 +412,6 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.interval_names.append(interval)
 
         if "PDM" in str(production_data):
-            print("DEBUG default interval", self.default_interval)
             self.interval_well_layers = create_production_layers(
                 field_name=self.field_name,
                 pdm_provider=self.pdm_provider,
@@ -479,13 +479,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.basic_well_layers is None:
             self.basic_well_layers = default_basic_well_layers
 
-        self.api_usage = {
-            "sumo": False,
-            "pozo": False,
-            "smda": False,
-            "pdm": False,
-            "ssdl": False,
-        }
 
     def load_settings_info(self, settings_path):
         if settings_path:
