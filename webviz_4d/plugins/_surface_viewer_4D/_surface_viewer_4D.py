@@ -110,7 +110,8 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.fmu_directory = self.shared_settings["fmu_directory"]
         self.sumo_name = self.shared_settings.get("sumo_name")
-        self.auto4d_directory = self.shared_settings.get("auto4d_directory")
+        self.auto4d = self.shared_settings.get("auto4d")
+        self.auto4d_directory = self.auto4d.get("folder")
         self.label = self.shared_settings.get("label", self.fmu_directory)
 
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
@@ -170,8 +171,12 @@ class SurfaceViewer4D(WebvizPluginABC):
             #     sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
         if self.auto4d_directory:
             self.label = "auto4d maps: " + self.auto4d_directory
+            meta_format = self.auto4d.get("metadata_format")
+            config_file = self.auto4d.get("dates_file")
             print("auto4d maps:", self.auto4d_directory)
-            self.surface_metadata = load_metadata(self.auto4d_directory)
+            self.surface_metadata = load_metadata(
+                self.auto4d_directory, meta_format, config_file
+            )
 
             print("Create auto4d selection lists ...")
             self.selection_list = create_auto4d_lists(
