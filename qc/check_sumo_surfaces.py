@@ -46,8 +46,8 @@ def main():
             len(iteration_surfaces),
         )
 
-        prediction_surfaces = check_metadata(iteration_surfaces, "is_prediction", True)
-        print("  predictions:", len(prediction_surfaces))
+        # prediction_surfaces = check_metadata(iteration_surfaces, "is_prediction", True)
+        # print("  predictions:", len(prediction_surfaces))
     print()
 
     # Get all surfaces on case level
@@ -140,7 +140,7 @@ def main():
         surface_type = "Aggregation surfaces"
 
         aggregated_surfaces = my_case.surfaces.filter(
-            stage="iteration", iteration=iter_name
+            aggregation=True, iteration=iter_name
         )
 
         if len(aggregated_surfaces) == 0:

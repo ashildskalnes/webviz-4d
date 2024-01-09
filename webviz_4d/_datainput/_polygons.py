@@ -298,7 +298,6 @@ def load_sumo_polygons(polygons, polygon_colors):
             )
 
             if polygon_layer is not None:
-                print("Adding polygon layer:", name, polygon.name, polygon.tagname)
                 polygon_layers.append(polygon_layer)
 
     return polygon_layers

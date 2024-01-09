@@ -44,6 +44,18 @@ POZO_API = "https://wfmwellapiprod.azurewebsites.net/"
 SSDL_API = "https://api.gateway.equinor.com/subsurfacedata/v3/api/v3.0/"
 PDM_API = "https://api.gateway.equinor.com/pdm-internal-api/v3/api"
 
+POZO_ID = {
+    "JOHAN SVERDRUP": "1000000",
+    "AASGARD": "1000001",
+    "HEIDRUN": "1000002",
+    "NORNE": "1000003",
+    "SNORRE": "1000004",
+    "GULLFAKS": "1000006",
+    "JOHAN CASTBERG": "1000007",
+    "GRANE": "1000008",
+    "TROLL": "1000009",
+}
+
 
 class ProviderImplFile(wb.WellboreProvider):
     def __init__(self, omnia_path, db_name) -> None:
@@ -273,19 +285,32 @@ class ProviderImplFile(wb.WellboreProvider):
         field_name: str,
     ) -> wb.PlannedWellbores:
         planned_wellbores = None
-
-        endpoint = self.pozo_address.api + "api/v3/RepWellDesign?FieldId=&phase=1"
-
         planned_df = None
-        planned_df = extract_planned_data(self.pozo_address.session, endpoint)
-
-        # Replace any underscore in field name with space and compare with wanted field in uppercase
-        planned_df["fieldName"] = planned_df["fieldName"].str.replace("_", " ")
-        planned_df["fieldName"] = planned_df["fieldName"].str.upper()
-        selected_wells_df = planned_df.loc[planned_df["fieldName"] == field_name]
-
         metadata = DataFrame()
         trajectories = wb.PlannedTrajectories(DataFrame())
+
+        if field_name.upper() in POZO_ID.keys():
+            field_id = POZO_ID[field_name]
+            endpoint = (
+                self.pozo_address.api
+                + "api/v3/RepWellDesign?FieldId="
+                + field_id
+                + "&phase=1"
+            )
+
+            selected_wells_df = extract_planned_data(
+                self.pozo_address.session, endpoint
+            )
+
+        else:
+            endpoint = self.pozo_address.api + "api/v3/RepWellDesign?FieldId=&phase=1"
+
+            planned_df = extract_planned_data(self.pozo_address.session, endpoint)
+
+            # Replace any underscore in field name with space and compare with wanted field in uppercase
+            planned_df["fieldName"] = planned_df["fieldName"].str.replace("_", " ")
+            planned_df["fieldName"] = planned_df["fieldName"].str.upper()
+            selected_wells_df = planned_df.loc[planned_df["fieldName"] == field_name]
 
         if not selected_wells_df.empty:
             metadata_df = selected_wells_df[
@@ -297,7 +322,7 @@ class ProviderImplFile(wb.WellboreProvider):
             metadata_df["content"] = ""
             metadata_df["unique_wellbore_identifier"] = metadata_df["name"]
 
-            if not planned_df.empty:
+            if not metadata_df.empty:
                 metadata = wb.PlannedWellboreMetadata(metadata_df)
 
             planned_trajectories = extract_plannedWell_position(selected_wells_df)

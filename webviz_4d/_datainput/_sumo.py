@@ -136,7 +136,7 @@ def create_selector_lists(my_case, mode):
     realization_surfaces = my_case.surfaces.filter(
         stage="realization", iteration=iter_name, time=time
     )
-    print("Surfaces in iteration:", iter_name, len(realization_surfaces))
+    print("  Surfaces in iteration:", iter_name, len(realization_surfaces))
     realizations = realization_surfaces.realizations
 
     sorted_realizations = []
@@ -159,7 +159,7 @@ def create_selector_lists(my_case, mode):
         elif map_type == "simulated":
             surfaces = realization_surfaces
         elif map_type == "aggregated":
-            surfaces = my_case.surfaces.filter(stage="iteration", iteration=iter_name)
+            surfaces = my_case.surfaces.filter(aggregation=True, iteration=iter_name)
         else:
             print("ERROR: Not supported map_type", map_type)
             return None
@@ -170,7 +170,7 @@ def create_selector_lists(my_case, mode):
         if mode == "timelapse":
             timelapse_surfaces = surfaces.filter(time=time)
             surfaces = timelapse_surfaces
-            print(map_type, "- timelapse surfaces:", len(timelapse_surfaces))
+            print(" ", map_type, "- timelapse surfaces:", len(timelapse_surfaces))
 
         names = surfaces.names
         attributes = surfaces.tagnames
@@ -181,14 +181,14 @@ def create_selector_lists(my_case, mode):
         map_type_dict["interval"] = sorted(time_intervals)
 
         if map_type == "simulated":
-            map_type_dict["ensemble"] = sorted(iteration_names)
+            map_type_dict["iteration"] = sorted(iteration_names)
             map_type_dict["realization"] = sorted_realizations
         elif map_type == "aggregated":
             statistics = sorted(surfaces.aggregations)
             map_type_dict["aggregation"] = statistics
         else:
-            map_type_dict["ensemble"] = [default]
             map_type_dict["realization"] = [default]
+            map_type_dict["iteration"] = [default]
 
         map_dict[map_type] = map_type_dict
 
@@ -362,7 +362,7 @@ def check_metadata(sumo_objects, selected_metatadata, value):
     selected_objects = []
 
     for index, sumo_object in enumerate(sumo_objects):
-        print(index, sumo_object.name, sumo_object.tagname)
+        # print(index, sumo_object.name, sumo_object.tagname)
         if selected_metatadata == "operation":
             metadata = (
                 sumo_object._metadata.get("fmu").get("aggregation").get("operation")
@@ -686,6 +686,7 @@ def get_sumo_zone_polygons(
                 iteration=polygon_iteration,
                 realization=polygon_real_id,
             )
+            print_sumo_objects(polygons)
 
     return polygons
 
