@@ -122,6 +122,9 @@ def get_tag_values(surfaces, tag_name):
 
 
 def create_selector_lists(my_case, mode):
+    all_surfaces = my_case.surfaces
+    print("All surfaces:", len(all_surfaces))
+
     iterations = my_case.iterations
 
     iteration_names = []
@@ -136,7 +139,7 @@ def create_selector_lists(my_case, mode):
     realization_surfaces = my_case.surfaces.filter(
         stage="realization", iteration=iter_name, time=time
     )
-    print("  Surfaces in iteration:", iter_name, len(realization_surfaces))
+    print("  Timelapse surfaces in iteration:", iter_name, len(realization_surfaces))
     realizations = realization_surfaces.realizations
 
     sorted_realizations = []

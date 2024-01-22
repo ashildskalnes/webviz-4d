@@ -137,7 +137,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.attribute_maps_file = attribute_maps_file
         if self.attribute_maps_file is not None:
             self.colormap_settings = read_csv(csv_file=self.attribute_maps_file)
-            print("Colormaps settings loaded from file", self.attribute_maps_file)
+            print("Colormap settings loaded from file", self.attribute_maps_file)
 
         # Get maps information
         if self.sumo_name:

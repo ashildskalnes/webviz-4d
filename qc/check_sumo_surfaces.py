@@ -24,9 +24,21 @@ def main():
     else:
         mode = "Overview"
 
+    print(sumo_name, mode)
+
     sumo = Explorer(env="prod", keep_alive="15m")
 
-    my_case = sumo.cases.filter(name=sumo_name)[0]
+    my_cases = sumo.cases.filter(name=sumo_name)
+
+    if len(my_cases) == 1:
+        my_case = my_cases[0]
+    elif len(my_cases) == 0:
+        print("ERROR: case not found:", sumo_name)
+        exit()
+    else:
+        print("ERROR: several cases found:", sumo_name)
+        exit()
+
     print(f"{my_case.name}: {my_case.uuid}")
 
     # Some case info
