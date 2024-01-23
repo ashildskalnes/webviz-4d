@@ -65,7 +65,6 @@ numpy==1.26.2
 openpyxl==3.1.2
 openvds==3.3.3
 orjson==3.9.10
-osdu-api==0.25.0
 packaging==23.2
 pandas==1.5.3
 patsy==0.5.4
@@ -112,7 +111,6 @@ tzdata==2023.3
 urllib3==1.26.15
 vtk==9.3.0
 webencodings==0.5.1
--e git+ssh://git@github.com/ashildskalnes/webviz-4d.git@bec83eceb3a600025ebe157685583aab3869236b#egg=webviz_4d
 webviz-config==0.5.3
 webviz-config-equinor==0.2.5
 webviz-core-components==0.6.2
