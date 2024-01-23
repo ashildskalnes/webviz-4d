@@ -173,21 +173,27 @@ class Dataset(Schema):
     name: str
 
 
-def parse_seismic_horizon(horizon: dict) -> SeismicHorizon:
+class SeismicAcquisition(Schema):
+    name: str
+    begin_date: str
+    end_date: str    
+
+
+def parse_seismic_horizon(horizon: dict) -> SeismicHorizon:   
     return SeismicHorizon(
-        id=horizon.get("id"),
-        kind=horizon.get("kind"),
-        source=horizon.get("source"),
+        id=horizon.get("id",""),
+        kind=horizon.get("kind",""),
+        source=horizon.get("source",""),
         acl_viewers=horizon.get("acl").get("viewers"),
         acl_owners=horizon.get("acl").get("owners"),
-        type=horizon.get("type"),
-        version=horizon.get("version"),
-        name=horizon.get("data").get("Name"),
+        type=horizon.get("type",""),
+        version=horizon.get("version",""),
+        name=horizon.get("data").get("Name",""),
         datasets=horizon.get("data").get("Datasets"),
-        interpretation_name=horizon.get("data").get("InterpretationName"),
-        bin_grid_id=horizon.get("data").get("BinGridID"),
-        role=horizon.get("data").get("Role"),
-        remark=horizon.get("data").get("Remark"),
+        interpretation_name=horizon.get("data").get("InterpretationName",""),
+        bin_grid_id=horizon.get("data").get("BinGridID",""),
+        role=horizon.get("data").get("Role",""),
+        remark=horizon.get("data").get("Remark",""),
     )
 
 
@@ -204,27 +210,63 @@ class DefaultOsduService():
         self.dataset_dms_client = DatasetDmsClient(**client_config)
         self.storage_schema_client = StorageSchemaClient(**client_config)
 
+    def get_seismic_acquisitions(self) -> list[SeismicAcquisition]:
+        query_request = QueryRequest(
+            "osdu:wks:master-data--SeismicAcquisitionSurvey:1.2.0", ""
+        )
+        result = self.search_client.query_records(query_request, self.access_token)
+        result.raise_for_status()
+
+        return [
+            SeismicAcquisition(
+                id=acquisition.get("id"),
+                kind=acquisition.get("kind"),
+                version=acquisition.get("version"),
+                name=acquisition.get("data").get("ProjectName"),
+                begin_date=acquisition.get("data").get("ProjectBeginDate"),
+                end_date=acquisition.get("data").get("ProjectEndDate") 
+            )
+            for acquisition in result.json().get("results")
+        ]
+        
+
     def get_seismic_horizons(self, bin_grid_version: str = "") -> list[SeismicHorizon]:
         query = "" if bin_grid_version else ""
         query_request = QueryRequest(
             "osdu:wks:work-product-component--SeismicHorizon:1.2.0", query
         )
         result = self.search_client.query_records(query_request, bearer_token=self.access_token)
+        result_objects = result.json().get("results")
 
-        return [
-            parse_seismic_horizon(horizon=horizon)
-            for horizon in result.json().get("results")
-        ]
+        seismic_horizons = []
 
-    def get_seismic_horizon(self, id: str) -> SeismicHorizon:
-        query_request = QueryRequest(
-            kind="osdu:wks:work-product-component--SeismicHorizon:1.2.0",
-            query=f'id:"{id}"',
-        )
-        result = self.search_client.query_records(query_request, bearer_token=self.access_token)
-        result.raise_for_status()
+        for result_object in result_objects:
+            data = result_object.get("data")
+            if data.get("InterpretationName") is None:
+                data ["InterpretationName"] = "-"
+                data ["Role" ] = "-"
+                result_object ["data"] = data
+                
+            seismic_horizon = parse_seismic_horizon(horizon=result_object)
+            seismic_horizons.append(seismic_horizon)
 
-        return parse_seismic_horizon(result.json().get("results")[0])
+        return seismic_horizons
+
+        # return [
+        #     parse_seismic_horizon(horizon=horizon)
+        #     for horizon in result.json().get("results")
+        # ]
+
+    # def get_seismic_horizon(self, id: str) -> SeismicHorizon:
+    #     print("DEBUG get_seismic_horizon")
+    #     query_request = QueryRequest(
+    #         kind="osdu:wks:work-product-component--SeismicHorizon:1.2.0",
+    #         query=f'id:"{id}"',
+    #     )
+    #     result = self.search_client.query_records(query_request, bearer_token=self.access_token)
+    #     result.raise_for_status()
+
+    #     return parse_seismic_horizon(result.json().get("results")[0])
 
     def get_bin_grids(self, version: str = "") -> list[SeismicBinGrid]:
         v = version if version else "*"
@@ -332,15 +374,20 @@ class DefaultOsduService():
         results = result.json().get("results")
 
         dataset = None
+        source = ""
 
         if results:
             info = results[0]
+            data = info.get("data")
+
+            if data:
+                source = data.get("Source")
 
             dataset = Dataset(
                 id=info.get("id"),
                 name=info.get("data").get("Name"),
                 kind=info.get("kind"),
-                source = info.get("data").get("Source"),
+                source=source,
                 acl_viewers=info.get("acl").get("viewers"),
                 acl_owners=info.get("acl").get("owners"),
                 type=info.get("type"),
