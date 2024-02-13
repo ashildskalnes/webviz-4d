@@ -35,6 +35,7 @@ def extract_osdu_metadata(osdu_service):
             "data.time.t2",
             "dataset_id",
         ]
+        print("Searching for 4D attribute maps in OSDU:")
         attribute_horizons = osdu_service.get_attribute_horizons()
                 
         for horizon in attribute_horizons:
@@ -49,15 +50,14 @@ def extract_osdu_metadata(osdu_service):
             horizon_content=horizon.horizon_content
 
             names.append(ow_name)
-            date_reformat = (
+            date_reformat2 = (
                     monitor_date[6:10] + "-" + monitor_date[3:5] + "-" + monitor_date[0:2]
                 )
-            times2.append(date_reformat)
+            times2.append(date_reformat2)
             date_reformat = (
                     base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
                 )
             times1.append(date_reformat)
-            
 
             dataset_ids = osdu_service.get_dataset_ids(horizon)
             # print("DEBUG datasets")
@@ -71,8 +71,23 @@ def extract_osdu_metadata(osdu_service):
                         seismic_content = "dTS"
 
                     datasets.append(dataset_id)
+                    print("  Dataset id:", dataset_id)
+                    print()
                     attribute = seismic_content + "_" + horizon_content
                     attributes.append(attribute)
+
+                    if "4D_JS_FulRes_21sp-20au_Diff_0535_maxp" in horizon.name:
+                        horizon_name = "4D_JS_FulRes_21sp-20au_dTS_0535_maxp"
+                    else:
+                        horizon_name = horizon.name [:-8]
+
+                    print("Map name:", horizon_name)
+                    print("  Map content:", horizon_content)
+                    print("  Seismic content:", seismic_content)
+                    print("  Base survey date:", date_reformat)
+                    print("  Monitor survey date:", date_reformat2)
+                    print("  Seismic horizon:", ow_name)
+
                     
         zipped_list = list(
             zip(
@@ -137,11 +152,11 @@ class Config(BaseSettings, BaseConfigManager):
 class Schema(BaseModel):
     id: str
     kind: str
-    source: str
-    acl_viewers: list[str]
-    acl_owners: list[str]
-    type: str
-    version: int
+    #source: str
+    #acl_viewers: list[str]
+    #acl_owners: list[str]
+    #type: str
+    #version: int
 
 
 class SeismicHorizon(Schema):
@@ -167,16 +182,46 @@ class GenericRepresentation(Schema):
     seismic_content: str
     horizon_content: str
     datasets: list[str]
+    base_cube_name: str
+    monitor_cube_name: str
 
 
 class Dataset(Schema):
+    id: str
     name: str
+    kind: str
+    source: str
 
 
 class SeismicAcquisition(Schema):
+    id: str
     name: str
+    kind: str
     begin_date: str
     end_date: str    
+
+
+class SeismicProcessing(Schema):
+    id: str
+    kind: str
+    project_name: str
+    acquisition_survey_id: str
+    
+
+class SeismicCube(Schema):
+    id: str
+    kind: str
+    name: str
+    source: str
+    domain: str
+    inline_min: float
+    inline_max: float
+    inline_min: float
+    xline_min: float
+    xline_max: float
+    sample_interval: int
+    sample_count: int
+    processing_project_id: str
 
 
 def parse_seismic_horizon(horizon: dict) -> SeismicHorizon:   
@@ -210,63 +255,220 @@ class DefaultOsduService():
         self.dataset_dms_client = DatasetDmsClient(**client_config)
         self.storage_schema_client = StorageSchemaClient(**client_config)
 
-    def get_seismic_acquisitions(self) -> list[SeismicAcquisition]:
-        query_request = QueryRequest(
-            "osdu:wks:master-data--SeismicAcquisitionSurvey:1.2.0", ""
-        )
+
+    def get_seismic_acquisitions(self, selected_acquisitions) -> list[SeismicAcquisition]:
+        results = []
+
+        for acquisition in selected_acquisitions:
+            query = f"data.ProjectName:\"{acquisition}\""
+
+            query_request = QueryRequest(
+                "osdu:wks:master-data--SeismicAcquisitionSurvey:1.2.0", query=query, limit=1000
+            )
+            result = self.search_client.query_records(query_request, self.access_token)
+            result.raise_for_status()
+
+            if result.status_code == 200:
+                osdu_object = result.json().get("results") [0]
+                seismic_acquisition = SeismicAcquisition(
+                    id=osdu_object.get("id"),
+                    kind=osdu_object.get("kind"),
+                    version=osdu_object.get("version"),
+                    name=osdu_object.get("data").get("ProjectName"),
+                    begin_date=osdu_object.get("data").get("ProjectBeginDate"),
+                    end_date=osdu_object.get("data").get("ProjectEndDate")
+                )
+                results.append(seismic_acquisition)
+
+        return results
+
+    
+    def get_seismic_processings(self, selected_processings) -> list[SeismicProcessing]:
+        results = []
+
+        for processing in selected_processings:
+            status = False
+            query = f"data.ProjectName:\"{processing}\""
+            query_request = QueryRequest(
+                "osdu:wks:master-data--SeismicProcessingProject:1.2.0", query=query, limit=1000
+            )
+            result = self.search_client.query_records(query_request, self.access_token)
+            result.raise_for_status()
+
+            if result.status_code == 200:
+                osdu_objects = result.json().get("results")
+
+                for osdu_object in osdu_objects:
+                    project_name = osdu_object.get("data").get("ProjectName")
+                    acquisition_surveys = osdu_object.get("data").get("SeismicAcquisitionSurveys")
+
+                    if acquisition_surveys:
+                        acquisition_survey_id = acquisition_surveys[0]
+                    else:
+                        print("WARNING: SeismicProcessingProject:", project_name, "acquisition_survey_id not found")
+                        acquisition_survey_id = ""
+
+                    if project_name == processing:
+                        seismic_processing = SeismicProcessing(
+                            id=osdu_object.get("id"),
+                            kind=osdu_object.get("kind"),
+                            project_name=osdu_object.get("data").get("ProjectName"),
+                            acquisition_survey_id=acquisition_survey_id
+                        )
+
+                        results.append(seismic_processing)
+                        status = True
+
+            if not status:
+                print("WARNING: Processing project not found: ", processing)
+
+        return results
+    
+
+    def get_seismic_processing_metadata(self, id) -> SeismicProcessing:
+        query = f"id:\"{id}\""
+        query_request = QueryRequest("osdu:wks:master-data--SeismicProcessingProject:1.2.0", query=query)
         result = self.search_client.query_records(query_request, self.access_token)
         result.raise_for_status()
 
-        return [
-            SeismicAcquisition(
-                id=acquisition.get("id"),
-                kind=acquisition.get("kind"),
-                version=acquisition.get("version"),
-                name=acquisition.get("data").get("ProjectName"),
-                begin_date=acquisition.get("data").get("ProjectBeginDate"),
-                end_date=acquisition.get("data").get("ProjectEndDate") 
-            )
-            for acquisition in result.json().get("results")
-        ]
+        if result.status_code == 200:
+            osdu_object = result.json().get("results") [0]
+            project_id = osdu_object.get("id")
+
+            if project_id == id:
+                id=osdu_object.get("id")
+                survey = osdu_object.get("data").get("SeismicAcquisitionSurveys")[0]
+                
+                seismic_processing = SeismicProcessing(
+                    id=id,
+                    kind=osdu_object.get("kind"),
+                    project_name=osdu_object.get("data").get("ProjectName"),
+                    acquisition_survey_id=survey
+                )
+            else:
+                print("ERROR: Processing project not found: ", id)
+                seismic_processing = None
+
+        return seismic_processing
+    
+
+    def get_seismic_acquisition_metadata(self, id) -> SeismicAcquisition:
+        query = f"id:\"{id}\""
+        query_request = QueryRequest("osdu:wks:master-data--SeismicAcquisitionSurvey:1.2.0", query=query)
+        result = self.search_client.query_records(query_request, self.access_token)
+        result.raise_for_status()
+
+        if result.status_code == 200:
+            osdu_object = result.json().get("results") [0]
+            project_id = osdu_object.get("id")
+
+            if project_id == id:
+                seismic_acquisition = SeismicAcquisition(
+                    id=osdu_object.get("id"),
+                    kind=osdu_object.get("kind"),
+                    name=osdu_object.get("data").get("ProjectName"),
+                    begin_date=osdu_object.get("data").get("ProjectBeginDate"),
+                    end_date=osdu_object.get("data").get("ProjectEndDate")
+
+                )
+            else:
+                print("ERROR: Seismic acquisition not found: ", id)
+                seismic_acquisition = None
+
+        return seismic_acquisition
+    
+
+    def get_seismic_cubes(self, selected_cubes) -> list[SeismicCube]:
+        results = []
+
+        for cube in selected_cubes:
+            status = False
+            query = f"data.Name:\"{cube}\""
+            query_request = QueryRequest(
+                "osdu:wks:work-product-component--SeismicTraceData:1.3.0", query=query)
+            result = self.search_client.query_records(query_request, self.access_token)
+            result.raise_for_status()
+
+            if result.status_code == 200:
+                osdu_objects = result.json().get("results")
+
+                for osdu_object in osdu_objects:
+                    name = osdu_object.get("data").get("Name")
+                    domain_type = osdu_object.get("data").get("SeismicDomainTypeID")
+                    processing_project=osdu_object.get("data").get("ProcessingProjectID")
+
+                    if name == cube:
+                        if "Depth" in domain_type:
+                            domain = "Depth"
+                        else:
+                            domain = "Time"  
+
+                        seismic_cube= SeismicCube(
+                            id=osdu_object.get("id"),
+                            kind=osdu_object.get("kind"),
+                            name=name,
+                            source="Not available", 
+                            domain = domain,
+                            inline_min=osdu_object.get("data").get("InlineMin"),
+                            inline_max=osdu_object.get("data").get("InlineMax"),
+                            xline_min=osdu_object.get("data").get("CrosslineMin"),    
+                            xline_max=osdu_object.get("data").get("CrosslineMax"), 
+                            sample_interval=osdu_object.get("data").get("SampleInterval"), 
+                            sample_count=osdu_object.get("data").get("SampleCount"),
+                            processing_project_id=processing_project,
+                        )
+
+                        results.append(seismic_cube)
+                        status = True
+
+            if not status:
+                print("WARNING: Seismic cube not found: ", cube)
+
+        return results
         
 
-    def get_seismic_horizons(self, bin_grid_version: str = "") -> list[SeismicHorizon]:
-        query = "" if bin_grid_version else ""
-        query_request = QueryRequest(
-            "osdu:wks:work-product-component--SeismicHorizon:1.2.0", query
-        )
-        result = self.search_client.query_records(query_request, bearer_token=self.access_token)
-        result_objects = result.json().get("results")
-
+    def get_seismic_horizons(self, selected_names) -> list[SeismicHorizon]:
+        query = "" 
         seismic_horizons = []
 
-        for result_object in result_objects:
-            data = result_object.get("data")
-            if data.get("InterpretationName") is None:
-                data ["InterpretationName"] = "-"
-                data ["Role" ] = "-"
-                result_object ["data"] = data
-                
-            seismic_horizon = parse_seismic_horizon(horizon=result_object)
-            seismic_horizons.append(seismic_horizon)
+        if len(selected_names) > 0:
+            if "" in selected_names:
+                selected_names.remove("")
+
+            for selected_name in selected_names:
+                query = f"data.Name:\"{selected_name}\""
+                query_request = QueryRequest(
+                    "osdu:wks:work-product-component--SeismicHorizon:1.2.0", query=query,
+                )
+                result = self.search_client.query_records(query_request,  bearer_token=self.access_token)
+                result_objects = result.json().get("results")
+
+                for result_object in result_objects:
+                    data = result_object.get("data")
+
+                    if data.get("Name") == selected_name:                       
+                        seismic_horizon = parse_seismic_horizon(horizon=result_object)
+                        seismic_horizons.append(seismic_horizon)
+        else:
+            query_request = QueryRequest(
+                    "osdu:wks:work-product-component--SeismicHorizon:1.2.0", query
+            )
+            result = self.search_client.query_records(query_request, bearer_token=self.access_token)
+            result_objects = result.json().get("results")
+
+            for result_object in result_objects:
+                data = result_object.get("data")
+                if data.get("InterpretationName") is None:
+                    data ["InterpretationName"] = "-"
+                    data ["Role" ] = "-"
+                    data ["Remark"] ="-"
+                    result_object ["data"] = data
+                    
+                seismic_horizon = parse_seismic_horizon(horizon=result_object)
+                seismic_horizons.append(seismic_horizon)
 
         return seismic_horizons
 
-        # return [
-        #     parse_seismic_horizon(horizon=horizon)
-        #     for horizon in result.json().get("results")
-        # ]
-
-    # def get_seismic_horizon(self, id: str) -> SeismicHorizon:
-    #     print("DEBUG get_seismic_horizon")
-    #     query_request = QueryRequest(
-    #         kind="osdu:wks:work-product-component--SeismicHorizon:1.2.0",
-    #         query=f'id:"{id}"',
-    #     )
-    #     result = self.search_client.query_records(query_request, bearer_token=self.access_token)
-    #     result.raise_for_status()
-
-    #     return parse_seismic_horizon(result.json().get("results")[0])
 
     def get_bin_grids(self, version: str = "") -> list[SeismicBinGrid]:
         v = version if version else "*"
@@ -335,37 +537,71 @@ class DefaultOsduService():
         ]
     
     def get_attribute_horizons(self) -> list[GenericRepresentation]:
+        js_cubes = {
+            "19au": "EQ19231DZC23A-KPSDM-RAW-FULL-0535-TIME",
+            "20au": "EQ20231DZC23A-KPSDM-RAW-FULL-0535-TIME",
+            "21sp": "EQ21200DZC23A-KPSDM-RAW-FULL-0535-TIME",
+            "22sp": "EQ22200DZC23A-KPSDM-RAW-FULL-0535-TIME",
+            "22au": "EQ22205DZC23A-KPSDM-RAW-FULL-0535-TIME",
+            "22au": "EQ22205DZC23A-KPSDM-RAW-FULL-0535-TIME",
+            "23sp": "EQ23200DZC23A-KPSDM-RAW-FULL-0535-TIME",
+            "23au": "EQ23205DZC23B-KPSDM-RAW-FULL-0535-TIME",
+        }
+
         query_request = QueryRequest(
             "osdu:wks:work-product-component--GenericRepresentation:1.0.0", ""
         )
         result = self.search_client.query_records(query_request, self.access_token)
         result.raise_for_status()
 
-        return [
-            GenericRepresentation(
-                id=horizon.get("id"),
-                kind=horizon.get("kind"),
-                source=horizon.get("source"),
-                acl_viewers=horizon.get("acl").get("viewers"),
-                acl_owners=horizon.get("acl").get("owners"),
-                type=horizon.get("type"),
-                version=horizon.get("version"),
-                name=horizon.get("data").get("Name"),
-                datasets=horizon.get("data").get("Datasets"),
-                ow_horizon_name=horizon.get("tags").get("OW Horizon name"),
-                ow_top_horizon=horizon.get("tags").get("OW Top Horizon"),
-                ow_base_horizon=horizon.get("tags").get("OW Base Horizon"),
-                monitor_date=horizon.get("tags").get("Monitor reference date"),
-                base_date=horizon.get("tags").get("Base reference date"),
-                seismic_content=horizon.get("tags").get("Seismic content"),
-                horizon_content=horizon.get("tags").get("Horizon content"),
-            )
-            for horizon in result.json().get("results")
-        ]
+        horizons = []
+
+        if result.status_code == 200:
+            osdu_objects = result.json().get("results")
+
+            for osdu_object in osdu_objects:        
+                name = osdu_object.get("data").get("Name")
+
+                if not "4D_JS_" in name:
+                    name = "4D_JS_" + name
+
+                name_objects = name.split("_")
+
+                date_string = name_objects [3]
+                date_string_objects =  date_string.split("-")
+                monitor_string = date_string_objects [0]
+                base_string = date_string_objects [1]
+
+                monitor_cube = js_cubes.get(monitor_string[:4])
+                base_cube = js_cubes.get(base_string[:4])
+
+                horizon = GenericRepresentation(
+                    id=osdu_object.get("id"),
+                    kind=osdu_object.get("kind"),
+                    source=osdu_object.get("source"),
+                    acl_viewers=osdu_object.get("acl").get("viewers"),
+                    acl_owners=osdu_object.get("acl").get("owners"),
+                    type=osdu_object.get("type"),
+                    version=osdu_object.get("version"),
+                    name=osdu_object.get("data").get("Name"),
+                    datasets=osdu_object.get("data").get("Datasets"),
+                    ow_horizon_name=osdu_object.get("tags").get("OW Horizon name"),
+                    ow_top_horizon=osdu_object.get("tags").get("OW Top Horizon"),
+                    ow_base_horizon=osdu_object.get("tags").get("OW Base Horizon"),
+                    monitor_date=osdu_object.get("tags").get("Monitor reference date"),
+                    base_date=osdu_object.get("tags").get("Base reference date"),
+                    seismic_content=osdu_object.get("tags").get("Seismic content"),
+                    horizon_content=osdu_object.get("tags").get("Horizon content"),
+                    base_cube_name= base_cube,
+                    monitor_cube_name=monitor_cube,
+                )
+                horizons.append(horizon)
+        
+        return horizons
     
 
     def get_dataset_info(self, id: str = "") -> Dataset:
-        query = 'id:"' + id[:-1] + '"'
+        query = f"id:\"{id[:-1]}\""
         query_request = QueryRequest(
             f"osdu:wks:dataset--File.Generic:1.0.0", query
         )
@@ -374,22 +610,19 @@ class DefaultOsduService():
         results = result.json().get("results")
 
         dataset = None
-        source = ""
 
         if results:
             info = results[0]
             data = info.get("data")
-
-            if data:
-                source = data.get("Source")
+            acl = info.get("acl")
 
             dataset = Dataset(
                 id=info.get("id"),
-                name=info.get("data").get("Name"),
+                name=data.get("Name"),
                 kind=info.get("kind"),
-                source=source,
-                acl_viewers=info.get("acl").get("viewers"),
-                acl_owners=info.get("acl").get("owners"),
+                source=data.get("Source"),
+                acl_viewers=acl.get("viewers"),
+                acl_owners=acl.get("owners"),
                 type=info.get("type"),
                 version=info.get("version"),
             )
