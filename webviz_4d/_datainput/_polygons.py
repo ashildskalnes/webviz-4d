@@ -204,7 +204,7 @@ def load_zone_polygons(csv_files, polygon_colors):
     for csv_file in csv_files:
         polygon_df = pd.read_csv(csv_file)
         label = os.path.basename(csv_file).replace(".csv", "")
-        print("  ", label)
+        # print("  ", label)
 
         name = "faults"
         default_color = default_colors.get(name)
@@ -227,7 +227,7 @@ def get_zone_layer(polygon_layers, zone_name):
             tooltip = data[0]["tooltip"]
 
             if tooltip == zone_name:
-                print(" Zone layer", zone_name)
+                # print(" Zone layer", zone_name)
                 return layer
 
     return None
@@ -298,7 +298,7 @@ def load_sumo_polygons(polygons, polygon_colors):
             )
 
             if polygon_layer is not None:
-                print("Adding polygon layer:", name, polygon.name, polygon.tagname)
+                # print("Adding polygon layer:", name, polygon.name, polygon.tagname)
                 polygon_layers.append(polygon_layer)
 
     return polygon_layers
@@ -314,7 +314,7 @@ def load_sumo_fault_polygon(polygon, polygon_colors):
     else:
         color = default_color
 
-    print("  ", polygon.name, polygon.tagname)
+    # print("  ", polygon.name, polygon.tagname)
 
     polygon_df = polygon.to_dataframe()
     polygon_layer = make_new_polyline_layer(polygon_df, name, polygon.tagname, color)

@@ -537,35 +537,6 @@ def check_timelapse(surfaces, times):
     return timelapse_surfaces
 
 
-# def get_sumo_top_res_surface(my_case, shared_settings):
-#     top_res_surface = shared_settings.get("top_res_surface")
-#     iter_name = my_case.iterations[0].get("name")
-
-#     if top_res_surface is not None:
-#         name = top_res_surface.get("name")
-#         tagname = top_res_surface.get("tag_name")
-#         time_interval = [False, False]
-
-#         surface = get_realization_surface(
-#             case=my_case,
-#             surface_name=name,
-#             attribute=tagname,
-#             time_interval=time_interval,
-#             iteration_name=iter_name,
-#         )
-
-#     if surface:
-#         return surface.to_regular_surface()
-#     else:
-#         print(
-#             "ERROR: Top reservoir surface not loaded from SUMO:",
-#             name,
-#             tagname,
-#             time_interval,
-#         )
-#         return None
-
-
 def open_surface_with_xtgeo(surface):
     if surface:
         surface_object = surface.to_regular_surface()

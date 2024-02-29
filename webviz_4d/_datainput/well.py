@@ -61,7 +61,7 @@ def create_basic_well_layers(
     well_colors,
 ):
     basic_well_layers = []
-    print("Creating basic well layers:")
+    print("Creating basic well layers ...")
 
     for key, value in basic_well_layers_dict.items():
         layer_name = key
@@ -71,7 +71,7 @@ def create_basic_well_layers(
         if color is None:
             color = well_colors.get("default", None)
 
-        print("  ", layer_name)
+        # print("  ", layer_name)
 
         tooltips = []
         md_end = np.nan
@@ -196,7 +196,7 @@ def create_pdm_well_layer(
     if interval_4d is not None:
         interval = interval_4d
 
-    print("Layer name", layer_name)
+    # print("Layer name", layer_name)
     for row in metadata_df.iterrows():
         # print(row)
         status = False
@@ -684,8 +684,6 @@ def create_production_layers(
     well_colors: dict = {},
     prod_interval: str = "Day",
 ):
-    print("Loading production/injection data from PDM ...")
-    print("  - 4D interval:", interval_4d)
     tic = time.perf_counter()
 
     production_data = pdm_provider.get_field_prod_data(
@@ -703,7 +701,7 @@ def create_production_layers(
     )
 
     toc = time.perf_counter()
-    print(f"Downloaded production and injection data in {toc - tic:0.4f} seconds")
+    # print(f"Downloaded production and injection data in {toc - tic:0.4f} seconds")
 
     volumes = pd.merge(
         production_data.dataframe,
@@ -716,7 +714,7 @@ def create_production_layers(
         wellbore_trajectories["unique_wellbore_identifier"].isin(pdm_wellbores)
     ]
 
-    print("Creating interval well layers ...")
+    # print("Creating interval well layers ...")
     interval_well_layers = []
 
     for key, value in layer_options.items():
@@ -739,7 +737,8 @@ def create_production_layers(
         )
 
         if well_layer:
-            print("  Well layer added:", key)
+            # print("  Well layer added:", key)
+            print("  - 4D interval:", interval_4d)
             interval_well_layers.append(well_layer)
 
     return interval_well_layers

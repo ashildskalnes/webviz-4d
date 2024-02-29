@@ -6,6 +6,7 @@ import datetime
 import json
 import os
 import numpy as np
+import pandas as pd
 import xtgeo
 import logging
 from pprint import pprint
@@ -64,13 +65,18 @@ from webviz_4d._datainput._sumo import (
     get_sumo_zone_polygons,
 )
 
-from webviz_4d._datainput._osdu import Config, DefaultOsduService, extract_osdu_metadata
+if sys.platform == "win32":
+    from webviz_4d._datainput._osdu import (
+        Config,
+        DefaultOsduService,
+        extract_osdu_metadata,
+    )
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 
-from webviz_4d._datainput._auto4d import create_auto4d_lists, load_metadata
+from webviz_4d._datainput._auto4d import create_auto4d_lists, load_auto4d_metadata
 
 from ._webvizstore import read_csv, read_csvs, find_files, get_path
 from ._callbacks import (
@@ -102,7 +108,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         map_suffix: str = ".gri",
         default_interval: str = None,
         settings_file: Path = None,
-        delimiter: str = "--",
         surface_metadata_file: Path = None,
         attribute_maps_file: Path = None,
         interval_mode: str = "normal",
@@ -111,11 +116,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         super().__init__()
         logging.getLogger("").setLevel(level=logging.WARNING)
         self.shared_settings = app.webviz_settings["shared_settings"]
-        self.fmu_directory = self.shared_settings["fmu_directory"]
-        self.sumo_name = self.shared_settings.get("sumo_name")
-        self.auto4d_directory = self.shared_settings.get("auto4d_directory")
-        self.osdu_field = self.shared_settings.get("osdu_field")
-        self.label = self.shared_settings.get("label", self.fmu_directory)
+        self.field_name = self.shared_settings.get("field_name")
 
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
@@ -141,16 +142,14 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.colormap_settings = None
         self.attribute_maps_file = attribute_maps_file
 
-        # if self.attribute_maps_file is not None:
-        #     self.colormap_settings = read_csv(csv_file=self.attribute_maps_file)
-        #     print("Colormaps settings loaded from file", self.attribute_maps_file)
+        # Check data sources and maps metadata format
+        sumo = self.shared_settings.get("sumo")
+        if sumo:
+            sumo_case_name = sumo.get("case_name")
+            sumo_env = sumo.get("env_name")
 
-        # Get maps information
-        if self.sumo_name:
-            env = "prod"
-            self.sumo = Explorer(env=env, keep_alive="20m")
-            # self.sumo = Explorer(env=env)
-            cases = self.sumo.cases.filter(name=self.sumo_name)
+            self.sumo = Explorer(env=sumo_env, keep_alive="20m")
+            cases = self.sumo.cases.filter(name=sumo_case_name)
 
             if len(cases) == 1:
                 self.my_case = cases[0]
@@ -159,36 +158,43 @@ class SurfaceViewer4D(WebvizPluginABC):
                 print("       Execution stopped")
                 exit(1)
 
-            self.field_name = self.my_case.field
-            self.label = "SUMO case: " + self.sumo_name
+            if self.field_name.upper() != self.my_case.field.upper():
+                print(
+                    "WARNING: Field name mismatch", self.field_name, self.my_case.field
+                )
+
             self.iterations = self.my_case.iterations
             print("SUMO case:", self.my_case.name, self.field_name)
 
-            # print("Create selection lists ...")
-            # time_mode = "timelapse"
-            # self.selection_list = create_selector_lists(
-            #     self.my_case,
-            #     time_mode,
-            # )
+        self.fmu = self.shared_settings.get("fmu")
+        if self.fmu:
+            fmu_directory = self.fmu.get("directory")
+            self.label = fmu_directory
 
-            # if self.selection_list is None:
-            #     sys.exit("ERROR: Sumo case doesn't contain any timelapse surfaces")
-        if self.auto4d_directory:
-            self.label = "auto4d maps: " + self.auto4d_directory
-            print("auto4d maps:", self.auto4d_directory)
+        self.auto4d = self.shared_settings.get("auto4d")
+        if self.auto4d:
+            auto4d_directory = self.auto4d.get("directory")
+            auto4d_metadata_format = self.auto4d.get("metadata_format")
+            self.label = auto4d_directory
 
-            metadata_format = self.auto4d.get("metadata_format")
+        self.osdu = self.shared_settings.get("osdu")
+        if self.osdu:
+            osdu_version = self.osdu.get("version")
+            self.label = "osdu"
 
-            if metadata_format == "a4dmeta":
+        self.label = self.field_name + " " + self.label
+
+        if auto4d_directory:
+            if auto4d_metadata_format == "a4dmeta":
                 file_ext = ".a4dmeta"
-                acquisition_dates_file = self.auto4d.get("dates_file")
-                acquisitions = read_config(os.path.join(self.auto4d_directory, acquisition_dates_file))
-                acquisition_dates = acquisitions.get("acquisitions")
             else:
                 file_ext = ".json"
-                acquisition_dates = None
 
-            self.surface_metadata = load_metadata(self.auto4d_directory, file_ext, acquisition_dates)
+            acquisition_dates = self.auto4d.get("acquisition_dates")
+
+            self.surface_metadata = load_auto4d_metadata(
+                auto4d_directory, file_ext, acquisition_dates
+            )
 
             print("Create auto4d selection lists ...")
             self.selection_list = create_auto4d_lists(
@@ -196,13 +202,13 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
 
             if self.selection_list is None:
-                sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
-        elif self.osdu_field:
-            self.osdu_service = DefaultOsduService()
-            self.label = "OSDU: " + self.osdu_field
+                sys.exit("ERROR: No timelapse surfaces found in", auto4d_directory)
+        elif self.osdu:
+            self.osdu_service = DefaultOsduService()  # type: ignore
+            self.label = "OSDU: " + self.field_name
             print(self.label)
-            
-            self.surface_metadata = extract_osdu_metadata(self.osdu_service)
+
+            self.surface_metadata = extract_osdu_metadata(self.osdu_service)  # type: ignore
             print(self.surface_metadata)
 
             print("Create OSDU selection lists ...")
@@ -211,7 +217,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
 
             if self.selection_list is None:
-                sys.exit("ERROR: No timelapse surfaces found in", self.auto4d_directory)
+                sys.exit("ERROR: No timelapse surfaces found in OSDU")
 
         else:
             # Read maps metadata from file
@@ -230,10 +236,6 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.top_res_surface_settings, self.my_case
         )
 
-        # if self.default_interval is None:
-        #     map_types = ["observed", "simulated"]
-        #     self.default_interval = get_default_interval(self.selection_list, map_types)
-
         map_default_list = [map1_defaults, map2_defaults, map3_defaults]
         self.map_defaults = get_all_map_defaults(self.selection_list, map_default_list)
 
@@ -244,7 +246,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         ]
 
         # Load polygons
-        if self.sumo_name:
+        if self.my_case.name:
             print("Polygons in SUMO ...")
             iter_name = self.top_res_surface_settings.get("iter")
             top_res_name = self.top_res_surface_settings.get("name")
@@ -310,6 +312,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 planned_wells = load_planned_wells(self.pozo_provider, self.field_name)
                 self.planned_wells_info = planned_wells.metadata.dataframe
                 self.planned_wells_df = planned_wells.trajectories.dataframe
+            else:
+                self.planned_wells_info = pd.DataFrame()
+                self.planned_wells_df = pd.DataFrame()
 
             self.well_basic_layers = create_basic_well_layers(
                 self.basic_well_layers,
@@ -412,6 +417,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.interval_names.append(interval)
 
         if "PDM" in str(production_data):
+            print("Loading production/injection data from PDM ...")
             self.interval_well_layers = create_production_layers(
                 field_name=self.field_name,
                 pdm_provider=self.pdm_provider,
@@ -478,7 +484,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if self.basic_well_layers is None:
             self.basic_well_layers = default_basic_well_layers
-
 
     def load_settings_info(self, settings_path):
         if settings_path:
@@ -658,6 +663,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             path = ""
             print("WARNING: selected map not found. Selection criteria are:")
             print(map_type, real, ensemble, name, attribute, time1, time2)
+            print(selected_metadata)
 
         return path
 
@@ -766,7 +772,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         surface = None
 
-        if self.osdu_field:
+        if self.osdu:
             dataset_id = self.get_osdu_dataset_id(data, ensemble, real, map_type)
 
             if dataset_id is None:
@@ -779,7 +785,13 @@ class SurfaceViewer4D(WebvizPluginABC):
                 blob = io.BytesIO(dataset.content)
                 surface = xtgeo.surface_from_file(blob)
 
-        elif self.sumo_name and self.auto4d_directory is None:
+        elif self.auto4d or self.fmu:
+            surface_file = self.get_real_runpath(data, ensemble, real, map_type)
+
+            if os.path.isfile(surface_file):
+                surface = load_surface(surface_file)
+
+        elif self.sumo:
             interval_list = get_sumo_interval_list(selected_interval)
             surface = get_selected_surface(
                 case=self.my_case,
@@ -796,13 +808,10 @@ class SurfaceViewer4D(WebvizPluginABC):
                 sim_info = "-"
                 surface_layers = []
                 label = "-"
-        elif self.auto4d_directory:
-            surface_file = self.get_real_runpath(data, ensemble, real, map_type)
 
-            if os.path.isfile(surface_file):
-                surface = load_surface(surface_file)
         else:
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
+
             if os.path.isfile(surface_file):
                 surface = load_surface(surface_file)
 
@@ -825,7 +834,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             ]
 
             # Check if there are polygon layers available for the selected zone, iteration and and realization
-            if self.sumo_name:
+            if self.sumo:
                 self.polygons = get_sumo_zone_polygons(
                     case=self.my_case,
                     sumo_polygons=self.sumo_polygons,
@@ -863,10 +872,10 @@ class SurfaceViewer4D(WebvizPluginABC):
 
                     surface_layers.append(layer)
 
-            print("Basic well layers")
+            # print("Basic well layers")
             if self.basic_well_layers:
                 for well_layer in self.well_basic_layers:
-                    print(" ", well_layer["name"])
+                    # print(" ", well_layer["name"])
                     surface_layers.append(well_layer)
 
             interval = data["date"]
