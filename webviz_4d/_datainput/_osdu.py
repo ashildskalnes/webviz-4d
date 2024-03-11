@@ -1,114 +1,157 @@
-from __future__ import annotations
-from sys import platform
 import os
 import pandas as pd
 from typing import Optional
-
+from datetime import datetime
 import requests
 import numpy as np
 from dotenv import load_dotenv
 
-if platform == "win32":
-    from osdu_api.clients.search.search_client import SearchClient  # type: ignore
-    from osdu_api.clients.dataset.dataset_dms_client import DatasetDmsClient  # type: ignore
-    from osdu_api.clients.base_client import BaseClient  # type: ignore
-    from osdu_api.configuration.base_config_manager import BaseConfigManager  # type: ignore
-    from osdu_api.clients.storage.schema_client import SchemaClient as StorageSchemaClient  # type: ignore
-    from osdu_api.model.http_method import HttpMethod  # type: ignore
-    from osdu_api.model.search.query_request import QueryRequest  # type: ignore
-
+from osdu_api.clients.search.search_client import SearchClient
+from osdu_api.clients.dataset.dataset_dms_client import DatasetDmsClient
+from osdu_api.clients.base_client import BaseClient
+from osdu_api.configuration.base_config_manager import BaseConfigManager
+from osdu_api.clients.storage.schema_client import SchemaClient as StorageSchemaClient
+from osdu_api.model.http_method import HttpMethod
+from osdu_api.model.search.query_request import QueryRequest
 from dataclasses import dataclass
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import BaseModel
-import urllib3
 
+
+import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+def find_all_substrings(txt,sub):
+    positions = []
+    start_index=0
 
-def extract_osdu_metadata(osdu_service):
-    names = []
-    attributes = []
-    times1 = []
-    times2 = []
-    datasets = []
+    for i in range(len(txt)):
+        j = txt.find(sub,start_index)
+        if(j!=-1):
+            start_index = j+1
+            positions.append(j)
+    
+    return positions
 
-    headers = [
-        "data.name",
-        "data.attribute",
-        "data.time.t1",
-        "data.time.t2",
-        "dataset_id",
-    ]
-    print("Searching for 4D attribute maps in OSDU:")
-    attribute_horizons = osdu_service.get_attribute_horizons()
+def extract_osdu_metadata(osdu_service, meta_version):
+        surface_names = []
+        attributes = []
+        times1 = []
+        times2 = []
+        datasets = []
 
-    for horizon in attribute_horizons:
-        ow_name = horizon.ow_top_horizon[3:11]
+        headers = [
+            "data.name",
+            "data.attribute",
+            "data.time.t1",
+            "data.time.t2",
+            "dataset_id",
+        ]
+        print("Searching for 4D attribute maps in OSDU (version)", meta_version)
+        attribute_horizons = osdu_service.get_all_attribute_horizons(meta_version)
+                
+        for attribute_object in attribute_horizons:
+            horizon_names = []
+            kind = attribute_object.get("kind")
+            id = attribute_object.get("id")
+            name = attribute_object.get("data").get("Name")
+            tags =  attribute_object.get("tags")
+            metadata_version = tags.get("MetadataVersion")
+            seismic_content = tags.get("AttributeMap.SeismicTraceContent")
+            attribute_type = tags.get("AttributeMap.AttributeType")
+            window_mode = tags.get("CalculationWindow.WindowMode")
 
-        if ow_name == "IUTU+JS+":
-            ow_name = "IUTU_JS"
+            irap_binary_dataset = tags.get("file.irap")
+            datasets.append(irap_binary_dataset)
 
-        monitor_date = horizon.monitor_date
-        base_date = horizon.base_date
-        seismic_content = horizon.seismic_content
-        horizon_content = horizon.horizon_content
+            if window_mode == "AroundHorizon":
+                    seismic_horizon = tags.get("CalculationWindow.HorizonName")
+                    seismic_horizon = seismic_horizon.replace("+","_")
+                    horizon_names.append(seismic_horizon)
+            elif window_mode == "BetweenHorizons":
+                seismic_horizon = tags.get("CalculationWindow.TopHorizonName")
+                seismic_horizon = seismic_horizon.replace("+","_")
+                horizon_names.append(seismic_horizon)
 
-        names.append(ow_name)
-        date_reformat2 = (
-            monitor_date[6:10] + "-" + monitor_date[3:5] + "-" + monitor_date[0:2]
+                seismic_horizon = tags.get("CalculationWindow.BaseHorizonName")
+                seismic_horizon = seismic_horizon.replace("+","_")
+                horizon_names.append(seismic_horizon)
+
+            surface_names.append(horizon_names[0])
+            attribute = seismic_content + "_" + attribute_type
+            attributes.append(attribute)   
+
+            base_seismic_name = tags.get("SeismicProcessingTraces.BaseSeismicTraces")
+            monitor_seismic_name = tags.get("SeismicProcessingTraces.MonitorSeismicTraces")
+
+            seismic_names = [base_seismic_name, monitor_seismic_name]
+            seismic_objects = osdu_service.get_seismic_cubes(seismic_names)
+
+            dates = []
+
+            for seismic_object in seismic_objects:
+                data = seismic_object.get("data")
+                seismic_name = data.get("Name")
+                #print("Seismic cube:", seismic_name)
+                
+                processing_project_id = data.get("ProcessingProjectID")
+                #print("- Processing project id:", processing_project_id)
+
+                acquisition_id = data.get("PrincipalAcquisitionProjectID")
+                
+                positions = find_all_substrings(acquisition_id, ":")
+
+                if len(positions) == 3:
+                    pos = positions [-1]
+                    acquisition_id = acquisition_id[:pos]
+
+                #print("- Acquisition id:", acquisition_id)
+
+                acquisition_meta = osdu_service.get_osdu_metadata(acquisition_id)
+                data = acquisition_meta.get("data")
+                                    
+                begin_date = data.get("ProjectBeginDate")
+                end_date = data.get("ProjectEndDate")
+                begin_date = datetime.strptime(begin_date[:10],"%Y-%m-%d")
+                end_date = datetime.strptime(end_date[:10],"%Y-%m-%d")
+                reference_date = begin_date + (end_date - begin_date)/2
+                reference_date = datetime.strftime(reference_date,"%Y-%m-%d")
+
+                dates.append(reference_date)
+                
+            base_date = dates [0]
+            times1.append(base_date)
+
+            monitor_date = dates [1]
+            times2.append(monitor_date)
+
+            print("Map name:", name)
+            print("  Seismic horizon:",seismic_names[0])
+            print("  Seismic content:", seismic_content)
+            print("  Attribute type", attribute_type)
+            print("  Base survey date:", base_date)
+            print("  Monitor survey date:", monitor_date)
+            
+                    
+        zipped_list = list(
+            zip(
+                surface_names,
+                attributes,
+                times1,
+                times2,
+                datasets,
+            )
         )
-        times2.append(date_reformat2)
-        date_reformat = base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
-        times1.append(date_reformat)
 
-        dataset_ids = osdu_service.get_dataset_ids(horizon)
-        # print("DEBUG datasets")
-        # print(dataset_ids)
+        metadata = pd.DataFrame(zipped_list, columns=headers)
+        metadata.fillna(value=np.nan, inplace=True)
 
-        for dataset_id in dataset_ids:
-            dataset_info = osdu_service.get_dataset_info(dataset_id)
+        metadata["fmu_id.realization"] = "---"
+        metadata["fmu_id.iteration"] = "---"
+        metadata["map_type"] = "observed"
+        metadata["statistics"] = ""
 
-            if dataset_info and dataset_info.source == "OpenWorks":
-                if "dTS" in dataset_info.name:
-                    seismic_content = "dTS"
-
-                datasets.append(dataset_id)
-                print("  Dataset id:", dataset_id)
-                print()
-                attribute = seismic_content + "_" + horizon_content
-                attributes.append(attribute)
-
-                if "4D_JS_FulRes_21sp-20au_Diff_0535_maxp" in horizon.name:
-                    horizon_name = "4D_JS_FulRes_21sp-20au_dTS_0535_maxp"
-                else:
-                    horizon_name = horizon.name[:-8]
-
-                print("Map name:", horizon_name)
-                print("  Map content:", horizon_content)
-                print("  Seismic content:", seismic_content)
-                print("  Base survey date:", date_reformat)
-                print("  Monitor survey date:", date_reformat2)
-                print("  Seismic horizon:", ow_name)
-
-    zipped_list = list(
-        zip(
-            names,
-            attributes,
-            times1,
-            times2,
-            datasets,
-        )
-    )
-
-    metadata = pd.DataFrame(zipped_list, columns=headers)
-    metadata.fillna(value=np.nan, inplace=True)
-
-    metadata["fmu_id.realization"] = "---"
-    metadata["fmu_id.iteration"] = "---"
-    metadata["map_type"] = "observed"
-    metadata["statistics"] = ""
-
-    return metadata
+        return metadata
 
 
 class Config(BaseSettings, BaseConfigManager):
@@ -128,9 +171,7 @@ class Config(BaseSettings, BaseConfigManager):
     INGESTION_WORKFLOW_URL: str = f"{INSTANCE}/api/workflow/v1"
 
     if ACCESS_TOKEN == f"{INSTANCE}/dummy":
-        load_dotenv(
-            dotenv_path=os.path.join(os.path.expanduser("~"), ".env"), override=True
-        )
+        load_dotenv(dotenv_path=os.path.join(os.path.expanduser("~"),".env"), override=True)
         ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 
     def get(self, section: str, option: str, default: Optional[str] = None) -> str:
@@ -140,12 +181,12 @@ class Config(BaseSettings, BaseConfigManager):
         return self.model_dump().get(option.upper(), default)
 
     def getfloat(
-        self, section: str, option: str, default: Optional[float] = None
+            self, section: str, option: str, default: Optional[float] = None
     ) -> int:
         return self.model_dump().get(option.upper(), default)
 
     def getbool(
-        self, section: str, option: str, default: Optional[bool] = None
+            self, section: str, option: str, default: Optional[bool] = None
     ) -> bool:
         return self.model_dump().get(option.upper(), default)
 
@@ -155,11 +196,11 @@ class Config(BaseSettings, BaseConfigManager):
 class Schema(BaseModel):
     id: str
     kind: str
-    # source: str
-    # acl_viewers: list[str]
-    # acl_owners: list[str]
-    # type: str
-    # version: int
+    #source: str
+    #acl_viewers: list[str]
+    #acl_owners: list[str]
+    #type: str
+    #version: int
 
 
 class SeismicHorizon(Schema):
@@ -167,7 +208,7 @@ class SeismicHorizon(Schema):
     datasets: list[str]
     interpretation_name: str
     bin_grid_id: str
-    role: str
+    seismic_trace_id: str
     remark: str
 
 
@@ -201,7 +242,7 @@ class SeismicAcquisition(Schema):
     name: str
     kind: str
     begin_date: str
-    end_date: str
+    end_date: str    
 
 
 class SeismicProcessing(Schema):
@@ -209,7 +250,7 @@ class SeismicProcessing(Schema):
     kind: str
     project_name: str
     acquisition_survey_id: str
-
+    
 
 class SeismicCube(Schema):
     id: str
@@ -227,26 +268,26 @@ class SeismicCube(Schema):
     processing_project_id: str
 
 
-def parse_seismic_horizon(horizon: dict) -> SeismicHorizon:
+def parse_seismic_horizon(horizon: dict) -> SeismicHorizon:   
     return SeismicHorizon(
-        id=horizon.get("id", ""),
-        kind=horizon.get("kind", ""),
-        source=horizon.get("source", ""),
+        id=horizon.get("id",""),
+        kind=horizon.get("kind",""),
+        source=horizon.get("source",""),
         acl_viewers=horizon.get("acl").get("viewers"),
         acl_owners=horizon.get("acl").get("owners"),
-        type=horizon.get("type", ""),
-        version=horizon.get("version", ""),
-        name=horizon.get("data").get("Name", ""),
+        type=horizon.get("type",""),
+        version=horizon.get("version",""),
+        name=horizon.get("data").get("Name",""),
         datasets=horizon.get("data").get("Datasets"),
-        interpretation_name=horizon.get("data").get("InterpretationName", ""),
-        bin_grid_id=horizon.get("data").get("BinGridID", ""),
-        role=horizon.get("data").get("Role", ""),
-        remark=horizon.get("data").get("Remark", ""),
+        interpretation_name=horizon.get("data").get("InterpretationName",""),
+        bin_grid_id=horizon.get("data").get("BinGridID",""),
+        seismic_trace_id=horizon.get("data").get("SeismicTraceDataID",""),
+        remark=horizon.get("data").get("Remark",""),
     )
 
 
 @dataclass
-class DefaultOsduService:
+class DefaultOsduService():
     def __init__(self, config=Config(), refresh_token: str = None):
         client_config = {
             "config_manager": config,
@@ -258,46 +299,42 @@ class DefaultOsduService:
         self.dataset_dms_client = DatasetDmsClient(**client_config)
         self.storage_schema_client = StorageSchemaClient(**client_config)
 
-    def get_seismic_acquisitions(
-        self, selected_acquisitions
-    ) -> list[SeismicAcquisition]:
+
+    def get_seismic_acquisitions(self, selected_acquisitions) -> list[SeismicAcquisition]:
         results = []
 
         for acquisition in selected_acquisitions:
-            query = f'data.ProjectName:"{acquisition}"'
+            query = f"data.ProjectName:\"{acquisition}\""
 
             query_request = QueryRequest(
-                "osdu:wks:master-data--SeismicAcquisitionSurvey:1.2.0",
-                query=query,
-                limit=1000,
+                "osdu:wks:master-data--SeismicAcquisitionSurvey:1.2.0", query=query, limit=1000
             )
             result = self.search_client.query_records(query_request, self.access_token)
             result.raise_for_status()
 
             if result.status_code == 200:
-                osdu_object = result.json().get("results")[0]
+                osdu_object = result.json().get("results") [0]
                 seismic_acquisition = SeismicAcquisition(
                     id=osdu_object.get("id"),
                     kind=osdu_object.get("kind"),
                     version=osdu_object.get("version"),
                     name=osdu_object.get("data").get("ProjectName"),
                     begin_date=osdu_object.get("data").get("ProjectBeginDate"),
-                    end_date=osdu_object.get("data").get("ProjectEndDate"),
+                    end_date=osdu_object.get("data").get("ProjectEndDate")
                 )
                 results.append(seismic_acquisition)
 
         return results
 
+    
     def get_seismic_processings(self, selected_processings) -> list[SeismicProcessing]:
         results = []
 
         for processing in selected_processings:
             status = False
-            query = f'data.ProjectName:"{processing}"'
+            query = f"data.ProjectName:\"{processing}\""
             query_request = QueryRequest(
-                "osdu:wks:master-data--SeismicProcessingProject:1.2.0",
-                query=query,
-                limit=1000,
+                "osdu:wks:master-data--SeismicProcessingProject:*", query=query, limit=1000
             )
             result = self.search_client.query_records(query_request, self.access_token)
             result.raise_for_status()
@@ -307,18 +344,12 @@ class DefaultOsduService:
 
                 for osdu_object in osdu_objects:
                     project_name = osdu_object.get("data").get("ProjectName")
-                    acquisition_surveys = osdu_object.get("data").get(
-                        "SeismicAcquisitionSurveys"
-                    )
+                    acquisition_surveys = osdu_object.get("data").get("SeismicAcquisitionSurveys")
 
                     if acquisition_surveys:
                         acquisition_survey_id = acquisition_surveys[0]
                     else:
-                        print(
-                            "WARNING: SeismicProcessingProject:",
-                            project_name,
-                            "acquisition_survey_id not found",
-                        )
+                        print("WARNING: SeismicProcessingProject:", project_name, "acquisition_survey_id not found")
                         acquisition_survey_id = ""
 
                     if project_name == processing:
@@ -326,7 +357,7 @@ class DefaultOsduService:
                             id=osdu_object.get("id"),
                             kind=osdu_object.get("kind"),
                             project_name=osdu_object.get("data").get("ProjectName"),
-                            acquisition_survey_id=acquisition_survey_id,
+                            acquisition_survey_id=acquisition_survey_id
                         )
 
                         results.append(seismic_processing)
@@ -336,45 +367,43 @@ class DefaultOsduService:
                 print("WARNING: Processing project not found: ", processing)
 
         return results
+    
 
     def get_seismic_processing_metadata(self, id) -> SeismicProcessing:
-        query = f'id:"{id}"'
-        query_request = QueryRequest(
-            "osdu:wks:master-data--SeismicProcessingProject:1.2.0", query=query
-        )
+        query = f"id:\"{id}\""
+        query_request = QueryRequest("osdu:wks:master-data--SeismicProcessingProject:1.2.0", query=query)
         result = self.search_client.query_records(query_request, self.access_token)
         result.raise_for_status()
 
         if result.status_code == 200:
-            osdu_object = result.json().get("results")[0]
+            osdu_object = result.json().get("results") [0]
             project_id = osdu_object.get("id")
 
             if project_id == id:
-                id = osdu_object.get("id")
+                id=osdu_object.get("id")
                 survey = osdu_object.get("data").get("SeismicAcquisitionSurveys")[0]
-
+                
                 seismic_processing = SeismicProcessing(
                     id=id,
                     kind=osdu_object.get("kind"),
                     project_name=osdu_object.get("data").get("ProjectName"),
-                    acquisition_survey_id=survey,
+                    acquisition_survey_id=survey
                 )
             else:
                 print("ERROR: Processing project not found: ", id)
                 seismic_processing = None
 
         return seismic_processing
+    
 
     def get_seismic_acquisition_metadata(self, id) -> SeismicAcquisition:
-        query = f'id:"{id}"'
-        query_request = QueryRequest(
-            "osdu:wks:master-data--SeismicAcquisitionSurvey:1.2.0", query=query
-        )
+        query = f"id:\"{id}\""
+        query_request = QueryRequest("osdu:wks:master-data--SeismicAcquisitionSurvey:1.2.0", query=query)
         result = self.search_client.query_records(query_request, self.access_token)
         result.raise_for_status()
 
         if result.status_code == 200:
-            osdu_object = result.json().get("results")[0]
+            osdu_object = result.json().get("results") [0]
             project_id = osdu_object.get("id")
 
             if project_id == id:
@@ -383,122 +412,118 @@ class DefaultOsduService:
                     kind=osdu_object.get("kind"),
                     name=osdu_object.get("data").get("ProjectName"),
                     begin_date=osdu_object.get("data").get("ProjectBeginDate"),
-                    end_date=osdu_object.get("data").get("ProjectEndDate"),
+                    end_date=osdu_object.get("data").get("ProjectEndDate")
+
                 )
             else:
                 print("ERROR: Seismic acquisition not found: ", id)
                 seismic_acquisition = None
 
         return seismic_acquisition
+    
 
-    def get_seismic_cubes(self, selected_cubes) -> list[SeismicCube]:
-        results = []
+    def get_seismic_cubes(self, selected_cubes):
+        seismic_objects = []
 
         for cube in selected_cubes:
             status = False
-            query = f'data.Name:"{cube}"'
+            query = f"data.Name:\"{cube}\""
             query_request = QueryRequest(
-                "osdu:wks:work-product-component--SeismicTraceData:1.3.0", query=query
-            )
+                "osdu:wks:work-product-component--SeismicTraceData:1.3.0", query=query)
             result = self.search_client.query_records(query_request, self.access_token)
             result.raise_for_status()
 
             if result.status_code == 200:
                 osdu_objects = result.json().get("results")
+                seismic_objects.append(osdu_objects [0])
 
-                for osdu_object in osdu_objects:
-                    name = osdu_object.get("data").get("Name")
-                    domain_type = osdu_object.get("data").get("SeismicDomainTypeID")
-                    processing_project = osdu_object.get("data").get(
-                        "ProcessingProjectID"
-                    )
 
-                    if name == cube:
-                        if "Depth" in domain_type:
-                            domain = "Depth"
-                        else:
-                            domain = "Time"
+            #     for osdu_object in osdu_objects:
+            #         name = osdu_object.get("data").get("Name")
+            #         domain_type = osdu_object.get("data").get("SeismicDomainTypeID")
+            #         processing_project=osdu_object.get("data").get("ProcessingProjectID")
 
-                        seismic_cube = SeismicCube(
-                            id=osdu_object.get("id"),
-                            kind=osdu_object.get("kind"),
-                            name=name,
-                            source="Not available",
-                            domain=domain,
-                            inline_min=osdu_object.get("data").get("InlineMin"),
-                            inline_max=osdu_object.get("data").get("InlineMax"),
-                            xline_min=osdu_object.get("data").get("CrosslineMin"),
-                            xline_max=osdu_object.get("data").get("CrosslineMax"),
-                            sample_interval=osdu_object.get("data").get(
-                                "SampleInterval"
-                            ),
-                            sample_count=osdu_object.get("data").get("SampleCount"),
-                            processing_project_id=processing_project,
-                        )
+            #         if name == cube:
+            #             if "Depth" in domain_type:
+            #                 domain = "Depth"
+            #             else:
+            #                 domain = "Time"  
 
-                        results.append(seismic_cube)
-                        status = True
+            #             seismic_cube= SeismicCube(
+            #                 id=osdu_object.get("id"),
+            #                 kind=osdu_object.get("kind"),
+            #                 name=name,
+            #                 source="Not available", 
+            #                 domain = domain,
+            #                 inline_min=osdu_object.get("data").get("InlineMin"),
+            #                 inline_max=osdu_object.get("data").get("InlineMax"),
+            #                 xline_min=osdu_object.get("data").get("CrosslineMin"),    
+            #                 xline_max=osdu_object.get("data").get("CrosslineMax"), 
+            #                 sample_interval=osdu_object.get("data").get("SampleInterval"), 
+            #                 sample_count=osdu_object.get("data").get("SampleCount"),
+            #                 processing_project_id=processing_project,
+            #             )
 
-            if not status:
-                print("WARNING: Seismic cube not found: ", cube)
+            #             results.append(seismic_cube)
+            #             status = True
 
-        return results
+            # if not status:
+            #     print("WARNING: Seismic cube not found: ", cube)
 
-    def get_seismic_horizons(self, selected_names) -> list[SeismicHorizon]:
-        query = ""
-        seismic_horizons = []
+        return seismic_objects
+        
+
+    def get_seismic_horizons(self, selected_names):
+        query = "" 
+        seismic_horizon_objects = []
 
         if len(selected_names) > 0:
             if "" in selected_names:
                 selected_names.remove("")
 
             for selected_name in selected_names:
-                query = f'data.Name:"{selected_name}"'
+                query = f"data.Name:\"{selected_name}\""
                 query_request = QueryRequest(
-                    "osdu:wks:work-product-component--SeismicHorizon:1.2.0",
-                    query=query,
+                    "osdu:wks:work-product-component--SeismicHorizon:*", query=query,
                 )
-                result = self.search_client.query_records(
-                    query_request, bearer_token=self.access_token
-                )
+                result = self.search_client.query_records(query_request,  bearer_token=self.access_token)
                 result_objects = result.json().get("results")
+                seismic_horizon_objects.append(result_objects [0])
 
-                for result_object in result_objects:
-                    data = result_object.get("data")
+                # for result_object in result_objects:
+                #     data = result_object.get("data")
 
-                    if data.get("Name") == selected_name:
-                        seismic_horizon = parse_seismic_horizon(horizon=result_object)
-                        seismic_horizons.append(seismic_horizon)
+                #     if data.get("Name") == selected_name:                       
+                #         seismic_horizon = parse_seismic_horizon(horizon=result_object)
+                #         seismic_horizons.append(seismic_horizon)
         else:
             query_request = QueryRequest(
-                "osdu:wks:work-product-component--SeismicHorizon:1.2.0", query
+                    "osdu:wks:work-product-component--SeismicHorizon:*", query
             )
-            result = self.search_client.query_records(
-                query_request, bearer_token=self.access_token
-            )
+            result = self.search_client.query_records(query_request, bearer_token=self.access_token)
             result_objects = result.json().get("results")
+            seismic_horizon_objects.append(result_objects)
 
-            for result_object in result_objects:
-                data = result_object.get("data")
-                if data.get("InterpretationName") is None:
-                    data["InterpretationName"] = "-"
-                    data["Role"] = "-"
-                    data["Remark"] = "-"
-                    result_object["data"] = data
+            # for result_object in result_objects:
+            #     data = result_object.get("data")
+            #     if data.get("interpretationName") is None:
+            #         data ["interpretationName"] = "-"
+            #         data ["Role" ] = "-"
+            #         data ["Remark"] ="-"
+            #         result_object ["data"] = data
+                    
+            #     seismic_horizon = parse_seismic_horizon(horizon=result_object)
+            #     seismic_horizons.append(seismic_horizon)
 
-                seismic_horizon = parse_seismic_horizon(horizon=result_object)
-                seismic_horizons.append(seismic_horizon)
+        return seismic_horizon_objects
 
-        return seismic_horizons
 
     def get_bin_grids(self, version: str = "") -> list[SeismicBinGrid]:
         v = version if version else "*"
         query_request = QueryRequest(
             kind=f"osdu:wks:work-product-component--SeismicBinGrid:{v}", query=""
         )
-        result = self.search_client.query_records(
-            query_request=query_request, bearer_token=self.access_token
-        )
+        result = self.search_client.query_records(query_request=query_request, bearer_token=self.access_token)
 
         return [
             SeismicBinGrid(
@@ -522,11 +547,11 @@ class DefaultOsduService:
         expiry_time: str = (
             "2M"  # TODO: Find out best expiry time, for the time being it is 1 minute
         )
-        # print(self.access_token)
+        #print(self.access_token)
         result = self.base_client.make_request(
             method=HttpMethod.GET,
             url=f'{self.base_client.config_manager.get("", "FILE_DMS_URL")}/files/{file_id}/downloadURL?expiryTime={expiry_time}',
-            bearer_token=self.access_token,
+            bearer_token=self.access_token
         )
         result.raise_for_status()
         # Extract download url
@@ -538,9 +563,9 @@ class DefaultOsduService:
             # data = np.loadtxt(io.StringIO(file_result.text))
             # # check the file is correct format
             # data[:, 4]
-            # data = io.StringIO(file_result.text)
+            #data = io.StringIO(file_result.text)
             return file_result
-
+        
         except IndexError:
             raise Exception("The data format is not correct format (ijzyz)")
         except Exception as e:
@@ -551,14 +576,69 @@ class DefaultOsduService:
         response = self.storage_schema_client.make_request(
             method=HttpMethod.GET,
             url=f"{self.storage_schema_client.storage_url}/query/kinds",
-            bearer_token=self.access_token,
+            bearer_token=self.access_token
         )
         return [
             schema.split(":")[-1]
             for schema in response.json().get("results", [])
             if "osdu:wks:work-product-component--SeismicBinGrid" in schema
         ]
+    
+    def get_all_attribute_horizons(self, meta_version) -> list[GenericRepresentation]:
+        # Search for all objects of type GenericRepresentation 
+        # If meta_version is not None, select only maps with the given meta_version
+        query=""
 
+        # if meta_version:
+        #     query = f"data.tags.MetadataVersion:\"{meta_version}\""
+
+        query_request = QueryRequest(
+            "osdu:wks:work-product-component--GenericRepresentation:*", query, limit=100
+        )
+        result = self.search_client.query_records(query_request, self.access_token)
+        result.raise_for_status()
+
+        horizon_objects = []
+
+        if result.status_code == 200:
+            osdu_objects = result.json().get("results")
+
+            if meta_version:
+                for osdu_object in osdu_objects: 
+                    tags =  osdu_object.get("tags")
+                    metadata_version = tags.get("MetadataVersion")
+
+                    if metadata_version and metadata_version == meta_version:
+                        name = osdu_object.get("data").get("Name")
+                        source = tags.get("Source.Source")
+
+                        if source == "OpenWorks":
+                            ow_name = tags.get("Source.*_Horizon")
+
+                            if name == ow_name:
+                                horizon_objects.append(osdu_object)
+            else:
+                horizon_objects = osdu_objects
+
+        return horizon_objects
+    
+    
+    def get_osdu_metadata(self, id):
+        # Search for an osdu object with a selected id
+        query = f"id:\"{id}\""
+        query_request = QueryRequest(
+            "*:*:*:*", query=query
+        )
+        result = self.search_client.query_records(query_request, self.access_token)
+        result.raise_for_status()
+
+        if result.status_code == 200:
+            osdu_objects = result.json().get("results")
+            osdu_object = osdu_objects[0]
+
+        return osdu_object
+    
+    
     def get_attribute_horizons(self) -> list[GenericRepresentation]:
         js_cubes = {
             "19au": "EQ19231DZC23A-KPSDM-RAW-FULL-0535-TIME",
@@ -582,7 +662,7 @@ class DefaultOsduService:
         if result.status_code == 200:
             osdu_objects = result.json().get("results")
 
-            for osdu_object in osdu_objects:
+            for osdu_object in osdu_objects:        
                 name = osdu_object.get("data").get("Name")
 
                 if not "4D_JS_" in name:
@@ -590,10 +670,10 @@ class DefaultOsduService:
 
                 name_objects = name.split("_")
 
-                date_string = name_objects[3]
-                date_string_objects = date_string.split("-")
-                monitor_string = date_string_objects[0]
-                base_string = date_string_objects[1]
+                date_string = name_objects [3]
+                date_string_objects =  date_string.split("-")
+                monitor_string = date_string_objects [0]
+                base_string = date_string_objects [1]
 
                 monitor_cube = js_cubes.get(monitor_string[:4])
                 base_cube = js_cubes.get(base_string[:4])
@@ -615,16 +695,19 @@ class DefaultOsduService:
                     base_date=osdu_object.get("tags").get("Base reference date"),
                     seismic_content=osdu_object.get("tags").get("Seismic content"),
                     horizon_content=osdu_object.get("tags").get("Horizon content"),
-                    base_cube_name=base_cube,
+                    base_cube_name= base_cube,
                     monitor_cube_name=monitor_cube,
                 )
                 horizons.append(horizon)
-
+        
         return horizons
+    
 
     def get_dataset_info(self, id: str = "") -> Dataset:
-        query = f'id:"{id[:-1]}"'
-        query_request = QueryRequest(f"osdu:wks:dataset--File.Generic:1.0.0", query)
+        query = f"id:\"{id}\""
+        query_request = QueryRequest(
+            f"osdu:wks:dataset--File.Generic:*", query
+        )
         result = self.search_client.query_records(query_request, self.access_token)
         result.raise_for_status()
         results = result.json().get("results")
@@ -648,18 +731,19 @@ class DefaultOsduService:
             )
 
         return dataset
+    
 
-    def get_dataset_ids(self, horizon) -> list[str]:
+    def get_dataset_ids(self, horizon) -> list[str ]:
         dataset_ids = horizon.datasets
-
+        
         return dataset_ids
-
+    
 
 def main():
     osdu_service = DefaultOsduService()
-    surface_metadata = extract_osdu_metadata(osdu_service)
-    print(surface_metadata)
+    meta_version = "0.3.1"
+    horizon_metadata = extract_osdu_metadata(osdu_service, meta_version)
+    print(horizon_metadata)
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
