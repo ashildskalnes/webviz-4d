@@ -11,7 +11,9 @@ from webviz_4d._datainput.common import (
 )
 
 
-def load_auto4d_metadata(auto4d_dir, file_ext, acquisition_dates):
+def load_auto4d_metadata(
+    auto4d_dir, file_ext, md_version, selections, acquisition_dates
+):
     metadata = pd.DataFrame()
 
     names = []
@@ -28,76 +30,89 @@ def load_auto4d_metadata(auto4d_dir, file_ext, acquisition_dates):
         "filename",
     ]
 
-    metadata_files = glob.glob(auto4d_dir + "/.*" + file_ext)
+    metadata_files = glob.glob(auto4d_dir + "/*" + file_ext)
 
-    if file_ext == ".json":
+    if file_ext == ".a4dmeta":
         for metadata_file in metadata_files:
-            # Opening JSON file
-            with open(metadata_file) as metadata_file:
-                metadata = json.load(metadata_file)
-                name = metadata.get("AttributeMap").get("Name")
-                window_mode = metadata.get("CalculationWindow").get("WindowMode")
+            selection_status_list = []
 
-                if window_mode == "BetweenHorizons":
-                    surface_name = metadata.get("CalculationWindow").get(
-                        "TopHorizonName"
+            # Opening metadata file
+            with open(metadata_file) as meta_file:
+                metadata = json.load(meta_file)
+
+                # Check metadata version
+                metadata_version = metadata.get("MetadataVersion")
+
+                if metadata_version is None:
+                    print("ERROR: Metadata version not found", metadata_file)
+                    status = False
+                elif metadata_version != md_version:
+                    print("ERROR: Wrong metadata version", metadata_file)
+                    print(
+                        "       Expected version, Actual version",
+                        md_version,
+                        metadata_version,
                     )
-                elif window_mode == "AroundHorizon":
-                    surface_name = metadata.get("CalculationWindow").get("HorizonName")
+                    status = False
                 else:
-                    print("WARNING: WindowMode not supported", window_mode)
-                    surface_name = "Dummy"
+                    if selections:
+                        for key, value in selections.items():
+                            map_value = metadata.get("AttributeMap").get(key)
 
-                seismic_content = metadata.get("AttributeMap").get(
-                    "SeismicTraceContent"
-                )
-                horizon_content = metadata.get("AttributeMap").get("AttributeType")
-                difference_type = metadata.get("AttributeMap").get("SeismicDifference")
-                base_seismic = metadata.get("SeismicProcessingTraces").get(
-                    "BaseSeismicTraces"
-                )
-                time1 = acquisition_dates.get(base_seismic[:7])
-                monitor_seismic = metadata.get("SeismicProcessingTraces").get(
-                    "MonitorSeismicTraces"
-                )
-                time2 = acquisition_dates.get(monitor_seismic[:7])
+                            if map_value in value:
+                                status = True
+                            else:
+                                status = False
 
-                filename = os.path.join(auto4d_dir, name + ".gri")
-                attribute = (
-                    seismic_content + "_" + difference_type + "_" + horizon_content
-                )
+                            selection_status_list.append(status)
 
-                names.append(surface_name)
-                filenames.append(filename)
-                attributes.append(attribute)
-                times1.append(time1)
-                times2.append(time2)
-    # elif file_ext == ".a4dmeta":
-    #     for metadata_file in metadata_files:
-    #         with open(metadata_file) as metadata_file:
-    #             metadata = json.load(metadata_file)
-    #             name = metadata.get("output_file").replace(".map", "")
-    #             name_parts = name.split("_")
-    #             surface_name = metadata.get("OSDU_Top_Horizon")
-    #             horizon_content = name_parts[-1]
-    #             process_info = metadata.get("Process_inputs")
-    #             segy = process_info.get("segy")
-    #             segy_name = segy.get("name")
-    #             segy_name_parts = segy_name.split("_")
+                        if False in selection_status_list:
+                            status = False
+                    else:
+                        status = True
 
-    #             interval_4d = segy_name_parts[2]
-    #             time1 = str(acquisitions.get(interval_4d[6:10]))
-    #             time2 = str(acquisitions.get(interval_4d[:4]))
-    #             seismic_content = segy_name_parts[3]
+                if status:
+                    name = metadata.get("AttributeMap").get("Name")
+                    window_mode = metadata.get("CalculationWindow").get("WindowMode")
 
-    #             attribute = seismic_content + "_" + horizon_content
-    #             filename = os.path.join(auto4d_dir, name + ".map")
+                    if window_mode == "BetweenHorizons":
+                        surface_name = metadata.get("CalculationWindow").get(
+                            "TopHorizonName"
+                        )
+                    elif window_mode == "AroundHorizon":
+                        surface_name = metadata.get("CalculationWindow").get(
+                            "HorizonName"
+                        )
+                    else:
+                        print("WARNING: WindowMode not supported", window_mode)
+                        surface_name = "Dummy"
 
-    #             names.append(surface_name[3:11])
-    #             filenames.append(filename)
-    #             attributes.append(attribute)
-    #             times1.append(time1)
-    #             times2.append(time2)
+                    seismic_content = metadata.get("AttributeMap").get(
+                        "SeismicTraceContent"
+                    )
+                    horizon_content = metadata.get("AttributeMap").get("AttributeType")
+                    difference_type = metadata.get("AttributeMap").get(
+                        "SeismicDifference"
+                    )
+                    base_seismic = metadata.get("SeismicProcessingTraces").get(
+                        "BaseSeismicTraces"
+                    )
+                    time1 = acquisition_dates.get(base_seismic[:7])
+                    monitor_seismic = metadata.get("SeismicProcessingTraces").get(
+                        "MonitorSeismicTraces"
+                    )
+                    time2 = acquisition_dates.get(monitor_seismic[:7])
+
+                    filename = os.path.join(auto4d_dir, name + ".gri")
+                    attribute = (
+                        seismic_content + "_" + difference_type + "_" + horizon_content
+                    )
+
+                    names.append(surface_name)
+                    filenames.append(filename)
+                    attributes.append(attribute)
+                    times1.append(time1)
+                    times2.append(time2)
     else:
         print("ERROR: Unsupported file extension", file_ext)
         return metadata
@@ -198,19 +213,22 @@ def main():
     auto4d = shared_settings.get("auto4d")
     auto4d_dir = auto4d.get("directory")
     interval_mode = shared_settings.get("interval_mode", "normal")
+    selections = auto4d.get("selections")
 
     acquisition_dates = auto4d.get("acquisition_dates")
+    md_version = auto4d.get("metadata_version")
 
-    # My metadata format
-    file_ext = ".json"
+    # Auto4d metadata format and version
+    file_ext = ".a4dmeta"
 
-    # Auto4d metadata format
-    # file_ext = "a4dmeta"
-
-    metadata = load_auto4d_metadata(auto4d_dir, file_ext, acquisition_dates)
+    metadata = load_auto4d_metadata(
+        auto4d_dir, file_ext, md_version, selections, acquisition_dates
+    )
 
     # Create selectors
     selectors = create_auto4d_lists(metadata, interval_mode)
+
+    print("Selectors")
     pprint(selectors)
 
 

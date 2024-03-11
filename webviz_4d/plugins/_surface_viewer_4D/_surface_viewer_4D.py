@@ -175,6 +175,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.auto4d:
             auto4d_directory = self.auto4d.get("directory")
             auto4d_metadata_format = self.auto4d.get("metadata_format")
+            md_version = self.auto4d.get("metadata_version")
             self.label = auto4d_directory
 
         self.osdu = self.shared_settings.get("osdu")
@@ -191,9 +192,10 @@ class SurfaceViewer4D(WebvizPluginABC):
                 file_ext = ".json"
 
             acquisition_dates = self.auto4d.get("acquisition_dates")
+            selections = self.auto4d.get("selections")
 
             self.surface_metadata = load_auto4d_metadata(
-                auto4d_directory, file_ext, acquisition_dates
+                auto4d_directory, file_ext, md_version, selections, acquisition_dates
             )
 
             print("Create auto4d selection lists ...")
@@ -789,6 +791,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
 
             if os.path.isfile(surface_file):
+                print("Loading surface file", surface_file)
                 surface = load_surface(surface_file)
 
         elif self.sumo:
