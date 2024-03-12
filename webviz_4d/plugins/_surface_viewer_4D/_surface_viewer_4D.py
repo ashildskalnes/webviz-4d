@@ -117,6 +117,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         logging.getLogger("").setLevel(level=logging.WARNING)
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.field_name = self.shared_settings.get("field_name")
+        print("Field name", self.field_name)
 
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
@@ -171,6 +172,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             fmu_directory = self.fmu.get("directory")
             self.label = fmu_directory
 
+        auto4d_directory = None
         self.auto4d = self.shared_settings.get("auto4d")
         if self.auto4d:
             auto4d_directory = self.auto4d.get("directory")
@@ -180,7 +182,8 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         self.osdu = self.shared_settings.get("osdu")
         if self.osdu:
-            osdu_version = self.osdu.get("version")
+            self.metadata_version = self.osdu.get("metadata_version")
+            print("Metadata version", self.metadata_version)
             self.label = "osdu"
 
         self.label = self.field_name + " " + self.label
@@ -210,7 +213,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.label = "OSDU: " + self.field_name
             print(self.label)
 
-            self.surface_metadata = extract_osdu_metadata(self.osdu_service)  # type: ignore
+            self.surface_metadata = extract_osdu_metadata(self.osdu_service, self.metadata_version)  # type: ignore
             print(self.surface_metadata)
 
             print("Create OSDU selection lists ...")
