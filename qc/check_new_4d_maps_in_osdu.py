@@ -30,7 +30,7 @@ def main():
     print("  ", len(attribute_objects))
 
     selected_attribute_maps = {}
-    selected_metadata_version = "0.3.1"
+    selected_metadata_version = "0.3.2"
 
     for attribute_object in attribute_objects:
         kind = attribute_object.get("kind")
@@ -48,7 +48,7 @@ def main():
             print("  WARNING: Wrong metadata version:", metadata_version)
             print()
         else:
-            if tags.get("Source.*_Horizon") != name:
+            if tags.get("Source.* Horizon") != name:
                 print("  WARNING: OSDU name is different from OW name")
                 print()
             else:
@@ -62,20 +62,14 @@ def main():
                 attribute_type = tags.get("AttributeMap.AttributeType")
                 attribute_map.update({"Attribute type": attribute_type})
 
-                irap_binary_dataset = tags.get("file.irap")
-                datasets = {}
+                all_datasets = attribute_object.get("data").get("Datasets")
 
-                if irap_binary_dataset:
-                    dataset_dict = {"irap_binary": irap_binary_dataset}
-                    datasets.update(dataset_dict)
+                for dataset in all_datasets:
+                    meta = osdu_service.get_osdu_metadata(dataset)
+                    format_type = meta.get("data").get("EncodingFormatTypeID")
+                    print("  dataset:", dataset, format_type)
 
-                ijxyz_dataset = tags.get("file.map")
-
-                if ijxyz_dataset:
-                    dataset_dict = {"ijxyz": ijxyz_dataset}
-                    datasets.update(dataset_dict)
-
-                attribute_map.update({"Attribute map datasets":datasets})
+                attribute_map.update({"Attribute map datasets":all_datasets})
                 window_mode = tags.get("CalculationWindow.WindowMode")
 
                 seismic_names = []
@@ -108,8 +102,12 @@ def main():
                     print("- Kind:", kind)
                     print("- Datasets:", datasets)
 
-                base_seismic_name = tags.get("SeismicProcessingTraces.BaseSeismicTraces")
-                monitor_seismic_name = tags.get("SeismicProcessingTraces.MonitorSeismicTraces")
+                if selected_metadata_version == "0.3.1":
+                    base_seismic_name = tags.get("SeismicProcessingTraces.BaseSeismicTraces")
+                    monitor_seismic_name = tags.get("SeismicProcessingTraces.MonitorSeismicTraces")
+                elif selected_metadata_version == "0.3.2":
+                    base_seismic_name = tags.get("SeismicProcessingTraces.SeismicVolumeB")
+                    monitor_seismic_name = tags.get("SeismicProcessingTraces.SeismicVolumeA")
 
                 seismic_names = [base_seismic_name, monitor_seismic_name]
                 seismic_objects = osdu_service.get_seismic_cubes(seismic_names)

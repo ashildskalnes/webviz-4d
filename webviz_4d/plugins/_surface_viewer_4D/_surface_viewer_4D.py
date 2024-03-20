@@ -70,6 +70,7 @@ if sys.platform == "win32":
         Config,
         DefaultOsduService,
         extract_osdu_metadata,
+        create_osdu_lists
     )
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
@@ -135,12 +136,10 @@ class SurfaceViewer4D(WebvizPluginABC):
         settings_folder = os.path.dirname(os.path.abspath(settings_file))
         self.define_defaults()
         self.load_settings_info(settings_file)
+        print("DEBUG attribute_settings", self.attribute_settings)
 
         # Include custom colormaps if wanted
         self.get_additional_colormaps()
-
-        # Read attribute maps settings (min-/max-values)
-        self.colormap_settings = None
         self.attribute_maps_file = attribute_maps_file
 
         # Check data sources and maps metadata format
@@ -217,7 +216,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             print(self.surface_metadata)
 
             print("Create OSDU selection lists ...")
-            self.selection_list = create_auto4d_lists(
+            self.selection_list = create_osdu_lists(
                 self.surface_metadata, interval_mode
             )
 
@@ -594,11 +593,11 @@ class SurfaceViewer4D(WebvizPluginABC):
 
     def ensembles(self, map_number):
         map_type = self.map_defaults[map_number]["map_type"]
-        return self.selection_list[map_type]["iteration"]
+        return self.selection_list[map_type]["seismic"]
 
     def realizations(self, map_number):
         map_type = self.map_defaults[map_number]["map_type"]
-        realization_list = self.selection_list[map_type]["realization"]
+        realization_list = self.selection_list[map_type]["coverage"]
 
         if map_type == "simulated":
             if "aggregated" in self.selection_list.keys():  # SUMO
@@ -688,16 +687,18 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         try:
             selected_metadata = self.surface_metadata[
-                (self.surface_metadata["fmu_id.realization"] == real)
-                & (self.surface_metadata["fmu_id.iteration"] == ensemble)
+                (self.surface_metadata["coverage"] == real)
+                & (self.surface_metadata["seismic"] == ensemble)
                 & (self.surface_metadata["map_type"] == map_type)
-                & (self.surface_metadata["data.time.t1"] == time1)
-                & (self.surface_metadata["data.time.t2"] == time2)
-                & (self.surface_metadata["data.name"] == name)
-                & (self.surface_metadata["data.attribute"] == attribute)
+                & (self.surface_metadata["time.t1"] == time1)
+                & (self.surface_metadata["time.t2"] == time2)
+                & (self.surface_metadata["name"] == name)
+                & (self.surface_metadata["attribute"] == attribute)
             ]
 
             dataset_id = selected_metadata["dataset_id"].values[0]
+            print("DEBUG selected metadata")
+            print(selected_metadata[["name", "attribute","time.t1","time.t2", "seismic", "coverage"]] )
 
             return dataset_id
         except:
@@ -764,6 +765,31 @@ class SurfaceViewer4D(WebvizPluginABC):
             min_max = settings[["lower_limit", "upper_limit"]]
 
         return min_max
+    
+    def get_auto_scaling(self, surface, attribute_type):
+        min_max = [None, None]
+        attribute_settings = self.attribute_settings
+
+        if attribute_settings:
+            colormap_type = attribute_settings.get("type")
+
+            if attribute_type in attribute_settings.keys():
+                surface_max_val = surface.values.max()
+                surface_min_val = surface.values.min()
+                max_val = max(abs(surface_max_val),abs(surface_min_val))
+
+                if colormap_type == "diverging":
+                    min_val = - max_val
+                elif colormap_type == "positive":
+                    min_val = 0
+                elif colormap_type == "negative":
+                    min_val = - max_val
+                    max_val = 0
+                else:
+                    min_val = -max_val
+                min_max = [min_val,max_val]
+
+        return min_max
 
     def make_map(self, data, ensemble, real, attribute_settings, map_idx):
         data = json.loads(data)
@@ -789,6 +815,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 dataset = self.osdu_service.get_horizon_map(file_id=dataset_id)
                 blob = io.BytesIO(dataset.content)
                 surface = xtgeo.surface_from_file(blob)
+                surface.coarsen(9)
 
         elif self.auto4d or self.fmu:
             surface_file = self.get_real_runpath(data, ensemble, real, map_type)
@@ -824,6 +851,16 @@ class SurfaceViewer4D(WebvizPluginABC):
         if surface:
             metadata = self.get_map_scaling(data, map_type, real)
 
+            if self.osdu:
+                min_max = self.get_auto_scaling(surface, attribute)
+                print("DEBUG min_max", min_max)
+
+                min_val = min_max[0]
+                max_val = min_max[1]
+            else:
+                min_val=attribute_settings.get(data["attr"], {}).get("min", None)
+                max_val=attribute_settings.get(data["attr"], {}).get("max", None)
+
             surface_layers = [
                 make_surface_layer(
                     surface,
@@ -831,8 +868,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                     color=attribute_settings.get(data["attr"], {}).get(
                         "color", self.default_colormap
                     ),
-                    min_val=attribute_settings.get(data["attr"], {}).get("min", None),
-                    max_val=attribute_settings.get(data["attr"], {}).get("max", None),
+                    min_val=min_val,
+                    max_val=max_val,
                     unit=attribute_settings.get(data["attr"], {}).get("unit", ""),
                     hillshading=False,
                     min_max_df=metadata,

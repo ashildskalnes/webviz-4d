@@ -12,7 +12,7 @@ from webviz_4d._datainput.common import (
 
 
 def load_auto4d_metadata(
-    auto4d_dir, file_ext, md_version, selections, acquisition_dates
+    auto4d_dir, file_ext, mdata_version, selections, acquisition_dates
 ):
     metadata = pd.DataFrame()
 
@@ -46,11 +46,11 @@ def load_auto4d_metadata(
                 if metadata_version is None:
                     print("ERROR: Metadata version not found", metadata_file)
                     status = False
-                elif metadata_version != md_version:
+                elif metadata_version != mdata_version:
                     print("ERROR: Wrong metadata version", metadata_file)
                     print(
                         "       Expected version, Actual version",
-                        md_version,
+                        mdata_version,
                         metadata_version,
                     )
                     status = False
@@ -211,18 +211,23 @@ def main():
 
     shared_settings = config.get("shared_settings")
     auto4d = shared_settings.get("auto4d")
-    auto4d_dir = auto4d.get("directory")
+
+    if auto4d:
+        auto4d_dir = auto4d.get("directory")
+        acquisition_dates = auto4d.get("acquisition_dates")
+        selections = auto4d.get("selections")
+        mdata_version = auto4d.get("metadata_version")
+        metadata = load_auto4d_metadata(
+                auto4d_dir, file_ext, mdata_version, selections, acquisition_dates
+            )
+
     interval_mode = shared_settings.get("interval_mode", "normal")
-    selections = auto4d.get("selections")
-
-    acquisition_dates = auto4d.get("acquisition_dates")
-    md_version = auto4d.get("metadata_version")
-
+    
     # Auto4d metadata format and version
     file_ext = ".a4dmeta"
 
     metadata = load_auto4d_metadata(
-        auto4d_dir, file_ext, md_version, selections, acquisition_dates
+        auto4d_dir, file_ext, mdata_version, selections, acquisition_dates
     )
 
     # Create selectors

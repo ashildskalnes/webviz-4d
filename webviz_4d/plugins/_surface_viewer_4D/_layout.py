@@ -31,7 +31,7 @@ def ensemble_layout(
             html.Div(
                 [
                     html.Label(
-                        "Ensemble / Iteration",
+                        "Seismic",
                         style={"fontSize": 15, "fontWeight": "bold"},
                     ),
                     html.Div(
@@ -42,7 +42,7 @@ def ensemble_layout(
                                     {"label": ens, "value": ens}
                                     for ens in parent.ensembles(map_number)
                                 ],
-                                value=parent.map_defaults[map_number]["ensemble"],
+                                value=parent.map_defaults[map_number]["seismic"],
                                 id=ensemble_id,
                                 clearable=False,
                                 persistence=True,
@@ -77,7 +77,7 @@ def ensemble_layout(
             html.Div(
                 children=[
                     html.Label(
-                        "Realization / Statistic",
+                        "Coverage",
                         style={"fontSize": 15, "fontWeight": "bold"},
                     ),
                     html.Div(
@@ -88,7 +88,7 @@ def ensemble_layout(
                                     {"label": real, "value": real}
                                     for real in parent.realizations(map_number)
                                 ],
-                                value=parent.map_defaults[map_number]["realization"],
+                                value=parent.map_defaults[map_number]["coverage"],
                                 id=real_id,
                                 clearable=False,
                                 persistence=True,

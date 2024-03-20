@@ -70,7 +70,6 @@ def array_to_png(tensor, shift=True, colormap=False):
     image.save(byte_io, format="png")
 
     byte_io.seek(0)
-
     base64_data = base64.b64encode(byte_io.read()).decode("ascii")
 
     return f"data:image/png;base64,{base64_data}"

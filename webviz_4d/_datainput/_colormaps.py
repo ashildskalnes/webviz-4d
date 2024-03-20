@@ -98,3 +98,22 @@ def get_colormap_settings(configuration, attribute):
             print("No default colormaps found for ", attribute)
 
     return colormap, minval, maxval
+
+def get_auto_colormap_settings(configuration, attribute):
+    colormap = None
+    colormap_type = None
+    percentile = None
+
+    try:
+        attribute_dict = configuration[attribute]
+        colormap = attribute_dict["color"]
+        colormap_type = attribute_dict["type"]
+        percentile = attribute_dict["percentile"]
+    except:
+        try:
+            map_settings = configuration("map_settings")
+            colormap = map_settings("default_colormap")
+        except:
+            print("No default colormaps found for ", attribute)
+
+    return colormap, colormap_type, percentile
