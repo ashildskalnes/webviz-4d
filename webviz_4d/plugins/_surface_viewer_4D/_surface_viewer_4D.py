@@ -136,7 +136,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         settings_folder = os.path.dirname(os.path.abspath(settings_file))
         self.define_defaults()
         self.load_settings_info(settings_file)
-        print("DEBUG attribute_settings", self.attribute_settings)
 
         # Include custom colormaps if wanted
         self.get_additional_colormaps()
@@ -182,7 +181,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.osdu = self.shared_settings.get("osdu")
         if self.osdu:
             self.metadata_version = self.osdu.get("metadata_version")
-            print("Metadata version", self.metadata_version)
             self.label = "osdu"
 
         self.label = self.field_name + " " + self.label
@@ -213,8 +211,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             print(self.label)
 
             self.surface_metadata = extract_osdu_metadata(self.osdu_service, self.metadata_version)  # type: ignore
-            print(self.surface_metadata)
-
+  
             print("Create OSDU selection lists ...")
             self.selection_list = create_osdu_lists(
                 self.surface_metadata, interval_mode
@@ -445,6 +442,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.interval_well_layers = None
 
         # Create selectors (attributes, names and dates) for all 3 maps
+        print(self.map_defaults[0])
         self.selector = SurfaceSelector(
             app, self.selection_list, self.map_defaults[0], self.default_interval
         )
@@ -597,7 +595,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
     def realizations(self, map_number):
         map_type = self.map_defaults[map_number]["map_type"]
-        realization_list = self.selection_list[map_type]["coverage"]
+        realization_list = self.selection_list[map_type]["difference"]
 
         if map_type == "simulated":
             if "aggregated" in self.selection_list.keys():  # SUMO
@@ -687,7 +685,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         try:
             selected_metadata = self.surface_metadata[
-                (self.surface_metadata["coverage"] == real)
+                (self.surface_metadata["difference"] == real)
                 & (self.surface_metadata["seismic"] == ensemble)
                 & (self.surface_metadata["map_type"] == map_type)
                 & (self.surface_metadata["time.t1"] == time1)
@@ -697,9 +695,6 @@ class SurfaceViewer4D(WebvizPluginABC):
             ]
 
             dataset_id = selected_metadata["dataset_id"].values[0]
-            print("DEBUG selected metadata")
-            print(selected_metadata[["name", "attribute","time.t1","time.t2", "seismic", "coverage"]] )
-
             return dataset_id
         except:
             dataset_id = None
@@ -853,7 +848,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if self.osdu:
                 min_max = self.get_auto_scaling(surface, attribute)
-                print("DEBUG min_max", min_max)
 
                 min_val = min_max[0]
                 max_val = min_max[1]

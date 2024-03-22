@@ -56,7 +56,8 @@ def main():
         mdata_version = osdu.get("metadata_version")
         osdu_service = DefaultOsduService()  # type: ignore
         metadata = extract_osdu_metadata(osdu_service, mdata_version)
-        print(metadata[["name", "attribute", "seismic", "time.t1","time.t2","coverage"]])
+        metadata.to_csv("metadata.csv")
+        #print(metadata[["name", "attribute", "seismic", "time.t1","time.t2","difference"]])
         
         # Create selectors
         selectors = create_osdu_lists(metadata, interval_mode)

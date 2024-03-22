@@ -39,8 +39,8 @@ def get_all_map_defaults(selection_list, map_defaults_list):
 def get_map_defaults(selection_options, default_interval, map_type):
     options = selection_options[map_type]
 
-    ensemble = options["ensemble"][0]
-    realization = options["realization"][0]
+    ensemble = options["seismic"][0]
+    realization = options["difference"][0]
     attribute = options["attribute"][0]
     name = options["name"][0]
 

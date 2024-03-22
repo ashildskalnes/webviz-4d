@@ -77,7 +77,7 @@ def ensemble_layout(
             html.Div(
                 children=[
                     html.Label(
-                        "Coverage",
+                        "Difference",
                         style={"fontSize": 15, "fontWeight": "bold"},
                     ),
                     html.Div(
@@ -88,7 +88,7 @@ def ensemble_layout(
                                     {"label": real, "value": real}
                                     for real in parent.realizations(map_number)
                                 ],
-                                value=parent.map_defaults[map_number]["coverage"],
+                                value=parent.map_defaults[map_number]["difference"],
                                 id=real_id,
                                 clearable=False,
                                 persistence=True,

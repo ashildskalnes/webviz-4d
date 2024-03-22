@@ -36,6 +36,7 @@ def find_all_substrings(txt,sub):
     return positions
 
 def extract_osdu_metadata(osdu_service, meta_version):
+        map_names = []
         surface_names = []
         attributes = []
         times1 = []
@@ -43,16 +44,22 @@ def extract_osdu_metadata(osdu_service, meta_version):
         seismic_contents = []
         coverages = []
         datasets = []
+        differences = []
 
         headers = [
+            "map_name",
             "name",
             "attribute",
             "time.t1",
             "time.t2",
             "seismic",
             "coverage",
+            "difference",
             "dataset_id",
         ]
+
+        selected_headers = headers[:-1]
+
         print("Searching for 4D attribute maps in OSDU (version =", meta_version, ") ...")
         attribute_horizons = osdu_service.get_all_attribute_horizons(meta_version)
                 
@@ -65,6 +72,7 @@ def extract_osdu_metadata(osdu_service, meta_version):
             seismic_content = tags.get("AttributeMap.SeismicTraceContent")
             attribute_type = tags.get("AttributeMap.AttributeType")
             coverage = tags.get("AttributeMap.Coverage")
+            difference = tags.get("AttributeMap.SeismicDifference")
             window_mode = tags.get("CalculationWindow.WindowMode")
 
             all_datasets = attribute_object.get("data").get("Datasets")
@@ -78,11 +86,13 @@ def extract_osdu_metadata(osdu_service, meta_version):
                     dataset = osdu_service.get_horizon_map(file_id=dataset_id)
                     #blob = io.BytesIO(dataset.content)
                     #surface = xtgeo.surface_from_file(blob)
-
+            
+            map_names.append(name)
             datasets.append(irap_binary_dataset)
             attributes.append(attribute_type) 
             seismic_contents.append(seismic_content)
             coverages.append(coverage)
+            differences.append(difference)
 
             if window_mode == "AroundHorizon":
                     seismic_horizon = tags.get("CalculationWindow.HorizonName")
@@ -146,25 +156,17 @@ def extract_osdu_metadata(osdu_service, meta_version):
 
             monitor_date = dates [1]
             times2.append(monitor_date)
-
-            # print("Map name:", name)
-            # print("  Seismic horizon:",horizon_names[0])
-            # print("  Seismic content:", seismic_content)
-            # print("  Attribute type:", attribute_type)
-            # print("  Base survey date:", base_date)
-            # print("  Monitor survey date:", monitor_date)
-            # print("  Coverage:", coverage)
-            # print("  Dataset id:", irap_binary_dataset)
-            # print()
                     
         zipped_list = list(
             zip(
+                map_names,
                 surface_names,
                 attributes,
                 times1,
                 times2,
                 seismic_contents,
                 coverages,
+                differences,
                 datasets,
             )
         )
@@ -173,6 +175,7 @@ def extract_osdu_metadata(osdu_service, meta_version):
         metadata.fillna(value=np.nan, inplace=True)
 
         metadata["map_type"] = "observed"
+        print(metadata [headers [:-1]])
 
         return metadata
 
@@ -767,7 +770,7 @@ def create_osdu_lists(metadata, interval_mode):
         "interval": "interval",
         "attribute": "attribute",
         "seismic":"seismic",
-        "coverage": "coverage"
+        "difference": "difference"
     }
 
     map_types = ["observed"]
@@ -802,7 +805,7 @@ def create_osdu_lists(metadata, interval_mode):
                         intervals.append(interval)
 
                 # sorted_intervals = sort_intervals(intervals)
-                sorted_intervals = intervals
+                sorted_intervals = sorted(intervals)
 
                 map_type_dict[value] = sorted_intervals
             else:
