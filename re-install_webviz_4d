@@ -15,7 +15,8 @@ pip install urllib3==1.26.15
 #pip install -r requirements.txt
 pip install webviz-config
 pip install webviz-config-equinor
-pip install webviz-subsurface
+pip install webviz-subsurface==0.2.22
+pip install webviz-subsurface-components==0.4.15
 pip install PyGObject==3.44.1
 pip install python-dotenv
 pip install black
