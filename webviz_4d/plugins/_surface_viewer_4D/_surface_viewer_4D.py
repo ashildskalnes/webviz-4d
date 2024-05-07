@@ -109,7 +109,12 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.fmu_directory = self.shared_settings["fmu_directory"]
         self.sumo_name = self.shared_settings.get("sumo_name")
         self.auto4d = self.shared_settings.get("auto4d")
-        self.auto4d_directory = self.auto4d.get("folder")
+
+        if self.auto4d:
+            self.auto4d_directory = self.auto4d.get("folder")
+        else:
+            self.auto4d_directory = None
+
         self.label = self.shared_settings.get("label", self.fmu_directory)
 
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
