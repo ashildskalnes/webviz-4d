@@ -423,43 +423,6 @@ def load_well(well_path):
     return xtgeo.well_from_file(well_path, mdlogname="MD")
 
 
-# def load_all_wells(metadata):
-#     """For all wells in a folder return
-#     - a list of dataframes with the well trajectories
-#     - dataframe with metadata for all the wells"""
-
-#     all_wells_list = []
-
-#     try:
-#         wellfiles = metadata["file_name"]
-#         wellfiles.dropna(inplace=True)
-#     except:
-#         wellfiles = []
-#         raise Exception("No wellfiles found")
-
-#     for wellfile in wellfiles:
-#         well = load_well(wellfile)
-
-#         well.dataframe = well.dataframe[["X_UTME", "Y_UTMN", "Z_TVDSS", "MD"]]
-#         well_metadata = metadata.loc[metadata["wellbore.rms_name"] == well.wellname]
-#         layer_name = well_metadata["layer_name"].values[0]
-
-#         if layer_name == "Drilled wells":
-#             well.dataframe["WELLBORE_NAME"] = well.truewellname
-#             short_name = well.shortwellname
-#         else:
-#             well.dataframe["WELLBORE_NAME"] = well.wellname
-#             short_name = well.wellname
-
-#         well_info = metadata.loc[metadata["wellbore.short_name"] == short_name]
-#         layer_name = well_info["layer_name"].values[0]
-#         well.dataframe["layer_name"] = layer_name
-
-#         all_wells_list.append(well.dataframe)
-
-#     all_wells_df = pd.concat(all_wells_list)
-#     return all_wells_df
-
 
 def load_all_wells(metadata, delta):
     """For all wells in a folder return
@@ -476,7 +439,8 @@ def load_all_wells(metadata, delta):
         raise Exception("No wellfiles found")
 
     for wellfile in wellfiles:
-        well = load_well(wellfile)
+        # well = load_well(wellfile)
+        well = xtgeo.well_from_file(wellfile, mdlogname="MD")
 
         # Resample well trajectory to delta
         try:
@@ -737,7 +701,6 @@ def create_production_layers(
         )
 
         if well_layer:
-            # print("  Well layer added:", key)
             print("  - 4D interval:", interval_4d)
             interval_well_layers.append(well_layer)
 

@@ -1,3 +1,4 @@
+import os
 import json
 import msal
 import sys
@@ -31,11 +32,33 @@ def msal_delegated_refresh(clientID, scope, authority, account, cache_filename):
     return result
 
 
+# def msal_delegated_device_flow(clientID, scope, authority, cache_filename):
+#     print("Initiate Device Code Flow to get an AAD Access Token.")
+#     print(
+#         "Open a browser window and paste in the URL below and then enter the Code. CTRL+C to cancel."
+#     )
+
+#     persistence = build_encrypted_persistence(cache_filename)
+#     cache = PersistedTokenCache(persistence)
+
+#     app = msal.PublicClientApplication(
+#         client_id=clientID, authority=authority, token_cache=cache
+#     )
+#     flow = app.initiate_device_flow(scopes=[scope])
+
+#     if "user_code" not in flow:
+#         raise ValueError(
+#             "Fail to create device flow. Err: %s" % json.dumps(flow, indent=4)
+#         )
+
+#     print(flow["message"])
+#     sys.stdout.flush()
+
+#     result = app.acquire_token_by_device_flow(flow)
+#     return result
+
 def msal_delegated_device_flow(clientID, scope, authority, cache_filename):
     print("Initiate Device Code Flow to get an AAD Access Token.")
-    print(
-        "Open a browser window and paste in the URL below and then enter the Code. CTRL+C to cancel."
-    )
 
     persistence = build_encrypted_persistence(cache_filename)
     cache = PersistedTokenCache(persistence)
@@ -43,18 +66,17 @@ def msal_delegated_device_flow(clientID, scope, authority, cache_filename):
     app = msal.PublicClientApplication(
         client_id=clientID, authority=authority, token_cache=cache
     )
-    flow = app.initiate_device_flow(scopes=[scope])
 
-    if "user_code" not in flow:
-        raise ValueError(
-            "Fail to create device flow. Err: %s" % json.dumps(flow, indent=4)
-        )
+    result = None
 
-    print(flow["message"])
-    sys.stdout.flush()
+    # Check the cache to see if this user has signed in before
+    account = app.get_accounts(os.getlogin())
+    if account:
+        result = app.acquire_token_silent(scope + " offline_access", account=account)
 
-    result = app.acquire_token_by_device_flow(flow)
-    return result
+    if not result:
+        result = app.acquire_token_interactive(scopes=[scope])
+        return result
 
 
 def msal_get_token(CLIENT_ID, AUTHORITY, SCOPE, cache_filename):

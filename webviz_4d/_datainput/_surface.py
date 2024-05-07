@@ -2,17 +2,12 @@ import os
 import math
 import numpy as np
 import numpy.ma as ma
-
 import xtgeo
+
 from webviz_config.common_cache import CACHE
 
-from .image_processing import array_to_png, get_colormap
-
-from webviz_4d._datainput._sumo import (
-    get_sumo_top_res_surface,
-)
-
-from webviz_4d._datainput.image_processing import get_colormap
+from webviz_4d._datainput.image_processing import array_to_png, get_colormap
+from webviz_4d._datainput._sumo import get_sumo_top_res_surface
 
 
 @CACHE.memoize(timeout=CACHE.TIMEOUT)

@@ -1,36 +1,68 @@
+import os
+import io
 import numpy as np
 import pandas as pd
-from webviz_4d._datainput._osdu import DefaultOsduService
-
+from webviz_4d._datainput._osdu import DefaultOsduService, find_all_substrings
+from hashlib import md5
 import warnings
 from datetime import datetime
 from pprint import pprint
 
 warnings.filterwarnings("ignore")
 
-def find_all_substrings(txt,sub):
-    positions = []
-    start_index=0
+osdu_service = DefaultOsduService()
 
-    for i in range(len(txt)):
-        j = txt.find(sub,start_index)
-        if(j!=-1):
-            start_index = j+1
-            positions.append(j)
-    
-    return positions
+def get_checksum(dataset_meta):
+    id = dataset_meta.get("id") 
+    dataset = osdu_service.get_horizon_map(id)
+    data = dataset_meta.get("data")   
+    format = data.get("EncodingFormatTypeID")
+    md5sum_hex = None
 
+    if "irap-binary" in format:
+        try:
+            checksum = data.get("DatasetProperties.FileSourceInfo.Checksum")
+            blob = io.BytesIO(dataset.content)
+            md5sum = md5(blob.getbuffer())
+            md5sum_hex =md5sum.hexdigest()
+           
+        except Exception as inst:
+            print("ERROR")
+            print(type(inst))
+            checksum = None
+
+        if checksum != md5sum_hex:
+            print("WARNING: cheksum and md5sum are different")
+            print("  checksum:", checksum)
+            print("  md5sum:", md5sum_hex)    
+
+    return md5sum_hex
+
+
+def get_hash(filename):
+    #Check if file exists
+    if os.path.exists(filename):
+        md5_hash = md5()
+        with open(filename,"rb") as f:
+            # Read and update hash in chunks of 4K
+            for byte_block in iter(lambda: f.read(4096),b""):
+                md5_hash.update(byte_block)
+
+            return(md5_hash.hexdigest())
+    else:
+        print("WARNING file not found")
+        return None
 
 def main():
-    osdu_service = DefaultOsduService()
-
     # Search for 4D maps
     print("Searching for all seismic 4D attribute maps in OSDU ...")
     attribute_objects = osdu_service.get_all_attribute_horizons(None)
     print("  ", len(attribute_objects))
 
-    selected_attribute_maps = {}
+    selected_attribute_maps = []
     selected_metadata_version = "0.3.2"
+
+    auto4d_dir = "//statoil.net/unix_st/Scratch/auto4d/userhorizons/ashska/"
 
     for attribute_object in attribute_objects:
         kind = attribute_object.get("kind")
@@ -68,6 +100,19 @@ def main():
                     meta = osdu_service.get_osdu_metadata(dataset)
                     format_type = meta.get("data").get("EncodingFormatTypeID")
                     print("  dataset:", dataset, format_type)
+                    checksum = get_checksum(meta)
+                    
+                    if checksum:
+                        auto4d_file = os.path.join(auto4d_dir, name + ".gri")
+                        original_checksum = get_hash(auto4d_file)
+
+                        if checksum == original_checksum:
+                            print("     Checksum test OK:", checksum)
+                        else:
+                            print("     Checksum test FAILED:", checksum, original_checksum)
+                    else:
+                        print("     Checksums not calculated")
+                print()
 
                 attribute_map.update({"Attribute map datasets":all_datasets})
                 window_mode = tags.get("CalculationWindow.WindowMode")
@@ -143,9 +188,9 @@ def main():
                     print("        - End date:", datetime.strftime(end_date,"%Y-%m-%d" )) 
                     print("        - Reference date:", datetime.strftime(reference_date,"%Y-%m-%d" ))
 
-                selected_attribute_maps.update(attribute_map)
+                selected_attribute_maps.append(attribute_map)
 
-            print()
+    print()
                 
 
 

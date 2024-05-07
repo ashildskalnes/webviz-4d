@@ -1,6 +1,8 @@
 import os
 import argparse
 import pandas as pd
+import xtgeo
+from pathlib import Path
 
 from fmu.sumo.explorer import Explorer
 
@@ -25,14 +27,79 @@ from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 
-from webviz_4d._datainput._sumo import (
-    create_selector_lists,
-    get_sumo_top_res_surface,
-)
+from webviz_4d._datainput._sumo import create_selector_lists, get_realization_surface, get_aggregated_surface
 
 import warnings
 
 warnings.filterwarnings("ignore")
+
+def get_path(path) -> Path:
+    return Path(path)
+
+
+def get_sumo_top_res_surface(sumo_case, surface_info):
+    surface = None
+
+    if surface_info is not None:
+        name = surface_info.get("name")
+        tagname = surface_info.get("tag_name")
+        iter_name = surface_info.get("iter")
+        real = surface_info.get("real")
+        time_interval = [False, False]
+
+        print("Load top reservoir surface from SUMO:", name, tagname, iter_name, real)
+
+        if "realization" in real:
+            real_id = real.split("-")[1]
+            surface = get_realization_surface(
+                case=sumo_case,
+                surface_name=name,
+                attribute=tagname,
+                time_interval=time_interval,
+                iteration_name=iter_name,
+                realization=real_id,
+            )
+        else:
+            surface = get_aggregated_surface(
+                case=sumo_case,
+                surface_name=name,
+                attribute=tagname,
+                time_interval=time_interval,
+                iteration_name=iter_name,
+                operation=real,
+            )
+
+    if surface:
+        return surface.to_regular_surface()
+    else:
+        print(
+            "ERROR: Top reservoir surface not loaded from SUMO",
+        )
+        return None
+
+
+def get_top_res_surface(surface_info, sumo_case):
+    if sumo_case:
+        surface = get_sumo_top_res_surface(sumo_case, surface_info)
+    else:
+        surface = get_top_res_surface_file(surface_info)
+
+    return surface
+
+
+def get_top_res_surface_file(surface_info):
+    if surface_info is not None:
+        name = surface_info.get("file_name")
+        print("Load top reservoir surface:", name)
+
+        if os.path.isfile(name):
+            return xtgeo.surface_from_file(name)
+        else:
+            print("ERROR: File not found")
+            return None
+    else:
+        print("WARNING: Top reservoir surface not defined")
+        return None
 
 
 def main():
@@ -48,13 +115,14 @@ def main():
 
     config = read_config(config_file)
 
-    settings_file = config.get("shared_settings").get("settings")
+    settings_file = config.get("shared_settings").get("settings_file")
     settings_file = os.path.join(config_folder, settings_file)
     settings = read_config(settings_file)
 
-    field_name = settings.get("field_name")[0]
     shared_settings = config.get("shared_settings")
-    sumo_name = shared_settings.get("sumo_name")
+    field_name = shared_settings.get("field_name")
+    sumo_settings = shared_settings.get("sumo")
+    sumo_name = sumo_settings.get("case_name")
 
     well_colors = get_well_colors(settings)
     basic_well_layers = shared_settings.get("basic_well_layers", None)
@@ -64,11 +132,11 @@ def main():
     my_case = sumo.cases.filter(name=sumo_name)[0]
     print("SUMO case:", my_case.name)
 
-    top_res_surface_info = shared_settings.get("top_res_surface")
+    top_res_surface_info = shared_settings.get("top_reservoir")
     top_res_name = top_res_surface_info.get("name")
     top_res_tag = top_res_surface_info.get("tag_name")
     print("Top reservoir surface:", top_res_name, top_res_tag)
-    top_res_surface = get_sumo_top_res_surface(my_case, shared_settings)
+    top_res_surface = get_top_res_surface(top_res_surface_info, my_case)
 
     omnia_env = ".omniaapi"
     home = os.path.expanduser("~")
@@ -91,6 +159,9 @@ def main():
         planned_wells = load_planned_wells(pozo_provider, field_name)
         planned_wells_info = planned_wells.metadata.dataframe
         planned_wells_df = planned_wells.trajectories.dataframe
+    else:
+        planned_wells_info = pd.DataFrame()
+        planned_wells_df = pd.DataFrame()
 
     well_basic_layers = create_basic_well_layers(
         basic_well_layers,
