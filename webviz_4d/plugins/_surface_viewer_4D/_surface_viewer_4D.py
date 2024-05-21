@@ -208,13 +208,14 @@ class SurfaceViewer4D(WebvizPluginABC):
         elif self.osdu:
             self.osdu_service = DefaultOsduService()  # type: ignore
             self.label = "OSDU: " + self.field_name
-            print(self.label)
+            print(self.label, self.metadata_version)
 
             osdu_key = "tags.AttributeMap.FieldName"
             osdu_value = self.field_name
 
             attribute_horizons = self.osdu_service.get_attribute_horizons(osdu_key, osdu_value)
             metadata = get_osdu_metadata_attributes(attribute_horizons)
+            print("DEBUG")
             selected_attribute_maps = metadata.loc[
                 (
                     (metadata["MetadataVersion"] == self.metadata_version)
@@ -786,33 +787,30 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return min_max
     
-    def get_auto_scaling(self, surface, attribute_type):
+    def get_auto_scaling(self, surface, attribute_type): 
         min_max = [None, None]
         attribute_settings = self.attribute_settings
 
-        if attribute_settings:
-            colormap_type = attribute_settings.get("type")
+        if attribute_settings and attribute_type in attribute_settings.keys():      
+            colormap_type = attribute_settings.get(attribute_type).get("type")
+            surface_max_val = surface.values.max()
+            surface_min_val = surface.values.min()
+            max_val = max(abs(surface_max_val),abs(surface_min_val))
 
-            if attribute_type in attribute_settings.keys():
-                surface_max_val = surface.values.max()
-                surface_min_val = surface.values.min()
-                max_val = max(abs(surface_max_val),abs(surface_min_val))
-
-                if colormap_type == "diverging":
-                    min_val = - max_val
-                elif colormap_type == "positive":
-                    min_val = 0
-                elif colormap_type == "negative":
-                    min_val = - max_val
-                    max_val = 0
-                else:
-                    min_val = -max_val
-                min_max = [min_val,max_val]
+            if colormap_type == "diverging":
+                min_val = - max_val
+            elif colormap_type == "positive":
+                min_val = 0
+            elif colormap_type == "negative":
+                min_val = - max_val
+                max_val = 0
+            else:
+                min_val = -max_val
+            min_max = [min_val,max_val]
 
         return min_max
 
     def make_map(self, data, ensemble, real, attribute_settings, map_idx):
-        print("Making map number", map_idx)
         data = json.loads(data)
         selected_zone = data.get("name")
         selected_interval = data["date"]

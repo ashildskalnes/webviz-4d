@@ -701,7 +701,6 @@ def create_production_layers(
         )
 
         if well_layer:
-            print("  - 4D interval:", interval_4d)
             interval_well_layers.append(well_layer)
 
     return interval_well_layers

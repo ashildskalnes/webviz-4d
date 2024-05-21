@@ -252,7 +252,7 @@ class DefaultOsduService:
 
         if result.status_code == 200:
             osdu_objects = result.json().get("results")
-            print("Number of GenericRepresentation objects:", len(osdu_objects))
+            print("Number of selected GenericRepresentation objects:", len(osdu_objects))
             print()
 
             for osdu_object in osdu_objects:
