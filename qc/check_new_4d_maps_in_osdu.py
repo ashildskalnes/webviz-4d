@@ -2,11 +2,12 @@ import os
 import io
 import numpy as np
 import pandas as pd
-from webviz_4d._datainput._osdu import DefaultOsduService, find_all_substrings
 from hashlib import md5
 import warnings
 from datetime import datetime
 from pprint import pprint
+
+from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 
 warnings.filterwarnings("ignore")
 
@@ -56,7 +57,7 @@ def get_hash(filename):
 def main():
     # Search for 4D maps
     print("Searching for all seismic 4D attribute maps in OSDU ...")
-    attribute_objects = osdu_service.get_all_attribute_horizons(None)
+    attribute_objects = osdu_service.get_attribute_horizons(None)
     print("  ", len(attribute_objects))
 
     selected_attribute_maps = []

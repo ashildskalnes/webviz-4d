@@ -17,10 +17,11 @@ def main():
     osdu_service = DefaultOsduService()
 
     # Search for 4D maps
-
     osdu_key = "tags.AttributeMap.FieldName"
     field_name = "JOHAN SVERDRUP"
     metadata_version = "0.3.3"
+
+    print(field_name, metadata_version)
     
     attribute_horizons = osdu_service.get_attribute_horizons(osdu_key, field_name)
     metadata = get_osdu_metadata_attributes(attribute_horizons)
@@ -33,9 +34,11 @@ def main():
     ]
 
     updated_metadata = osdu_service.update_reference_dates(selected_attribute_maps)
-    print(updated_metadata)
+    print(updated_metadata[["Name","AttributeMap.AttributeType","AttributeMap.SeismicTraceContent","AttributeMap.Coverage","AcquisitionDateA", "AcquisitionDateB"]])
     
 
+if __name__ == "__main__":
+    main()
         
 
         

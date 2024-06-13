@@ -2,7 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import argparse
-from webviz_4d._datainput._osdu import DefaultOsduService
+from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
+
 from webviz_4d._datainput.common import (
     read_config,
 )
@@ -46,7 +47,7 @@ def main():
 
     # Search for 4D maps
     print("Searching for all seismic 4D attribute maps (GenericRepresentations) in OSDU ...")
-    attribute_objects = osdu_service.get_all_attribute_horizons(None)
+    attribute_objects = osdu_service.get_attribute_horizons(None)
     
     print("  - found:", len(attribute_objects))
 
@@ -56,10 +57,9 @@ def main():
     selected_attribute_maps = []
     auto4d_maps = []
     configuration_maps = []
-    selected_metadata_version = "0.3.2"
+    selected_metadata_version = "0.3.3"
     
     for attribute_object in attribute_objects:
-        kind = attribute_object.get("kind")
         id = attribute_object.get("id")
         name = attribute_object.get("data").get("Name")
         tags =  attribute_object.get("tags")
