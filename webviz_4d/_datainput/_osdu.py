@@ -110,11 +110,10 @@ def convert_metadata(osdu_metadata):
 
     metadata = pd.DataFrame(zipped_list, columns=headers)
     metadata.fillna(value=np.nan, inplace=True)
-
+    metadata["original_name"] = osdu_metadata["Name"]
     metadata["map_type"] = "observed"
 
     return metadata
-
 
 
 def create_osdu_lists(metadata, interval_mode):

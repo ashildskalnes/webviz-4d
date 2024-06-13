@@ -180,8 +180,9 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         self.osdu = self.shared_settings.get("osdu")
         if self.osdu:
+            self.label = "OSDU"
             self.metadata_version = self.osdu.get("metadata_version")
-            self.label = "osdu"
+            self.coverage= self.osdu.get("coverage")
 
         self.label = self.field_name + " " + self.label
 
@@ -207,35 +208,53 @@ class SurfaceViewer4D(WebvizPluginABC):
                 sys.exit("ERROR: No timelapse surfaces found in", auto4d_directory)
         elif self.osdu:
             self.osdu_service = DefaultOsduService()  # type: ignore
-            self.label = "OSDU: " + self.field_name
-            print(self.label, self.metadata_version)
+            self.label = "OSDU: " + self.field_name + " " + self.coverage + " coverage"
+            print(self.label, self.metadata_version, self.coverage)
 
             osdu_key = "tags.AttributeMap.FieldName"
             osdu_value = self.field_name
 
-            attribute_horizons = self.osdu_service.get_attribute_horizons(osdu_key, osdu_value)
-            metadata = get_osdu_metadata_attributes(attribute_horizons)
-            print("DEBUG")
-            selected_attribute_maps = metadata.loc[
-                (
-                    (metadata["MetadataVersion"] == self.metadata_version)
-                    & (metadata["Name"] == metadata["AttributeMap.Name"])
-                    & (metadata["AttributeMap.FieldName"] == self.field_name)
-                )
-            ]
+            cache_file = "metadata_cache_" + self.coverage + ".csv"
+            metadata_file_cache = os.path.join(settings_folder,cache_file)
 
-            updated_metadata = self.osdu_service.update_reference_dates(selected_attribute_maps)
+            if os.path.isfile(metadata_file_cache):
+                print("Reading metadata from", metadata_file_cache)
+                metadata = pd.read_csv(metadata_file_cache)
+                updated_metadata = metadata.loc[
+                        metadata["AttributeMap.Coverage"] == self.coverage
+                ]
+            else:
+                print("Extract metadata from OSDU ...")
+                attribute_horizons = self.osdu_service.get_attribute_horizons(osdu_key, osdu_value)
+                metadata = get_osdu_metadata_attributes(attribute_horizons)
+                selected_attribute_maps = metadata.loc[
+                    (
+                        (metadata["MetadataVersion"] == self.metadata_version)
+                        & (metadata["Name"] == metadata["AttributeMap.Name"])
+                        & (metadata["AttributeMap.FieldName"] == self.field_name)
+                        & (metadata["AttributeMap.Coverage"] == self.coverage)
+                    )
+                ]
+
+                updated_metadata = self.osdu_service.update_reference_dates(selected_attribute_maps)
+                updated_metadata.to_csv(metadata_file_cache)
 
             validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] !=""]
             attribute_metadata = validA.loc[validA["AcquisitionDateB"] !=""]
 
             self.surface_metadata = convert_metadata(attribute_metadata)
-            print(self.surface_metadata)
-  
+            
             print("Create OSDU selection lists ...")
             self.selection_list = create_osdu_lists(
                 self.surface_metadata, interval_mode
             )
+
+            pprint(self.selection_list)
+
+            osdu_selector_file = self.field_name + "_selectors.json"
+            with open(osdu_selector_file,"w") as fp:
+                json.dump(self.selection_list,fp)
+            print("Selector list written to:", osdu_selector_file)
 
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in OSDU")
@@ -719,6 +738,13 @@ class SurfaceViewer4D(WebvizPluginABC):
                 & (self.surface_metadata["name"] == name)
                 & (self.surface_metadata["attribute"] == attribute)
             ]
+            
+            print("Selected dataset info:")
+            print(map_type, real, ensemble, name, attribute, time1, time2)
+
+            if len(selected_metadata) > 1:
+                print("WARNING number of datasets", len(selected_metadata))
+                print(selected_metadata)
 
             dataset_id = selected_metadata["dataset_id"].values[0]
             return dataset_id
@@ -840,10 +866,9 @@ class SurfaceViewer4D(WebvizPluginABC):
 
                 if orig_cells > 2*limit:
                     factor = min(int(orig_cells/300000),9)
-                    #print("DEBUG factor", factor)
                     surface.coarsen(factor)
                     coarsen_cells = surface.nrow*surface.ncol
-                
+
                     print("Number of gridcells:", coarsen_cells, "(", orig_cells, ")")
 
         elif self.auto4d or self.fmu:

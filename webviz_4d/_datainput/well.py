@@ -196,9 +196,7 @@ def create_pdm_well_layer(
     if interval_4d is not None:
         interval = interval_4d
 
-    # print("Layer name", layer_name)
     for row in metadata_df.iterrows():
-        # print(row)
         status = False
         color = color_settings.get("default")
 
@@ -222,13 +220,15 @@ def create_pdm_well_layer(
                 except:
                     md_start = np.nan
 
-            if interval is not None and prod_data is not None:
+            if interval is not None and prod_data is not None: 
+                status = False
+
                 if md_start is not None and not math.isnan(md_start):
                     if "production" in layer_name:
                         fluids = ["OIL_VOL", "GAS_VOL", "WATER_VOL"]
                         units = prod_units
                         labels = prod_labels
-                    elif "injection in layer_name":
+                    elif "injection" in layer_name:
                         fluids = ["GI_VOL", "WI_VOL"]
                         units = inj_units
                         labels = inj_labels
@@ -258,7 +258,6 @@ def create_pdm_well_layer(
                             + fluids_text[:-2]
                             + ")"
                         )
-
                         if (
                             "OIL_VOL" in volumes.columns
                             and volumes["OIL_VOL"].values[0] > 0

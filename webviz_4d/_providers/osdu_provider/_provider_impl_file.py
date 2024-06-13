@@ -405,8 +405,8 @@ class DefaultOsduService:
 
                 if len(acquisition_surveys) > 1:
                     print("  - WARNING: Number of selected acquisitions are:", len(acquisition_surveys))
-                else:
-                    acquisition_surveyA = acquisition_surveys[0]
+                
+                acquisition_surveyA = acquisition_surveys[0]
             else:
                 acquisition_surveyA = self.empty_seismic_acquisition()
                 print("  - WARNING: No acquisitions surveys found")
@@ -430,8 +430,8 @@ class DefaultOsduService:
 
                 if len(acquisition_surveys) > 1:
                     print("  - WARNING: Number of selected acquisitions are:", len(acquisition_surveys))
-                else:
-                    acquisition_surveyB = acquisition_surveys[0]
+                
+                acquisition_surveyB = acquisition_surveys[0]
             else:
                 acquisition_surveyB = self.empty_seismic_acquisition()
                 print("  - WARNING: No acquisitions surveys found")
@@ -475,10 +475,7 @@ class DefaultOsduService:
         try:
             file_result = requests.get(signed_url)
             file_result.raise_for_status()
-            # data = np.loadtxt(io.StringIO(file_result.text))
-            # # check the file is correct format
-            # data[:, 4]
-            # data = io.StringIO(file_result.text)
+            
             return file_result
 
         except IndexError:
