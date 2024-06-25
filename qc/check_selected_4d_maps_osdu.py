@@ -11,6 +11,7 @@ if sys.platform == "win32":
     from webviz_4d._datainput._osdu import (
         get_osdu_metadata_attributes, 
         convert_metadata,
+        create_osdu_lists
     )
 
 warnings.filterwarnings("ignore")
@@ -30,6 +31,7 @@ def main():
     config_folder = os.path.abspath(config_folder)
 
     shared_settings = config.get("shared_settings")
+    interval_mode = shared_settings.get("interval_mode")
     osdu = shared_settings.get("osdu")
 
     if osdu:
@@ -79,6 +81,12 @@ def main():
         
         surface_metadata = convert_metadata(attribute_metadata)
         print(surface_metadata)
+        
+        selection_list = create_osdu_lists(
+                surface_metadata, interval_mode
+            )
+        
+        print(selection_list)
 
 if __name__ == "__main__":
     main()

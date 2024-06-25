@@ -208,7 +208,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 sys.exit("ERROR: No timelapse surfaces found in", auto4d_directory)
         elif self.osdu:
             self.osdu_service = DefaultOsduService()  # type: ignore
-            self.label = "OSDU: " + self.field_name + " " + self.coverage + " coverage"
+            self.label = "OSDU: " + self.field_name + " coverage:"  + self.coverage
             print(self.label, self.metadata_version, self.coverage)
 
             osdu_key = "tags.AttributeMap.FieldName"
@@ -279,6 +279,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         map_default_list = [map1_defaults, map2_defaults, map3_defaults]
         self.map_defaults = get_all_map_defaults(self.selection_list, map_default_list)
 
+        print("DEBUG map_defaults")
+        print(self.map_defaults)
+
         self.selected_intervals = [
             map1_defaults.get("interval"),
             map2_defaults.get("interval"),
@@ -297,6 +300,11 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             self.sumo_polygons = self.my_case.polygons.filter(
                 iteration=iter_name, realization=real_id, name=top_res_name
+            )
+
+            if len(self.sumo_polygons) == 0:
+                self.sumo_polygons = self.my_case.polygons.filter(
+                iteration=iter_name, realization=real_id
             )
 
             for polygon in self.sumo_polygons:
@@ -862,7 +870,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 surface = xtgeo.surface_from_file(blob) 
 
                 orig_cells = surface.nrow*surface.ncol
-                limit = 300000
+                limit = 3000000
 
                 if orig_cells > 2*limit:
                     factor = min(int(orig_cells/300000),9)
