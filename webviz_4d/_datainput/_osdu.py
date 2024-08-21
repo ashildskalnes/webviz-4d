@@ -1,28 +1,13 @@
-import os
-import io
 import pandas as pd
-from typing import Optional
-from datetime import datetime
-import requests
+import time
 import numpy as np
-from dotenv import load_dotenv
-import xtgeo
-
-from osdu_api.clients.search.search_client import SearchClient
-from osdu_api.clients.dataset.dataset_dms_client import DatasetDmsClient
-from osdu_api.clients.base_client import BaseClient
-from osdu_api.configuration.base_config_manager import BaseConfigManager
-from osdu_api.clients.storage.schema_client import SchemaClient as StorageSchemaClient
-from osdu_api.model.http_method import HttpMethod
-from osdu_api.model.search.query_request import QueryRequest
-from dataclasses import dataclass
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import BaseModel
-
 
 def get_osdu_metadata_attributes(horizons):
     metadata_dicts = []
 
+    print("Compiling all attribute data ...")
+    start_time = time.time()
+    
     for horizon in horizons:
         metadata_dicts.append(horizon.__dict__)
         
@@ -31,6 +16,8 @@ def get_osdu_metadata_attributes(horizons):
     new_columns = [col.replace('_', '.') for col in columns]
     maps_df.columns = new_columns
 
+    print(" --- %s seconds ---" % (time.time() - start_time))
+    print() 
     return maps_df
 
 

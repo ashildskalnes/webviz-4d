@@ -4,11 +4,7 @@ import warnings
 from datetime import datetime
 
 if sys.platform == "win32":
-    from webviz_4d._datainput._osdu import (
-        get_osdu_metadata_attributes, 
-        convert_metadata,
-        create_osdu_lists
-    )
+    from webviz_4d._datainput._osdu import get_osdu_metadata_attributes
 
 warnings.filterwarnings("ignore")
         
@@ -20,10 +16,14 @@ def main():
     osdu_key = "tags.AttributeMap.FieldName"
     field_name = "JOHAN SVERDRUP"
     metadata_version = "0.3.3"
-
     print(field_name, metadata_version)
-    
+    print()
+
     attribute_horizons = osdu_service.get_attribute_horizons(osdu_key, field_name)
+
+    # for idx,attribute_horizon in enumerate(attribute_horizons):
+    #     print(idx, attribute_horizon.Name)
+
     metadata = get_osdu_metadata_attributes(attribute_horizons)
     selected_attribute_maps = metadata.loc[
         (

@@ -249,7 +249,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.surface_metadata, interval_mode
             )
 
-            pprint(self.selection_list)
+            #pprint(self.selection_list)
 
             osdu_selector_file = self.field_name + "_selectors.json"
             with open(osdu_selector_file,"w") as fp:
