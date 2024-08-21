@@ -118,7 +118,6 @@ def create_osdu_lists(metadata, interval_mode):
     for map_type in map_types:
         map_dict[map_type] = {}
         map_type_dict = {}
-        new_map_dict = {}
 
         map_type_metadata = metadata[metadata["map_type"] == map_type]
 
@@ -135,15 +134,22 @@ def create_osdu_lists(metadata, interval_mode):
                     t1 = row["time.t1"]
                     t2 = row["time.t2"]
 
-                    if interval_mode == "normal":
+                    print("DEBUG", t1,t2)
+                    print("DEBUG", type(t1),type(t2))
+
+                    if type(t1) == str and type(t2) is str:
+                        if interval_mode == "normal":
+                            interval = t2 + "-" + t1
+                        else:
+                            interval = t1 + "-" + t2
+                    else:                                   # Drogon data hack
+                        t1 = "2018-01-01"
+                        t2 = "2019-01-01"
                         interval = t2 + "-" + t1
-                    else:
-                        interval = t1 + "-" + t2
 
                     if interval not in intervals:
                         intervals.append(interval)
 
-                # sorted_intervals = sort_intervals(intervals)
                 sorted_intervals = sorted(intervals)
 
                 map_type_dict[value] = sorted_intervals

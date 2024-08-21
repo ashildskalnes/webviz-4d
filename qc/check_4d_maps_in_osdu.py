@@ -14,8 +14,8 @@ def main():
 
     # Search for 4D maps
     osdu_key = "tags.AttributeMap.FieldName"
-    field_name = "JOHAN SVERDRUP"
-    metadata_version = "0.3.3"
+    field_name = "DROGON"
+    metadata_version = "0.3.2"
     print(field_name, metadata_version)
     print()
 
