@@ -2,22 +2,23 @@ import pandas as pd
 import time
 import numpy as np
 
+
 def get_osdu_metadata_attributes(horizons):
     metadata_dicts = []
 
     print("Compiling all attribute data ...")
     start_time = time.time()
-    
+
     for horizon in horizons:
         metadata_dicts.append(horizon.__dict__)
-        
+
     maps_df = pd.DataFrame(metadata_dicts)
     columns = maps_df.columns
-    new_columns = [col.replace('_', '.') for col in columns]
+    new_columns = [col.replace("_", ".") for col in columns]
     maps_df.columns = new_columns
 
     print(" --- %s seconds ---" % (time.time() - start_time))
-    print() 
+    print()
     return maps_df
 
 
@@ -43,11 +44,11 @@ def convert_metadata(osdu_metadata):
         "dataset_id",
         "field_name",
     ]
-            
+
     for _index, row in osdu_metadata.iterrows():
         horizon_names = []
 
-        field_name = row ["AttributeMap.FieldName"]
+        field_name = row["AttributeMap.FieldName"]
         irap_binary_dataset_id = row["IrapBinaryID"]
         attribute_type = row["AttributeMap.AttributeType"]
         seismic_content = row["AttributeMap.SeismicTraceContent"]
@@ -56,7 +57,7 @@ def convert_metadata(osdu_metadata):
 
         field_names.append(field_name)
         datasets.append(irap_binary_dataset_id)
-        attributes.append(attribute_type) 
+        attributes.append(attribute_type)
         seismic_contents.append(seismic_content)
         coverages.append(coverage)
         differences.append(difference)
@@ -64,23 +65,23 @@ def convert_metadata(osdu_metadata):
         window_mode = row["CalculationWindow.WindowMode"]
 
         if window_mode == "AroundHorizon":
-                seismic_horizon = row["CalculationWindow.HorizonName"]
-                seismic_horizon = seismic_horizon.replace("+","_")
-                horizon_names.append(seismic_horizon)
+            seismic_horizon = row["CalculationWindow.HorizonName"]
+            seismic_horizon = seismic_horizon.replace("+", "_")
+            horizon_names.append(seismic_horizon)
         elif window_mode == "BetweenHorizons":
             seismic_horizon = row["CalculationWindow.TopHorizonName"]
-            seismic_horizon = seismic_horizon.replace("+","_")
+            seismic_horizon = seismic_horizon.replace("+", "_")
             horizon_names.append(seismic_horizon)
 
             seismic_horizon = row["CalculationWindow.BaseHorizonName"]
-            seismic_horizon = seismic_horizon.replace("+","_")
-            horizon_names.append(seismic_horizon)   
+            seismic_horizon = seismic_horizon.replace("+", "_")
+            horizon_names.append(seismic_horizon)
 
         surface_names.append(horizon_names[0])
 
         times1.append(row["AcquisitionDateB"])
         times2.append(row["AcquisitionDateA"])
-                
+
     zipped_list = list(
         zip(
             surface_names,
@@ -108,8 +109,8 @@ def create_osdu_lists(metadata, interval_mode):
         "name": "name",
         "interval": "interval",
         "attribute": "attribute",
-        "seismic":"seismic",
-        "difference": "difference"
+        "seismic": "seismic",
+        "difference": "difference",
     }
 
     map_types = ["observed"]
@@ -134,15 +135,12 @@ def create_osdu_lists(metadata, interval_mode):
                     t1 = row["time.t1"]
                     t2 = row["time.t2"]
 
-                    print("DEBUG", t1,t2)
-                    print("DEBUG", type(t1),type(t2))
-
                     if type(t1) == str and type(t2) is str:
                         if interval_mode == "normal":
                             interval = t2 + "-" + t1
                         else:
                             interval = t1 + "-" + t2
-                    else:                                   # Drogon data hack
+                    else:  # Drogon data hack
                         t1 = "2018-01-01"
                         t2 = "2019-01-01"
                         interval = t2 + "-" + t1
@@ -169,5 +167,6 @@ def main():
     selection_list = create_osdu_lists(metadata, "normal")
     print(selection_list)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

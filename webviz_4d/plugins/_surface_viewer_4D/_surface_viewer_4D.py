@@ -65,12 +65,11 @@ from webviz_4d._datainput._sumo import (
     get_sumo_zone_polygons,
 )
 
-if sys.platform == "win32":
-    from webviz_4d._datainput._osdu import (
-        get_osdu_metadata_attributes, 
-        convert_metadata,
-        create_osdu_lists
-    )
+from webviz_4d._datainput._osdu import (
+    get_osdu_metadata_attributes,
+    convert_metadata,
+    create_osdu_lists,
+)
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
@@ -182,7 +181,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.osdu:
             self.label = "OSDU"
             self.metadata_version = self.osdu.get("metadata_version")
-            self.coverage= self.osdu.get("coverage")
+            self.coverage = self.osdu.get("coverage")
 
         self.label = self.field_name + " " + self.label
 
@@ -208,24 +207,26 @@ class SurfaceViewer4D(WebvizPluginABC):
                 sys.exit("ERROR: No timelapse surfaces found in", auto4d_directory)
         elif self.osdu:
             self.osdu_service = DefaultOsduService()  # type: ignore
-            self.label = "OSDU: " + self.field_name + " coverage:"  + self.coverage
+            self.label = "OSDU: " + self.field_name + " coverage:" + self.coverage
             print(self.label, self.metadata_version, self.coverage)
 
             osdu_key = "tags.AttributeMap.FieldName"
             osdu_value = self.field_name
 
             cache_file = "metadata_cache_" + self.coverage + ".csv"
-            metadata_file_cache = os.path.join(settings_folder,cache_file)
+            metadata_file_cache = os.path.join(settings_folder, cache_file)
 
             if os.path.isfile(metadata_file_cache):
                 print("Reading metadata from", metadata_file_cache)
                 metadata = pd.read_csv(metadata_file_cache)
                 updated_metadata = metadata.loc[
-                        metadata["AttributeMap.Coverage"] == self.coverage
+                    metadata["AttributeMap.Coverage"] == self.coverage
                 ]
             else:
                 print("Extract metadata from OSDU ...")
-                attribute_horizons = self.osdu_service.get_attribute_horizons(osdu_key, osdu_value)
+                attribute_horizons = self.osdu_service.get_attribute_horizons(
+                    osdu_key, osdu_value
+                )
                 metadata = get_osdu_metadata_attributes(attribute_horizons)
                 selected_attribute_maps = metadata.loc[
                     (
@@ -236,24 +237,26 @@ class SurfaceViewer4D(WebvizPluginABC):
                     )
                 ]
 
-                updated_metadata = self.osdu_service.update_reference_dates(selected_attribute_maps)
+                updated_metadata = self.osdu_service.update_reference_dates(
+                    selected_attribute_maps
+                )
                 updated_metadata.to_csv(metadata_file_cache)
 
-            validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] !=""]
-            attribute_metadata = validA.loc[validA["AcquisitionDateB"] !=""]
+            validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] != ""]
+            attribute_metadata = validA.loc[validA["AcquisitionDateB"] != ""]
 
             self.surface_metadata = convert_metadata(attribute_metadata)
-            
+
             print("Create OSDU selection lists ...")
             self.selection_list = create_osdu_lists(
                 self.surface_metadata, interval_mode
             )
 
-            #pprint(self.selection_list)
+            # pprint(self.selection_list)
 
             osdu_selector_file = self.field_name + "_selectors.json"
-            with open(osdu_selector_file,"w") as fp:
-                json.dump(self.selection_list,fp)
+            with open(osdu_selector_file, "w") as fp:
+                json.dump(self.selection_list, fp)
             print("Selector list written to:", osdu_selector_file)
 
             if self.selection_list is None:
@@ -279,9 +282,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         map_default_list = [map1_defaults, map2_defaults, map3_defaults]
         self.map_defaults = get_all_map_defaults(self.selection_list, map_default_list)
 
-        print("DEBUG map_defaults")
-        print(self.map_defaults)
-
         self.selected_intervals = [
             map1_defaults.get("interval"),
             map2_defaults.get("interval"),
@@ -304,8 +304,8 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if len(self.sumo_polygons) == 0:
                 self.sumo_polygons = self.my_case.polygons.filter(
-                iteration=iter_name, realization=real_id
-            )
+                    iteration=iter_name, realization=real_id
+                )
 
             for polygon in self.sumo_polygons:
                 print("  - ", polygon.name, polygon.tagname)
@@ -486,7 +486,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             for interval_layer in self.interval_well_layers:
                 data = interval_layer.get("data")
-                #print("  ", interval_layer.get("name"), len(data))
+                # print("  ", interval_layer.get("name"), len(data))
         else:
             # Find production and injection layers for the default interval
             if self.interval_names:
@@ -746,7 +746,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 & (self.surface_metadata["name"] == name)
                 & (self.surface_metadata["attribute"] == attribute)
             ]
-            
+
             print("Selected dataset info:")
             print(map_type, real, ensemble, name, attribute, time1, time2)
 
@@ -820,27 +820,27 @@ class SurfaceViewer4D(WebvizPluginABC):
             min_max = settings[["lower_limit", "upper_limit"]]
 
         return min_max
-    
-    def get_auto_scaling(self, surface, attribute_type): 
+
+    def get_auto_scaling(self, surface, attribute_type):
         min_max = [None, None]
         attribute_settings = self.attribute_settings
 
-        if attribute_settings and attribute_type in attribute_settings.keys():      
+        if attribute_settings and attribute_type in attribute_settings.keys():
             colormap_type = attribute_settings.get(attribute_type).get("type")
             surface_max_val = surface.values.max()
             surface_min_val = surface.values.min()
-            max_val = max(abs(surface_max_val),abs(surface_min_val))
+            max_val = max(abs(surface_max_val), abs(surface_min_val))
 
             if colormap_type == "diverging":
-                min_val = - max_val
+                min_val = -max_val
             elif colormap_type == "positive":
                 min_val = 0
             elif colormap_type == "negative":
-                min_val = - max_val
+                min_val = -max_val
                 max_val = 0
             else:
                 min_val = -max_val
-            min_max = [min_val,max_val]
+            min_max = [min_val, max_val]
 
         return min_max
 
@@ -867,15 +867,15 @@ class SurfaceViewer4D(WebvizPluginABC):
             else:
                 dataset = self.osdu_service.get_horizon_map(file_id=dataset_id)
                 blob = io.BytesIO(dataset.content)
-                surface = xtgeo.surface_from_file(blob) 
+                surface = xtgeo.surface_from_file(blob)
 
-                orig_cells = surface.nrow*surface.ncol
+                orig_cells = surface.nrow * surface.ncol
                 limit = 3000000
 
-                if orig_cells > 2*limit:
-                    factor = min(int(orig_cells/300000),9)
+                if orig_cells > 2 * limit:
+                    factor = min(int(orig_cells / 300000), 9)
                     surface.coarsen(factor)
-                    coarsen_cells = surface.nrow*surface.ncol
+                    coarsen_cells = surface.nrow * surface.ncol
 
                     print("Number of gridcells:", coarsen_cells, "(", orig_cells, ")")
 
@@ -919,9 +919,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 min_val = min_max[0]
                 max_val = min_max[1]
             else:
-                min_val=attribute_settings.get(data["attr"], {}).get("min", None)
-                max_val=attribute_settings.get(data["attr"], {}).get("max", None)
-    
+                min_val = attribute_settings.get(data["attr"], {}).get("min", None)
+                max_val = attribute_settings.get(data["attr"], {}).get("max", None)
+
             surface_layers = [
                 make_surface_layer(
                     surface,
@@ -1011,7 +1011,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             if self.interval_well_layers:
                 for interval_layer in self.interval_well_layers:
                     surface_layers.append(interval_layer)
-                    #print(" ", interval_layer["name"])
+                    # print(" ", interval_layer["name"])
 
             self.selected_names[map_idx] = data["name"]
             self.selected_attributes[map_idx] = data["attr"]

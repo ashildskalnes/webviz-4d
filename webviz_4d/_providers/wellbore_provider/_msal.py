@@ -57,6 +57,7 @@ def msal_delegated_refresh(clientID, scope, authority, account, cache_filename):
 #     result = app.acquire_token_by_device_flow(flow)
 #     return result
 
+
 def msal_delegated_device_flow(clientID, scope, authority, cache_filename):
     print("Initiate Device Code Flow to get an AAD Access Token.")
 
@@ -70,7 +71,12 @@ def msal_delegated_device_flow(clientID, scope, authority, cache_filename):
     result = None
 
     # Check the cache to see if this user has signed in before
-    account = app.get_accounts(os.getlogin())
+
+    if sys.platform == "win32":
+        account = app.get_accounts(os.getlogin())
+    else:
+        account = app.get_accounts(os.environ.get("USER"))
+
     if account:
         result = app.acquire_token_silent(scope + " offline_access", account=account)
 
