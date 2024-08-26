@@ -63,7 +63,7 @@ pydantic_core==2.20.1
 PyGObject==3.44.1
 PyJWT==2.9.0
 pyparsing==3.1.2
-python-dateutil==2.9.0.post0
+python-dateutil==2.9.0
 python-dotenv==1.0.1
 pytz==2024.1
 PyYAML==6.0.2
@@ -87,7 +87,6 @@ webencodings==0.5.1
 webviz-config==0.6.3
 webviz-config-equinor==0.2.5
 webviz-subsurface-components==0.4.15
--e git+ssh://git@github.com/ashildskalnes/webviz-4d.git@0709cbca3fda34417a4d1c070680b01acf5b47f1#egg=webviz_4d
 webviz_core_components==0.7.0
 Werkzeug==3.0.3
 xtgeo==2.21.3
