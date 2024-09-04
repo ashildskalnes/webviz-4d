@@ -117,7 +117,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         logging.getLogger("").setLevel(level=logging.WARNING)
         self.shared_settings = app.webviz_settings["shared_settings"]
         self.field_name = self.shared_settings.get("field_name")
+        self.label = self.shared_settings.get("label")
         print("Field name", self.field_name)
+        print("Label", self.label)
 
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
@@ -165,9 +167,9 @@ class SurfaceViewer4D(WebvizPluginABC):
             print("SUMO case:", self.my_case.name, self.field_name)
 
         self.fmu = self.shared_settings.get("fmu")
+        fmu_directory = None
         if self.fmu:
             fmu_directory = self.fmu.get("directory")
-            self.label = fmu_directory
 
         auto4d_directory = None
         self.auto4d = self.shared_settings.get("auto4d")
@@ -175,11 +177,9 @@ class SurfaceViewer4D(WebvizPluginABC):
             auto4d_directory = self.auto4d.get("directory")
             auto4d_metadata_format = self.auto4d.get("metadata_format")
             md_version = self.auto4d.get("metadata_version")
-            self.label = auto4d_directory
 
         self.osdu = self.shared_settings.get("osdu")
         if self.osdu:
-            self.label = "OSDU"
             self.metadata_version = self.osdu.get("metadata_version")
             self.coverage = self.osdu.get("coverage")
 
@@ -262,7 +262,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in OSDU")
 
-        else:
+        elif fmu_directory:
             # Read maps metadata from file
             self.my_case = None
             self.surface_metadata_file = surface_metadata_file

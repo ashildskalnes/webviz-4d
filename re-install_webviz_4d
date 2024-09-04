@@ -1,29 +1,50 @@
-#!/bin/bash
+#!/bin/bash 
 #set -x
 
-if [ -d "venv" ]; then
-    rm -rf venv
+red_hat="$(lsb_release -r)" 
+echo "Red Hat: $red_hat"
+
+if [ "$red_hat" = "Release:	8.10" ]; then
+    source /prog/res/komodo/2024.06.10-py311/enable
+    venv_dir="venv311"
+else
+    venv_dir="venv38"
 fi
 
-python -m venv venv
-source ./venv/bin/activate
+if [ -d $venv_dir ]; then 
+    rm -rf $venv_dir 
+fi
+
+echo "Creating new virual environment: $venv_dir"
+
+python -m venv $venv_dir
+source ./$venv_dir/bin/activate
 
 echo "Installing all necessary packages ..."
 
 pip install --upgrade pip
-pip install urllib3==1.26.15
-pip install -r requirements_osdu_linux.txt
-#pip install webviz-config
-#pip install webviz-config-equinor
-#pip install webviz-subsurface-components==0.4.15
-#pip install webviz-subsurface
-#pip install PyGObject==3.44.1
-#pip install python-dotenv
+
+if [ "$red_hat" = "Release:	8.10" ]; then
+    pip install urllib3==2.2.2
+else
+    pip install urllib3==1.26.15
+fi
+
+pip install python-dotenv
+pip install pydantic
+pip install pydantic_settings
+pip install PyGObject==3.44.1
+pip install fmu-sumo
+pip install matplotlib==3.7.5
+pip install webviz-subsurface-components==0.4.15
+pip install webviz-config
+pip install webviz-config-equinor
 pip install black
 pip install pylint
 pip install pytest
-pip install fmu-sumo
-
+pip install ../../common-python-sdk-master/common-python-sdk-master
 pip install -e .
 
 echo "WebViz-4D installation completed"
+echo "Virtual environment created: $venv_dir" 
+
