@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from fmu.sumo.explorer.objects.case import Case
-from fmu.sumo.explorer.objects.polygons_collection import PolygonsCollection
+from fmu.sumo.explorer.objects.polygons import Polygons
 from fmu.sumo.explorer.timefilter import TimeType, TimeFilter
 from webviz_4d._datainput._metadata import get_realization_id
 
@@ -119,6 +119,88 @@ def get_tag_values(surfaces, tag_name):
     # unique_tags = list(set(tag_list))
 
     return tag_list
+
+
+def load_sumo_observed_metadata(my_case):
+    # time filter for intervals
+    field_name = my_case.field
+    time = TimeFilter(time_type=TimeType.INTERVAL)
+
+    all_metadata = pd.DataFrame()
+    surface_names = []
+    tagnames = []
+    attributes = []
+    times1 = []
+    times2 = []
+    seismic_contents = []
+    coverages = []
+    differences = []
+    field_names = []
+
+    headers = [
+        "name",
+        "tagname",
+        "attribute",
+        "time.t1",
+        "time.t2",
+        "seismic",
+        "coverage",
+        "difference",
+        "field_name",
+    ]
+
+    map_type = "observed"
+    surfaces = my_case.surfaces.filter(stage="case")
+    timelapse_surfaces = surfaces.filter(time=time)
+    surfaces = timelapse_surfaces
+    print("  ", map_type, "- timelapse surfaces:", len(timelapse_surfaces))
+
+    for surface in surfaces:
+        name = surface.name
+        tagname = surface.tagname
+        tagname_info = tagname.split("_")
+        attribute_type = tagname_info[-1]
+        seismic_content = tagname_info[0]
+        coverage = "Unknown"
+
+        if seismic_content == "timestrain" or seismic_content == "timeshift":
+            difference = "---"
+        else:
+            difference = "NotTimeshifted"
+
+        time = surface._metadata.get("data").get("time")
+        time1 = str(time.get("t0").get("value"))[0:10]
+        time2 = str(time.get("t1").get("value"))[0:10]
+
+        surface_names.append(name)
+        tagnames.append(tagname)
+        attributes.append(attribute_type)
+        times1.append(time1)
+        times2.append(time2)
+        seismic_contents.append(seismic_content)
+        coverages.append(coverage)
+        differences.append(difference)
+        field_names.append(field_name)
+
+    zipped_list = list(
+        zip(
+            surface_names,
+            tagnames,
+            attributes,
+            times1,
+            times2,
+            seismic_contents,
+            coverages,
+            differences,
+            field_names,
+        )
+    )
+
+    all_metadata = pd.DataFrame(zipped_list, columns=headers)
+    all_metadata.fillna(value=np.nan, inplace=True)
+    all_metadata["map_type"] = "observed"
+
+    return all_metadata
 
 
 def create_selector_lists(my_case, mode):
@@ -269,7 +351,7 @@ def get_observed_surface(
     if len(surfaces) == 1:
         selected_surface = surfaces[0]
     else:
-        print("WARNING: Number of SUMO surfaces found =", str(len(surfaces)))
+        # print("WARNING: Number of SUMO surfaces found =", str(len(surfaces)))
         selected_surface = None
 
     return selected_surface
@@ -494,18 +576,18 @@ def print_sumo_objects(sumo_objects):
             )
 
             headers = [
-                "Name",
-                "Content",
-                "Tagname",
-                "Time1",
-                "Time2",
-                "Domain",
-                "Stratigraphic",
-                "Prediction",
-                "Observation",
-                "Iteration",
-                "Realization",
-                "Operation",
+                "name",
+                "content",
+                "tagname",
+                "time1",
+                "time2",
+                "domain",
+                "stratigraphic",
+                "prediction",
+                "observation",
+                "iteration",
+                "realization",
+                "operation",
             ]
             df = pd.DataFrame(list_of_tuples, columns=headers)
             metadata_df = df.sort_values(
@@ -608,7 +690,7 @@ def get_selected_surface(
 
 def get_sumo_zone_polygons(
     case: Case = None,
-    sumo_polygons: PolygonsCollection = None,
+    sumo_polygons: Polygons = None,
     polygon_settings: str = "",
     map_type: str = "",
     surface_name: str = "",
@@ -700,3 +782,58 @@ def get_sumo_top_res_surface(sumo_case, surface_info):
             "ERROR: Top reservoir surface not loaded from SUMO",
         )
         return None
+
+
+def create_sumo_lists(metadata, interval_mode):
+    # Metadata 0.4.2
+    selectors = {
+        "name": "name",
+        "interval": "interval",
+        "attribute": "attribute",
+        "seismic": "seismic",
+        "difference": "difference",
+    }
+
+    map_types = ["observed"]
+    map_dict = {}
+
+    for map_type in map_types:
+        map_dict[map_type] = {}
+        map_type_dict = {}
+
+        map_type_metadata = metadata[metadata["map_type"] == map_type]
+
+        intervals_df = map_type_metadata[["time.t1", "time.t2"]]
+        intervals = []
+
+        for key, value in selectors.items():
+            selector = key
+            map_type_metadata = metadata[metadata["map_type"] == map_type]
+            map_type_dict[value] = {}
+
+            if selector == "interval":
+                for _index, row in intervals_df.iterrows():
+                    t1 = str(row["time.t1"])
+                    t2 = str(row["time.t2"])
+
+                    if interval_mode == "normal":
+                        interval = t2 + "-" + t1
+                    else:
+                        interval = t1 + "-" + t2
+
+                    if interval not in intervals:
+                        intervals.append(interval)
+
+                # sorted_intervals = sort_intervals(intervals)
+                sorted_intervals = intervals
+
+                map_type_dict[value] = sorted_intervals
+            else:
+                items = list(map_type_metadata[selector].unique())
+                items.sort()
+
+                map_type_dict[value] = items
+
+        map_dict[map_type] = map_type_dict
+
+    return map_dict

@@ -1,42 +1,25 @@
-#!/bin/bash 
+#!/bin/bash
 #set -x
 
-red_hat="$(lsb_release -r)" 
-echo "Red Hat: $red_hat"
-
-if [ "$red_hat" = "Release:	8.10" ]; then
-    source /prog/res/komodo/2024.06.10-py311/enable
-    venv_dir="venv311"
-else
-    venv_dir="venv38"
+if [ -d "venv" ]; then
+    rm -rf venv
 fi
 
-if [ -d $venv_dir ]; then 
-    rm -rf $venv_dir 
-fi
+source /prog/res/komodo/2024.06.10-py311/enable
 
-echo "Creating new virual environment: $venv_dir"
+echo "Creating new virual environment: venv"
 
-python -m venv $venv_dir
-source ./$venv_dir/bin/activate
+python -m venv venv
+source ./venv/bin/activate
 
 echo "Installing all necessary packages ..."
 
 pip install --upgrade pip
-
-if [ "$red_hat" = "Release:	8.10" ]; then
-    pip install urllib3==2.2.2
-else
-    pip install urllib3==1.26.15
-fi
-
+pip install -r requirements.txt
 pip install python-dotenv
 pip install pydantic
 pip install pydantic_settings
-pip install PyGObject==3.44.1
 pip install fmu-sumo
-pip install matplotlib==3.7.5
-pip install webviz-subsurface-components==0.4.15
 pip install webviz-config
 pip install webviz-config-equinor
 pip install black
@@ -46,5 +29,4 @@ pip install ../../common-python-sdk-master/common-python-sdk-master
 pip install -e .
 
 echo "WebViz-4D installation completed"
-echo "Virtual environment created: $venv_dir" 
-
+echo "Virtual environment created: venv"

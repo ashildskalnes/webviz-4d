@@ -3,11 +3,10 @@ from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduSe
 import warnings
 from datetime import datetime
 
-if sys.platform == "win32":
-    from webviz_4d._datainput._osdu import get_osdu_metadata_attributes
+from webviz_4d._datainput._osdu import get_osdu_metadata_attributes
 
 warnings.filterwarnings("ignore")
-        
+
 
 def main():
     osdu_service = DefaultOsduService()
@@ -15,7 +14,7 @@ def main():
     # Search for 4D maps
     osdu_key = "tags.AttributeMap.FieldName"
     field_name = "DROGON"
-    metadata_version = "0.3.2"
+    metadata_version = "0.3.3"
     print(field_name, metadata_version)
     print()
 
@@ -35,26 +34,26 @@ def main():
 
     updated_metadata = osdu_service.update_reference_dates(selected_attribute_maps)
     print(updated_metadata[["Name","AttributeMap.AttributeType","AttributeMap.SeismicTraceContent","AttributeMap.Coverage","AcquisitionDateA", "AcquisitionDateB"]])
-    
+
 
 if __name__ == "__main__":
     main()
-        
-
-        
-
-
-    
-
-    
-
-
-        
-    
 
 
 
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     main()
