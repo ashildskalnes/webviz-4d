@@ -4,6 +4,9 @@ import io
 from pathlib import Path
 import json
 import yaml
+from typing import Optional
+from io import BytesIO
+import pandas as pd
 
 
 defaults = {
@@ -236,3 +239,23 @@ def get_last_date(selection_list):
         last_date = None
 
     return last_date
+
+
+def get_path(path) -> Path:
+    return Path(path)
+
+
+def find_files(folder: Path, suffix: str) -> BytesIO:
+    return BytesIO(
+        json.dumps(
+            sorted([str(filename) for filename in folder.glob(f"*{suffix}")])
+        ).encode()
+    )
+
+
+def read_csv(
+    csv_file: Path,
+    sep: Optional[str] = ",",
+    dtype: Optional[str] = None,
+) -> pd.DataFrame:
+    return pd.read_csv(csv_file, sep=sep, dtype=dtype, low_memory=False)

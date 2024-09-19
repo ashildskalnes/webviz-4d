@@ -1,6 +1,5 @@
 import io
 import sys
-from typing import List, Tuple, Callable
 from pathlib import Path
 import datetime
 import json
@@ -9,6 +8,7 @@ import numpy as np
 import pandas as pd
 import xtgeo
 import logging
+from io import BytesIO
 
 from fmu.sumo.explorer import Explorer
 
@@ -23,13 +23,11 @@ from webviz_4d._datainput._surface import (
 from webviz_4d._datainput.common import (
     read_config,
     get_well_colors,
-    get_update_dates,
     get_plot_label,
     get_dates,
 )
 
 from webviz_4d._datainput.well import (
-    load_all_wells,
     load_smda_metadata,
     load_smda_wellbores,
     load_planned_wells,
@@ -44,16 +42,9 @@ from webviz_4d._datainput._production import (
 
 from webviz_4d._private_plugins.surface_selector import SurfaceSelector
 from webviz_4d._datainput._colormaps import load_custom_colormaps
-from webviz_4d._datainput._polygons import (
-    load_polygons,
-    load_zone_polygons,
-    load_sumo_polygons,
-    get_fault_polygon_tag,
-)
+from webviz_4d._datainput._polygons import load_sumo_polygons
 
-from webviz_4d._datainput._metadata import (
-    get_all_map_defaults,
-)
+from webviz_4d._datainput._metadata import get_all_map_defaults
 
 from webviz_4d._datainput._sumo import (
     create_sumo_lists,
@@ -80,7 +71,8 @@ from webviz_4d._providers.wellbore_provider._provider_impl_file import (
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._datainput._auto4d import create_auto4d_lists, load_auto4d_metadata
 
-from ._webvizstore import read_csv, read_csvs, find_files, get_path
+from webviz_4d._datainput.common import find_files, get_path
+
 from ._callbacks import (
     set_first_map,
     set_second_map,
@@ -129,7 +121,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.selector_file = selector_file
         self.production_data = production_data
         self.wellfolder = well_folder
-        self.polygons_folder = polygons_folder
         self.colormaps_folder = colormaps_folder
         self.map_suffix = map_suffix
         self.interval_mode = interval_mode
@@ -141,7 +132,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         field_name = self.shared_settings.get("field_name")
 
-        self.sumo_surfaces = False
+        self.sumo_status = False
         self.fmu_status = False
         self.osdu_status = False
         self.auto4d_status = False
@@ -178,6 +169,10 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if self.sumo_surfaces:
                 self.sumo_status = True
+
+                print("Surfaces from FMU files: ")
+                print("  Loading metadata ...")
+
                 self.surface_metadata = load_sumo_observed_metadata(self.my_case)
                 self.selection_list = create_sumo_lists(
                     self.surface_metadata, self.interval_mode
@@ -189,6 +184,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             fmu_directory = fmu.get("directory")
             observed_maps = self.shared_settings.get("observed_maps")
             map_dir = observed_maps.get("map_directories")[0]
+
             print("Surfaces from FMU files: ")
             print("  Loading metadata ...")
 
@@ -246,7 +242,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                     metadata["AttributeMap.Coverage"] == self.coverage
                 ]
             else:
-                print("  Loading metadata from OSDU Core ...")
+                print("  Reading metadata from OSDU Core ...")
                 attribute_horizons = self.osdu_service.get_attribute_horizons(
                     osdu_key, osdu_value
                 )
@@ -274,10 +270,6 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.surface_metadata, interval_mode
             )
 
-            osdu_selector_file = self.field_name + "_selectors.json"
-            with open(osdu_selector_file, "w") as fp:
-                json.dump(self.selection_list, fp)
-
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in OSDU")
 
@@ -297,7 +289,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         # Load polygons
         if self.my_case.name:
             print()
-            print("Polygons in SUMO ...")
+            print("Polygons from SUMO ...")
             iter_name = self.top_res_surface_settings.get("iter")
             top_res_name = self.top_res_surface_settings.get("name")
             real = self.top_res_surface_settings.get("real")
@@ -308,38 +300,6 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.sumo_polygons = self.my_case.polygons.filter(
                 iteration=iter_name, realization=real_id, name=top_res_name
             )
-
-            if len(self.sumo_polygons) == 0:
-                self.sumo_polygons = self.my_case.polygons.filter(
-                    iteration=iter_name, realization=real_id
-                )
-
-            for polygon in self.sumo_polygons:
-                print("  - ", polygon.name, polygon.tagname)
-
-            self.fault_polygon_tag = get_fault_polygon_tag(self.sumo_polygons)
-        elif self.polygons_folder is not None:
-            self.polygon_files = [
-                get_path(Path(fn))
-                for fn in json.load(find_files(self.polygons_folder, ".csv"))
-            ]
-            print("Reading polygons from:", self.polygons_folder)
-            self.polygon_layers = load_polygons(self.polygon_files, self.polygon_colors)
-
-            # Load zone fault if existing
-            self.zone_faults_folder = Path(os.path.join(self.polygons_folder, "rms"))
-            self.zone_faults_files = [
-                get_path(Path(fn))
-                for fn in json.load(find_files(self.zone_faults_folder, ".csv"))
-            ]
-
-            print("Reading zone polygons from:", self.zone_faults_folder)
-            self.zone_polygon_layers = load_zone_polygons(
-                self.zone_faults_files, self.polygon_colors
-            )
-        # Read update dates and well data
-        #    self.drilled_wells_df: dataframe with wellpaths (x- and y positions) for all drilled wells
-        #    self.drilled_wells_info: dataframe with metadata for all drilled wells
 
         if "SMDA" in str(self.wellfolder):
             omnia_env = ".omniaapi"
@@ -363,7 +323,6 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
 
             if "planned" in self.basic_well_layers:
-                # print("Skipping planned wells ...")
                 print("Loading planned well data from POZO ...")
                 planned_wells = load_planned_wells(self.pozo_provider, self.field_name)
                 self.planned_wells_info = planned_wells.metadata.dataframe
@@ -396,90 +355,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.well_update = str(datetime.date.today())
             self.production_update = str(datetime.date.today())
 
-        if "SMDA" not in str(self.wellfolder):
-            print("Loading well data from", self.wellfolder)
-
-            self.wellbore_info = read_csv(
-                csv_file=Path(self.wellfolder) / "wellbore_info.csv"
-            )
-
-            update_dates = get_update_dates(
-                welldata=get_path(Path(self.wellfolder) / ".welldata_update.yaml"),
-                productiondata=get_path(
-                    Path(self.wellfolder) / ".production_update.yaml"
-                ),
-            )
-            self.well_update = update_dates["well_update_date"]
-            self.production_update = update_dates["production_last_date"]
-            self.all_wells_info = read_csv(
-                csv_file=Path(self.wellfolder) / "wellbore_info.csv"
-            )
-
-            # Commented out because creating wrong filepaths
-            # self.all_wells_info["file_name"] = self.all_wells_info["file_name"].apply(
-            #     lambda x: get_path(Path(x))
-            # )
-
-            self.all_wells_info = self.wellbore_info
-
-            delta = 10
-            self.all_wells_df = load_all_wells(self.wellbore_info, delta)
-            self.drilled_wells_files = list(
-                self.wellbore_info[self.wellbore_info["layer_name"] == "Drilled wells"][
-                    "file_name"
-                ]
-            )
-            self.drilled_wells_df = self.all_wells_df.loc[
-                self.all_wells_df["layer_name"] == "Drilled wells"
-            ]
-            self.drilled_wells_info = self.all_wells_info.loc[
-                self.all_wells_info["layer_name"] == "Drilled wells"
-            ]
-            self.pdm_wells_info = self.drilled_wells_info.loc[
-                self.drilled_wells_info["wellbore.pdm_name"] != ""
-            ]
-
-            self.pdm_wells_df = load_all_wells(self.pdm_wells_info, delta)
-
-            self.well_layer_dir = Path(os.path.join(settings_folder, "well_layers"))
-            layer_overview_file = get_path(
-                Path(os.path.join(self.well_layer_dir, "well_layers.yaml"))
-            )
-            self.well_layers_overview = read_config(layer_overview_file)
-
-            self.well_basic_layers = []
-            self.all_interval_layers = []
-
-            print("Loading all well layers ...")
-            self.layer_files = []
-            basic_layers = self.well_layers_overview.get("basic")
-
-            for key, value in basic_layers.items():
-                layer_file = get_path(
-                    Path(os.path.join(self.well_layer_dir, "basic", value))
-                )
-                label = self.basic_well_layers.get(key)
-
-                well_layer = make_new_well_layer(
-                    layer_file,
-                    self.all_wells_df,
-                    label,
-                )
-
-                if well_layer:
-                    self.well_basic_layers.append(well_layer)
-                    self.layer_files.append(layer_file)
-
-            self.intervals = self.well_layers_overview.get("additional")
-            self.interval_names = []
-
-            for interval in self.intervals:
-                interval_layers = self.create_additional_well_layers(interval)
-                self.all_interval_layers.append(interval_layers)
-                self.interval_names.append(interval)
-
         if "PDM" in str(production_data):
-            # print("DEBUG default_interval", self.default_interval)
             print("Loading production/injection data from PDM ...")
             self.interval_well_layers = create_production_layers(
                 field_name=self.field_name,
@@ -491,17 +367,6 @@ class SurfaceViewer4D(WebvizPluginABC):
                 well_colors=self.well_colors,
                 prod_interval="Day",
             )
-
-            for interval_layer in self.interval_well_layers:
-                data = interval_layer.get("data")
-                # print("  ", interval_layer.get("name"), len(data))
-        else:
-            # Find production and injection layers for the default interval
-            if self.interval_names:
-                index = self.interval_names.index(self.default_interval)
-                self.interval_well_layers = self.all_interval_layers[index]
-            else:
-                self.interval_well_layers = None
 
         # Create selectors (attributes, names and dates) for all 3 maps
         self.selector = SurfaceSelector(
@@ -550,7 +415,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
     def load_settings_info(self, settings_path):
         if settings_path:
-            settings = read_config(get_path(path=settings_path))
+            settings = read_config(settings_path)
 
             map_settings = settings.get("map_settings")
             self.attribute_settings = map_settings.get("attribute_settings")
@@ -567,88 +432,6 @@ class SurfaceViewer4D(WebvizPluginABC):
             ]
             print("Reading custom colormaps from:", self.colormaps_folder)
             load_custom_colormaps(colormap_files)
-
-    def add_webvizstore(self) -> List[Tuple[Callable, list]]:
-        store_functions: List[Tuple[Callable, list]] = [
-            (
-                read_csvs,
-                [{"folder": self.prod_folder, "csv_files": self.prod_names}],
-            )
-        ]
-        for fn in [
-            self.surface_metadata_file,
-            self.attribute_maps_file,
-        ]:
-            if fn is not None:
-                store_functions.append(
-                    (
-                        read_csv,
-                        [
-                            {"csv_file": fn},
-                        ],
-                    )
-                )
-        if self.colormaps_folder is not None:
-            store_functions.append(
-                (find_files, [{"folder": self.colormaps_folder, "suffix": ".csv"}])
-            )
-            store_functions.append(
-                (get_path, [{"path": fn} for fn in self.colormap_files])
-            )
-
-        if self.polygons_folder is not None:
-            store_functions.append(
-                (find_files, [{"folder": self.polygons_folder, "suffix": ".csv"}])
-            )
-            store_functions.append(
-                (get_path, [{"path": fn} for fn in self.polygon_files])
-            )
-
-            store_functions.append(
-                (find_files, [{"folder": self.zone_faults_folder, "suffix": ".csv"}])
-            )
-            store_functions.append(
-                (get_path, [{"path": fn} for fn in self.zone_faults_files])
-            )
-
-        if self.selector_file is not None:
-            store_functions.append((get_path, [{"path": self.selector_file}]))
-
-        if self.wellfolder is not None:
-            store_functions.append(
-                (read_csv, [{"csv_file": Path(self.wellfolder) / "wellbore_info.csv"}])
-            )
-            for fn in list(self.wellbore_info["file_name"]):
-                store_functions.append((get_path, [{"path": Path(fn)}]))
-
-            store_functions.append(
-                (
-                    get_path,
-                    [
-                        {"path": Path(self.wellfolder) / ".welldata_update.yaml"},
-                        {"path": Path(self.wellfolder) / ".production_update.yaml"},
-                    ],
-                )
-            )
-            store_functions.append(
-                (
-                    get_path,
-                    [
-                        {"path": Path(self.well_layer_dir) / "well_layers.yaml"},
-                    ],
-                )
-            )
-
-            for fn in self.layer_files:
-                store_functions.append((get_path, [{"path": Path(fn)}]))
-
-        for fn in list(self.surface_metadata["filename"]):
-            store_functions.append((get_path, [{"path": Path(fn)}]))
-
-        if self.settings_path is not None:
-            store_functions.append((get_path, [{"path": self.settings_path}]))
-
-        return store_functions
 
     def ensembles(self, map_number):
         map_type = self.map_defaults[map_number]["map_type"]
@@ -936,7 +719,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         surface = None
 
-        if self.sumo_surfaces:
+        if self.sumo_status:
             time1 = interval_list[0]
             time2 = interval_list[1]
 
@@ -1001,15 +784,10 @@ class SurfaceViewer4D(WebvizPluginABC):
             if os.path.isfile(surface_file):
                 print("Loading FMU surface file", surface_file)
                 surface = load_surface(surface_file)
-        else:
-            surface_file = self.get_real_runpath(data, ensemble, real, map_type)
-
-            if os.path.isfile(surface_file):
-                surface = load_surface(surface_file)
 
         if surface:
             number_cells = surface.nrow * surface.ncol
-            print("Number of gridcells:", number_cells)
+            print("Surface size:", surface.nrow, "x", surface.ncol, "=", number_cells)
 
             metadata = self.get_map_scaling(data, map_type, real)
             min_max = self.get_auto_scaling(surface, attribute)
@@ -1120,3 +898,24 @@ class SurfaceViewer4D(WebvizPluginABC):
         set_second_map(parent=self, app=app)
         set_third_map(parent=self, app=app)
         change_maps_from_button(parent=self, app=app)
+
+    def find_files(folder: Path, suffix: str) -> BytesIO:
+        return BytesIO(
+            json.dumps(
+                sorted([str(filename) for filename in folder.glob(f"*{suffix}")])
+            ).encode()
+        )
+
+    def read_csvs(folder: Path, csv_files: list) -> pd.DataFrame:
+        all_prod_df = pd.DataFrame()
+
+        for name in csv_files:
+            csv_file = os.path.join(folder, name)
+
+            if os.path.isfile(csv_file):
+                prod_df = pd.read_csv(csv_file)
+                all_prod_df = pd.concat([all_prod_df, prod_df])
+
+        all_prod_df.reset_index(inplace=True, drop=True)
+
+        return all_prod_df
