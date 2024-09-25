@@ -127,33 +127,7 @@ def get_update_dates(welldata, productiondata):
     return update_dates
 
 
-# def get_plot_label(date_labels, interval):
-#     difference_mode = "normal"
-#     labels = []
-
-#     dates = [
-#         interval[:4] + interval[5:7] + interval[8:10],
-#         interval[11:15] + interval[16:18] + interval[19:21],
-#     ]
-
-#     for date in dates:
-#         # date = convert_date(date)
-#         try:
-#             label = date_labels[int(date)]
-#         except:
-#             label = date[:4] + "-" + date[4:6] + "-" + date[6:8]
-
-#         labels.append(label)
-
-#     if difference_mode == "normal":
-#         label = str(labels[0]) + " - " + str(labels[1])
-#     else:
-#         label = str(labels[1]) + " - " + str(labels[0])
-
-#     return label
-
-
-def get_plot_label(configuration, interval):
+def get_plot_label(date_labels, interval):
     difference_mode = "normal"
     labels = []
 
@@ -165,8 +139,7 @@ def get_plot_label(configuration, interval):
     for date in dates:
         # date = convert_date(date)
         try:
-            labels_dict = configuration["date_labels"]
-            label = labels_dict[int(date)]
+            label = date_labels[int(date)]
         except:
             label = date[:4] + "-" + date[4:6] + "-" + date[6:8]
 
@@ -178,6 +151,41 @@ def get_plot_label(configuration, interval):
         label = str(labels[1]) + " - " + str(labels[0])
 
     return label
+
+
+# def get_plot_label(configuration, interval):
+#     difference_mode = "normal"
+#     labels = []
+
+#     dates = [
+#         interval[:4] + interval[5:7] + interval[8:10],
+#         interval[11:15] + interval[16:18] + interval[19:21],
+#     ]
+
+#     print("DEBUG dates", dates)
+#     print("DEBUG configuration", configuration)
+
+#     for date in dates:
+#         # date = convert_date(date)
+
+#         labels_dict = configuration.get("date_labels")
+#         print("DEBUG labels_dict", labels_dict)
+
+#         if labels_dict is not None:
+#             label = labels_dict.get(int(date))
+#             print("DEBUG label", label)
+
+#         if label is None:
+#             label = date[:4] + "-" + date[4:6] + "-" + date[6:8]
+
+#         labels.append(label)
+
+#     if difference_mode == "normal":
+#         label = str(labels[0]) + " - " + str(labels[1])
+#     else:
+#         label = str(labels[1]) + " - " + str(labels[0])
+
+#     return label
 
 
 def get_well_colors(settings):

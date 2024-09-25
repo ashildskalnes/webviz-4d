@@ -15,7 +15,7 @@ def load_surface(surface_path):
     if ".map" in str(surface_path):
         fformat = "ijxyz"
     else:
-        fformat="irap_binary"
+        fformat = "irap_binary"
 
     return xtgeo.surface_from_file(surface_path, fformat=fformat)
 

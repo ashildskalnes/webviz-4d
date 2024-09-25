@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import xtgeo
 import logging
+import time
 from io import BytesIO
 
 from fmu.sumo.explorer import Explorer
@@ -170,7 +171,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             if self.sumo_surfaces:
                 self.sumo_status = True
 
-                print("Surfaces from FMU files: ")
+                print("Surfaces from SUMO: ")
                 print("  Loading metadata ...")
 
                 self.surface_metadata = load_sumo_observed_metadata(self.my_case)
@@ -309,7 +310,6 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.pozo_provider = ProviderImplFile(env_path, "POZO")
             self.pdm_provider = ProviderImplFile(env_path, "PDM")
 
-            print("Loading drilled well data from SMDA ...")
             self.drilled_wells_info = load_smda_metadata(
                 self.smda_provider, self.field_name
             )
@@ -323,10 +323,11 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
 
             if "planned" in self.basic_well_layers:
-                print("Loading planned well data from POZO ...")
-                planned_wells = load_planned_wells(self.pozo_provider, self.field_name)
-                self.planned_wells_info = planned_wells.metadata.dataframe
-                self.planned_wells_df = planned_wells.trajectories.dataframe
+                planned_wells = load_planned_wells(
+                    self.pozo_provider, self.field_name.upper()
+                )
+                self.planned_wells_info = planned_wells[0]
+                self.planned_wells_df = planned_wells[1]
             else:
                 self.planned_wells_info = pd.DataFrame()
                 self.planned_wells_df = pd.DataFrame()
@@ -356,7 +357,6 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.production_update = str(datetime.date.today())
 
         if "PDM" in str(production_data):
-            print("Loading production/injection data from PDM ...")
             self.interval_well_layers = create_production_layers(
                 field_name=self.field_name,
                 pdm_provider=self.pdm_provider,
@@ -477,43 +477,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return heading, sim_info, label
 
-    def get_real_runpath(self, data, ensemble, real, map_type):
-        selected_interval = data["date"]
-        name = data["name"]
-        attribute = data["attr"]
-
-        if self.interval_mode == "normal":
-            time2 = selected_interval[0:10]
-            time1 = selected_interval[11:]
-        else:
-            time1 = selected_interval[0:10]
-            time2 = selected_interval[11:]
-
-        self.surface_metadata.replace(np.nan, "", inplace=True)
-
-        try:
-            selected_metadata = self.surface_metadata[
-                (self.surface_metadata["fmu_id.realization"] == real)
-                & (self.surface_metadata["fmu_id.iteration"] == ensemble)
-                & (self.surface_metadata["map_type"] == map_type)
-                & (self.surface_metadata["data.time.t1"] == time1)
-                & (self.surface_metadata["data.time.t2"] == time2)
-                & (self.surface_metadata["data.name"] == name)
-                & (self.surface_metadata["data.attribute"] == attribute)
-            ]
-
-            filepath = selected_metadata["filename"].values[0]
-            path = get_path(Path(filepath))
-
-        except:
-            path = ""
-            print("WARNING: get_real_runpath")
-            print("Selected map not found. Selection criteria are:")
-            print(map_type, real, ensemble, name, attribute, time1, time2)
-            print(self.surface_metadata)
-
-        return path
-
     def get_auto4d_filename(self, data, ensemble, real, map_type):
         selected_interval = data["date"]
         name = data["name"]
@@ -544,9 +507,9 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         except:
             path = ""
-            print("WARNING: selected map not found. Selection criteria are:")
-            print(map_type, real, ensemble, name, attribute, time1, time2)
-            print(selected_metadata)
+            print("WARNING: Selected file not found in Auto4d directory")
+            print("  Selection criteria are:")
+            print("  -  ", map_type, name, attribute, time1, time2, ensemble, real)
 
         return path
 
@@ -621,7 +584,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             return dataset_id
         except:
             dataset_id = None
-            print("WARNING: selected map not found. Selection criteria are:")
+            print("WARNING: Selected map not found in OSDU. Selection criteria are:")
             print(map_type, real, ensemble, name, attribute, time1, time2)
 
         return dataset_id
@@ -687,12 +650,27 @@ class SurfaceViewer4D(WebvizPluginABC):
     def get_auto_scaling(self, surface, attribute_type):
         min_max = [None, None]
         attribute_settings = self.attribute_settings
+        settings = attribute_settings.get(attribute_type)
+        auto_scaling = settings.get("auto_scaling", 15)
 
         if attribute_settings and attribute_type in attribute_settings.keys():
             colormap_type = attribute_settings.get(attribute_type).get("type")
             surface_max_val = surface.values.max()
             surface_min_val = surface.values.min()
-            max_val = max(abs(surface_max_val), abs(surface_min_val))
+
+            scaled_value = abs(surface.values.mean())
+
+            if "mean" in attribute_type.lower():
+                scaled_value = (abs(surface_min_val) + abs(surface_max_val)) / 2
+
+            max_val = scaled_value * auto_scaling
+
+            # print(
+            #     "DEBUG auto_scaling",
+            #     surface_min_val,
+            #     surface_max_val,
+            #     max_val,
+            # )
 
             if colormap_type == "diverging":
                 min_val = -max_val
@@ -707,19 +685,40 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return min_max
 
-    def make_map(self, data, ensemble, real, attribute_settings, map_idx):
-        data = json.loads(data)
-        selected_interval = data["date"]
-        interval_list = get_sumo_interval_list(selected_interval)
+    def print_surface_info(self, map_idx, tic, toc, surface):
+        print()
+        print(
+            f"Map number {map_idx+1}: downloaded the surface in {toc - tic:0.2f} seconds"
+        )
+        number_cells = surface.nrow * surface.ncol
+        print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
+
+    def load_selected_surface(self, data, ensemble, real, map_idx):
+        # Load surface from one of the data sources based on the selected metadata
+
         name = data["name"]
         attribute = data["attr"]
-
-        attribute_settings = json.loads(attribute_settings)
         map_type = self.map_defaults[map_idx]["map_type"]
+
+        selected_interval = data["date"]
+        time1 = selected_interval[0:10]
+        time2 = selected_interval[11:]
+
+        metadata_keys = [
+            "map_index",
+            "map_type",
+            "surface_name",
+            "attribute",
+            "time_interval",
+            "seismic",
+            "difference",
+        ]
 
         surface = None
 
         if self.sumo_status:
+            data_source = "SUMO"
+            interval_list = get_sumo_interval_list(selected_interval)
             time1 = interval_list[0]
             time2 = interval_list[1]
 
@@ -733,63 +732,88 @@ class SurfaceViewer4D(WebvizPluginABC):
                 & (self.surface_metadata["map_type"] == map_type)
             ]
 
-            tagname = selected_row["tagname"].values[0]
-            surface = get_selected_surface(
-                case=self.my_case,
-                map_type=map_type,
-                surface_name=name,
-                attribute=tagname,
-                time_interval=interval_list,
-                iteration_name=ensemble,
-                realization=real,
-            )
-
-            if surface is None:
-                heading = "Selected map doesn't exist"
-                sim_info = "-"
-                surface_layers = []
-                label = "-"
-
-                print("Sumo selection criteria:")
-                print("  map_type", map_type)
-                print("  surface_name", name)
-                print("  attribute", attribute)
-                print("  time_interval", interval_list)
-                print("  iteration_name", ensemble)
-                print("  realization", real)
+            if selected_row.empty:
+                surface = None
+            else:
+                tagname = selected_row["tagname"].values[0]
+                print("Loading surface from", data_source)
+                tic = time.perf_counter()
+                surface = get_selected_surface(
+                    case=self.my_case,
+                    map_type=map_type,
+                    surface_name=name,
+                    attribute=tagname,
+                    time_interval=interval_list,
+                    iteration_name=ensemble,
+                    realization=real,
+                )
+                toc = time.perf_counter()
 
         if self.osdu_status:
+            data_source = "OSDU"
             dataset_id = self.get_osdu_dataset_id(data, ensemble, real, map_type)
 
-            if dataset_id is None:
-                heading = "Selected map doesn't exist"
-                sim_info = "-"
-                surface_layers = []
-                label = "-"
-            else:
+            if dataset_id is not None:
+                print("Loading surface from", data_source)
+                tic = time.perf_counter()
                 dataset = self.osdu_service.get_horizon_map(file_id=dataset_id)
                 blob = io.BytesIO(dataset.content)
                 surface = xtgeo.surface_from_file(blob)
+                toc = time.perf_counter()
 
         if self.auto4d_status:
+            data_source = "AUTO4D"
             surface_file = self.get_auto4d_filename(data, ensemble, real, map_type)
 
             if os.path.isfile(surface_file):
-                print("Loading Auto4D surface file", surface_file)
+                print("Loading surface from", data_source)
+                tic = time.perf_counter()
                 surface = load_surface(surface_file)
+                toc = time.perf_counter()
 
         if self.fmu_status:
+            data_source = "FMU"
             surface_file = self.get_fmu_filename(data, ensemble, real, map_type)
+            # print("DEBUG surface_file", surface_file)
 
             if os.path.isfile(surface_file):
-                print("Loading FMU surface file", surface_file)
+                print("Loading surface from", data_source)
+                tic = time.perf_counter()
                 surface = load_surface(surface_file)
+                toc = time.perf_counter()
+
+        if surface is not None:
+            self.print_surface_info(map_idx, tic, toc, surface)
+        else:
+            metadata_values = [
+                map_idx,
+                map_type,
+                name,
+                attribute,
+                [time1, time2],
+                ensemble,
+                real,
+            ]
+            print("Selected map not found in", data_source)
+            print("  Selection criteria:")
+
+            for index, metadata in enumerate(metadata_keys):
+                print("  - ", metadata, ":", metadata_values[index])
+
+        return surface
+
+    def make_map(self, data, ensemble, real, attribute_settings, map_idx):
+        data = json.loads(data)
+        name = data["name"]
+        attribute = data["attr"]
+
+        attribute_settings = json.loads(attribute_settings)
+        map_type = self.map_defaults[map_idx]["map_type"]
+
+        surface = self.load_selected_surface(data, ensemble, real, map_idx)
 
         if surface:
-            number_cells = surface.nrow * surface.ncol
-            print("Surface size:", surface.nrow, "x", surface.ncol, "=", number_cells)
-
-            metadata = self.get_map_scaling(data, map_type, real)
+            # metadata = self.get_map_scaling(data, map_type, real)
             min_max = self.get_auto_scaling(surface, attribute)
 
             min_val = min_max[0]
@@ -806,7 +830,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                     max_val=max_val,
                     unit=attribute_settings.get(data["attr"], {}).get("unit", ""),
                     hillshading=False,
-                    min_max_df=metadata,
+                    # min_max_df=metadata,
                 )
             ]
 
@@ -898,24 +922,3 @@ class SurfaceViewer4D(WebvizPluginABC):
         set_second_map(parent=self, app=app)
         set_third_map(parent=self, app=app)
         change_maps_from_button(parent=self, app=app)
-
-    def find_files(folder: Path, suffix: str) -> BytesIO:
-        return BytesIO(
-            json.dumps(
-                sorted([str(filename) for filename in folder.glob(f"*{suffix}")])
-            ).encode()
-        )
-
-    def read_csvs(folder: Path, csv_files: list) -> pd.DataFrame:
-        all_prod_df = pd.DataFrame()
-
-        for name in csv_files:
-            csv_file = os.path.join(folder, name)
-
-            if os.path.isfile(csv_file):
-                prod_df = pd.read_csv(csv_file)
-                all_prod_df = pd.concat([all_prod_df, prod_df])
-
-        all_prod_df.reset_index(inplace=True, drop=True)
-
-        return all_prod_df

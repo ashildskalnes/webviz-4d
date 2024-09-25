@@ -58,12 +58,13 @@ def main():
     selection_list = create_sumo_lists(metadata, interval_mode)
     pprint(selection_list)
 
-    map_type = "observed"
-    name = "draupne_fm_1"
-    seismic = "amplitude"
     attribute = "min"
-    interval = "2023-09-15-2020-10-01"
+    name = "draupne_fm_1"
+    map_type = "observed"
+    seismic = "amplitude"
     difference = "NotTimeshifted"
+    interval = "2023-09-15-2020-10-01"
+
     interval_list = get_sumo_interval_list(interval)
     time1 = interval_list[0]
     time2 = interval_list[1]

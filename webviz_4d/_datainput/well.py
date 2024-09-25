@@ -1,52 +1,162 @@
+import os
 import pandas as pd
 import math
 import numpy as np
 import xtgeo
 import time
+from os import path
+import pandas as pd
+from datetime import datetime, timedelta
+
 import xtgeo.cxtgeo._cxtgeo as _cxtgeo
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 
+EXTENSION = ".wv4d"
+FOLDER_NAME = ".webviz_4d"
+
+
+def get_cache_filename(field, api, mode):
+    home_dir = os.path.expanduser("~")
+    cache_folder = os.path.join(home_dir, FOLDER_NAME)
+
+    if not os.path.isdir(cache_folder):
+        os.mkdir(cache_folder)
+
+    field_dir = os.path.join(cache_folder, "." + field.replace(" ", "_").lower())
+
+    if not os.path.isdir(field_dir):
+        os.mkdir(field_dir)
+
+    cache_dir_name = os.path.join(field_dir, "." + api.upper())
+    cache_dir = path.join(path.expanduser("~"), cache_dir_name.lower())
+
+    if not path.isdir(cache_dir):
+        os.mkdir(cache_dir)
+
+    cache_file_name = path.join(cache_dir, mode + EXTENSION)
+
+    return cache_file_name
+
+
+def load_cached_data(cache_file_name):
+    if path.isfile(cache_file_name):
+        one_day_ago = datetime.now() - timedelta(days=1)
+        filetime = datetime.fromtimestamp(path.getctime(cache_file_name))
+
+        if filetime > one_day_ago:
+            print("  - Loading metadata from file cache:", cache_file_name)
+            metadata = pd.read_csv(cache_file_name)
+
+            return metadata
+
+    return pd.DataFrame()
+
 
 def load_smda_metadata(provider, field):
-    metadata = provider.drilled_wellbore_metadata(
-        field=field,
-    )
-    dataframe = metadata.dataframe
+    print("Loading drilled well metadata from SMDA ...")
+
+    # Check file cache
+    api = "SMDA"
+    mode = "meta"
+
+    cache_file_name = get_cache_filename(field, api, mode)
+    dataframe = load_cached_data(cache_file_name)
+
+    if dataframe.empty:
+        metadata = provider.drilled_wellbore_metadata(
+            field=field,
+        )
+
+        dataframe = metadata.dataframe
+        dataframe.to_csv(cache_file_name)
+        print("  - Storing metadata to file cache:", cache_file_name)
 
     return dataframe
 
 
 def load_smda_wellbores(provider, field):
-    trajectories = provider.drilled_trajectories(
-        field_name=field,
-    )
+    print("Loading drilled well trajectories from SMDA ...")
 
-    dataframe = trajectories.dataframe
+    # Check file cache
+    api = "SMDA"
+    mode = "data"
+
+    cache_file_name = get_cache_filename(field, api, mode)
+    dataframe = load_cached_data(cache_file_name)
+
+    if dataframe.empty:
+        trajectories = provider.drilled_trajectories(
+            field_name=field,
+        )
+
+        dataframe = trajectories.dataframe
+        dataframe.to_csv(cache_file_name)
+        print("  - Storing metadata to file cache:", cache_file_name)
 
     unique_wellbores = dataframe["unique_wellbore_identifier"].unique()
-    print(" - drilled wellbores:", len(unique_wellbores))
+    print("  - Drilled wellbores:", len(unique_wellbores))
 
     return dataframe
 
 
 def load_planned_wells(provider, field):
-    planned_wells = provider.get_planned_wellbores(
-        field_name=field,
-    )
+    print("Loading planned well data from POZO ...")
 
-    dataframe = planned_wells.trajectories.dataframe
-    unique_wellbores = dataframe["unique_wellbore_identifier"].unique()
-    print(" - planned wellbores:", len(unique_wellbores))
+    # Check file cache
+    api = "POZO"
+    mode = "meta"
 
-    return planned_wells
+    cache_file_name = get_cache_filename(field, api, mode)
+    meta_dataframe = load_cached_data(cache_file_name)
+
+    if meta_dataframe.empty:
+        planned_wells = provider.get_planned_wellbores(
+            field_name=field,
+        )
+
+        print("DEBUG planned_wells", planned_wells)
+
+        meta_dataframe = planned_wells.metadata.dataframe
+        meta_dataframe.to_csv(cache_file_name)
+        print("  - Storing metadata to file cache:", cache_file_name)
+
+    mode = "data"
+
+    cache_file_name = get_cache_filename(field, api, mode)
+    data_dataframe = load_cached_data(cache_file_name)
+
+    if data_dataframe.empty:
+        planned_wells = provider.get_planned_wellbores(
+            field_name=field,
+        )
+
+        data_dataframe = planned_wells.trajectories.dataframe
+        data_dataframe.to_csv(cache_file_name)
+        print("  - Storing metadata to file cache:", cache_file_name)
+
+    unique_wellbores = data_dataframe["unique_wellbore_identifier"].unique()
+    print("  - Planned wellbores:", len(unique_wellbores))
+
+    return [meta_dataframe, data_dataframe]
 
 
 def load_pdm_info(provider, field):
-    metadata = provider.get_pdm_wellbores(field_name=field)
-    dataframe = metadata.dataframe
+    print("Loading production wells metadata from PDM ...")
+    # Check file cache
+    api = "PDM"
+    mode = field.replace(" ", "_") + "_meta"
+
+    cache_file_name = get_cache_filename(field, api, mode)
+    dataframe = load_cached_data(cache_file_name)
+
+    if dataframe.empty:
+        metadata = provider.get_pdm_wellbores(field_name=field)
+        dataframe = metadata.dataframe
+        dataframe.to_csv(cache_file_name)
+        print("  - Storing metadata to file cache:", cache_file_name)
 
     return dataframe
 
@@ -220,7 +330,7 @@ def create_pdm_well_layer(
                 except:
                     md_start = np.nan
 
-            if interval is not None and prod_data is not None: 
+            if interval is not None and prod_data is not None:
                 status = False
 
                 if md_start is not None and not math.isnan(md_start):
@@ -353,7 +463,12 @@ def create_well_layer(
         if polyline_data:
             data.append(polyline_data)
 
-    layer = {"name": label, "checked": False, "base_layer": False, "data": data}
+    check_status = False
+
+    if label in ["Producers", "Injectors"]:
+        check_status = True
+
+    layer = {"name": label, "checked": check_status, "base_layer": False, "data": data}
 
     return layer
 
@@ -377,10 +492,10 @@ def create_basic_tooltip(row, layer_name):
         content = df["content"]
         status = df["status"]
 
-        if content is None:
+        if content is None or type(content) == float:
             content = ""
 
-        if purpose is None:
+        if purpose is None or type(purpose) == float:
             if status is not None:
                 purpose = df["status"]
             else:
@@ -420,7 +535,6 @@ def get_short_wellname(wellname):
 def load_well(well_path):
     """Return a well object (xtgeo) for a given file (RMS ascii format)"""
     return xtgeo.well_from_file(well_path, mdlogname="MD")
-
 
 
 def load_all_wells(metadata, delta):
@@ -613,7 +727,7 @@ def get_surface_picks(wellbores_df, surf):
     surface_picks["md"] = md_values
 
     non_nan_values = [item for item in md_values if str(item) != "nan"]
-    print(" - surface picks:", len(non_nan_values))
+    print("  - Surface picks created:", len(non_nan_values))
 
     return surface_picks
 
@@ -647,28 +761,45 @@ def create_production_layers(
     well_colors: dict = {},
     prod_interval: str = "Day",
 ):
+    api = "PDM"
     tic = time.perf_counter()
 
-    production_data = pdm_provider.get_field_prod_data(
-        field_name=field_name,
-        start_date=interval_4d[-10:],
-        end_date=interval_4d[:10],
-        interval=prod_interval,
-    )
+    mode = field_name.replace(" ", "_") + "_prod_" + interval_4d
+    cache_file_name = get_cache_filename(field_name, api, mode)
+    prod_dataframe = load_cached_data(cache_file_name)
 
-    injection_data = pdm_provider.get_field_inj_data(
-        field_name=field_name,
-        start_date=interval_4d[-10:],
-        end_date=interval_4d[:10],
-        interval=prod_interval,
-    )
+    if prod_dataframe.empty:
+        production_data = pdm_provider.get_field_prod_data(
+            field_name=field_name,
+            start_date=interval_4d[-10:],
+            end_date=interval_4d[:10],
+            interval=prod_interval,
+        )
+        prod_dataframe = production_data.dataframe
+        prod_dataframe.to_csv(cache_file_name)
+        print("  - Storing production data to file cache:", cache_file_name)
+
+    mode = field_name.replace(" ", "_") + "_inj_" + interval_4d
+    cache_file_name = get_cache_filename(field_name, api, mode)
+    inj_dataframe = load_cached_data(cache_file_name)
+
+    if inj_dataframe.empty:
+        injection_data = pdm_provider.get_field_inj_data(
+            field_name=field_name,
+            start_date=interval_4d[-10:],
+            end_date=interval_4d[:10],
+            interval=prod_interval,
+        )
+        inj_dataframe = injection_data.dataframe
+        inj_dataframe.to_csv(cache_file_name)
+        print("  - Storing injection data to file cache:", cache_file_name)
 
     toc = time.perf_counter()
-    # print(f"Downloaded production and injection data in {toc - tic:0.4f} seconds")
+    print(f"Loading production and injection data in {toc - tic:0.2f} seconds")
 
     volumes = pd.merge(
-        production_data.dataframe,
-        injection_data.dataframe,
+        prod_dataframe,
+        inj_dataframe,
         how="outer",
     )
 

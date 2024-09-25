@@ -29,10 +29,10 @@ default_colors = {
 }
 
 checked = {
-    "Initial FWL": True,
-    "Initial OWC": True,
-    "Initial GOC": True,
-    "Faults": True,
+    "Initial FWL": False,
+    "Initial OWC": False,
+    "Initial GOC": False,
+    "Faults": False,
     "PRM receivers": False,
 }
 
