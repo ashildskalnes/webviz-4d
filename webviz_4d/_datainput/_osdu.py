@@ -46,14 +46,37 @@ def convert_metadata(osdu_metadata):
     ]
 
     for _index, row in osdu_metadata.iterrows():
-        horizon_names = []
+        if row["MetadataVersion"] == "0.4.2":
+            field_name = row["FieldName"]
+            irap_binary_dataset_id = row["IrapBinaryID"]
+            attribute_type = row["AttributeExtractionType"]
+            seismic_content = row["SeismicTraceAttribute"]
+            coverage = row["SeismicCoverage"]
+            difference = row["SeismicDifferenceType"]
+            horizon_names = row["HorizonSourceNames"]
+        else:
+            field_name = row["AttributeMap.FieldName"]
+            irap_binary_dataset_id = row["IrapBinaryID"]
+            attribute_type = row["AttributeMap.AttributeType"]
+            seismic_content = row["AttributeMap.SeismicTraceContent"]
+            coverage = row["AttributeMap.Coverage"]
+            difference = row["AttributeMap.SeismicDifference"]
 
-        field_name = row["AttributeMap.FieldName"]
-        irap_binary_dataset_id = row["IrapBinaryID"]
-        attribute_type = row["AttributeMap.AttributeType"]
-        seismic_content = row["AttributeMap.SeismicTraceContent"]
-        coverage = row["AttributeMap.Coverage"]
-        difference = row["AttributeMap.SeismicDifference"]
+            window_mode = row["CalculationWindow.WindowMode"]
+            horizon_names = []
+
+            if window_mode == "AroundHorizon":
+                seismic_horizon = row["CalculationWindow.HorizonName"]
+                seismic_horizon = seismic_horizon.replace("+", "_")
+                horizon_names.append(seismic_horizon)
+            elif window_mode == "BetweenHorizons":
+                seismic_horizon = row["CalculationWindow.TopHorizonName"]
+                seismic_horizon = seismic_horizon.replace("+", "_")
+                horizon_names.append(seismic_horizon)
+
+                seismic_horizon = row["CalculationWindow.BaseHorizonName"]
+                seismic_horizon = seismic_horizon.replace("+", "_")
+                horizon_names.append(seismic_horizon)
 
         field_names.append(field_name)
         datasets.append(irap_binary_dataset_id)
@@ -61,24 +84,7 @@ def convert_metadata(osdu_metadata):
         seismic_contents.append(seismic_content)
         coverages.append(coverage)
         differences.append(difference)
-
-        window_mode = row["CalculationWindow.WindowMode"]
-
-        if window_mode == "AroundHorizon":
-            seismic_horizon = row["CalculationWindow.HorizonName"]
-            seismic_horizon = seismic_horizon.replace("+", "_")
-            horizon_names.append(seismic_horizon)
-        elif window_mode == "BetweenHorizons":
-            seismic_horizon = row["CalculationWindow.TopHorizonName"]
-            seismic_horizon = seismic_horizon.replace("+", "_")
-            horizon_names.append(seismic_horizon)
-
-            seismic_horizon = row["CalculationWindow.BaseHorizonName"]
-            seismic_horizon = seismic_horizon.replace("+", "_")
-            horizon_names.append(seismic_horizon)
-
         surface_names.append(horizon_names[0])
-
         times1.append(row["AcquisitionDateB"])
         times2.append(row["AcquisitionDateA"])
 

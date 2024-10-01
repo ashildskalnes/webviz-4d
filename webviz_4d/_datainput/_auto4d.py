@@ -134,8 +134,8 @@ def load_auto4d_metadata(
     all_metadata.fillna(value=np.nan, inplace=True)
     all_metadata["map_type"] = "observed"
 
-    print("DEBUG auto4d_metadata")
-    print(all_metadata)
+    # print("DEBUG auto4d_metadata")
+    # print(all_metadata)
 
     return all_metadata
 

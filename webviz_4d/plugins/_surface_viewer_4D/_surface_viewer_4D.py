@@ -10,6 +10,7 @@ import xtgeo
 import logging
 import time
 from io import BytesIO
+from pprint import pprint
 
 from fmu.sumo.explorer import Explorer
 
@@ -70,6 +71,7 @@ from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
+from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddmsService
 from webviz_4d._datainput._auto4d import create_auto4d_lists, load_auto4d_metadata
 
 from webviz_4d._datainput.common import find_files, get_path
@@ -137,6 +139,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.fmu_status = False
         self.osdu_status = False
         self.auto4d_status = False
+        self.rddms_status = False
 
         # Include custom colormaps if wanted
         self.get_additional_colormaps()
@@ -273,6 +276,63 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in OSDU")
+
+        rddms = self.shared_settings.get("rddms")
+        if rddms and rddms.get("metadata_version"):
+            self.rddms_status = True
+            self.metadata_version = rddms.get("metadata_version")
+            self.coverage = rddms.get("coverage")
+            self.rddms_service = DefaultRddmsService()  # type: ignore
+            self.osdu_service = DefaultOsduService()  # type: ignore
+            self.dataspace = rddms.get("dataspace")
+            self.label = "RDDMS: " + self.field_name + " coverage:" + self.coverage
+
+            print("Surfaces from RDDMS: ")
+            print("  Loading metadata ...")
+            print(self.label, self.metadata_version, self.coverage)
+
+            cache_file = "rddms_metadata_cache_" + self.coverage + ".csv"
+            metadata_file_cache = os.path.join(settings_folder, cache_file)
+
+            if os.path.isfile(metadata_file_cache):
+                print("  Reading cached metadata from", metadata_file_cache)
+                metadata = pd.read_csv(metadata_file_cache)
+                updated_metadata = metadata.loc[
+                    metadata["SeismicCoverage"] == self.coverage
+                ]
+            else:
+                print("  Reading metadata from RDDMS ...")
+                attribute_horizons = self.rddms_service.get_attribute_horizons(
+                    self.dataspace, self.field_name
+                )
+                metadata = get_osdu_metadata_attributes(attribute_horizons)
+                selected_attribute_maps = metadata.loc[
+                    (
+                        (metadata["MetadataVersion"] == self.metadata_version)
+                        & (metadata["FieldName"] == self.field_name)
+                        & (metadata["SeismicCoverage"] == self.coverage)
+                    )
+                ]
+
+                updated_metadata = self.osdu_service.update_reference_dates(
+                    selected_attribute_maps
+                )
+                updated_metadata.to_csv(metadata_file_cache)
+
+            validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] != ""]
+            attribute_metadata = validA.loc[validA["AcquisitionDateB"] != ""]
+
+            self.surface_metadata = convert_metadata(attribute_metadata)
+
+            self.selection_list = create_osdu_lists(
+                self.surface_metadata, interval_mode
+            )
+
+            print("DEBUG selection_list")
+            pprint(self.selection_list)
+
+            if self.selection_list is None:
+                sys.exit("ERROR: No timelapse surfaces found in RDDMS")
 
         self.top_res_surface = get_top_res_surface(
             self.top_res_surface_settings, self.my_case
@@ -553,6 +613,9 @@ class SurfaceViewer4D(WebvizPluginABC):
         name = data["name"]
         attribute = data["attr"]
 
+        print("DEBUG get_osdu_dataset_id")
+        print(name, self.surface_metadata["name"])
+
         if self.interval_mode == "normal":
             time2 = selected_interval[0:10]
             time1 = selected_interval[11:]
@@ -748,6 +811,19 @@ class SurfaceViewer4D(WebvizPluginABC):
                     realization=real,
                 )
                 toc = time.perf_counter()
+
+        if self.rddms_status:
+            data_source = "OSDU"
+            dataset_id = self.get_osdu_dataset_id(data, ensemble, real, map_type)
+
+            if dataset_id is not None:
+                print("Loading surface from", data_source)
+                surface = None
+                # tic = time.perf_counter()
+                # dataset = self.rddms_service.get_horizon_map(file_id=dataset_id)
+                # blob = io.BytesIO(dataset.content)
+                # surface = xtgeo.surface_from_file(blob)
+                # toc = time.perf_counter()
 
         if self.osdu_status:
             data_source = "OSDU"

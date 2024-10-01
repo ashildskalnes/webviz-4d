@@ -178,8 +178,8 @@ class DefaultOsduService:
 
         return seismic_trace_data
 
-    def parse_seismic_acquisition(self,
-        osdu_object: dict
+    def parse_seismic_acquisition(
+        self, osdu_object: dict
     ) -> osdu.SeismicAcquisitionSurvey:
         begin_date = osdu_object.get("data").get("ProjectBeginDate", "")
 
@@ -227,16 +227,16 @@ class DefaultOsduService:
         return seismic_seismic_acquisition
 
     def get_attribute_horizons(
-            self, 
-            search_key: Optional[str] = "",
-            search_value: Optional[str] = "",
-            ) -> list[osdu.SeismicAttributeHorizon]:
-        
+        self,
+        search_key: Optional[str] = "",
+        search_value: Optional[str] = "",
+    ) -> list[osdu.SeismicAttributeHorizon]:
+
         # Search for all or selected objects of type GenericRepresentation
-        query =""
+        query = ""
 
         if search_key and search_value:
-            query =  f'tags.AttributeMap.FieldName:\"{search_value}\"'
+            query = f'tags.AttributeMap.FieldName:"{search_value}"'
 
         start_time = time.time()
         print("Searching for all attribute horizons ...")
@@ -246,7 +246,7 @@ class DefaultOsduService:
             query,
             limit=1000,
         )
-        
+
         # print("Query request:", query_request.kind)
 
         result = self.search_client.query_records(query_request, self.access_token)
@@ -258,7 +258,9 @@ class DefaultOsduService:
 
         if result.status_code == 200:
             osdu_objects = result.json().get("results")
-            print("Number of selected GenericRepresentation objects:", len(osdu_objects))
+            print(
+                "Number of selected GenericRepresentation objects:", len(osdu_objects)
+            )
             print()
 
             print("Extracting attribute data ...")
@@ -273,7 +275,8 @@ class DefaultOsduService:
                     id = osdu_object.get("id")
                     kind = osdu_object.get("kind")
                     Name = osdu_object.get("data").get("Name", "")
-                    print("  WARNING: Not possible to convert to SeismicAttributeHorizon - ",
+                    print(
+                        "  WARNING: Not possible to convert to SeismicAttributeHorizon - ",
                         Name,
                     )
 
@@ -286,7 +289,7 @@ class DefaultOsduService:
 
         print(" --- %s seconds ---" % (time.time() - start_time))
         print()
-        
+
         return seismic_attribute_horizons
 
     def get_seismic_trace_data(self, selected_name) -> list[osdu.SeismicTraceData]:
@@ -314,7 +317,7 @@ class DefaultOsduService:
             for osdu_object in osdu_objects:
                 try:
                     seismic_trace_data = self.parse_seismic_trace_data(osdu_object)
-                    
+
                     if seismic_trace_data.Name == selected_name:
                         seismic_trace_datas.append(seismic_trace_data)
                 except:
@@ -385,43 +388,52 @@ class DefaultOsduService:
 
         return seismic_surveys
 
-    def get_metadata_attributes(self,horizons):
+    def get_metadata_attributes(self, horizons):
         metadata_dicts = []
 
         for horizon in horizons:
             metadata_dicts.append(horizon.__dict__)
-            
+
         maps_df = pd.DataFrame(metadata_dicts)
         columns = maps_df.columns
-        new_columns = [col.replace('_', '.') for col in columns]
+        new_columns = [col.replace("_", ".") for col in columns]
         maps_df.columns = new_columns
 
         return maps_df
-    
-    def update_reference_dates(self,metadata_input):
+
+    def update_reference_dates(self, metadata_input):
         metadata = metadata_input.copy(deep=True)
         datesA = []
         datesB = []
+
+        metadata_version = metadata_input["MetadataVersion"].values[0]
 
         print("Extracting reference dates ...")
         start_time = time.time()
 
         for index, row in metadata.iterrows():
-            #print(row["Name"])
-            
-            seismic_nameA = row["SeismicProcessingTraces.SeismicVolumeA"]
+            # print(row["Name"])
+            if metadata_version == "0.4.2":
+                seismic_names = row["OsduSeismicTraceNames"]
+                seismic_nameA = seismic_names[1]
+                seismic_nameB = seismic_names[0]
+            else:
+                seismic_nameA = row["SeismicProcessingTraces.SeismicVolumeA"]
+                seismic_nameB = row["SeismicProcessingTraces.SeismicVolumeB"]
+
             seismic_nameA_data = self.get_seismic_trace_data(seismic_nameA)
 
             if len(seismic_nameA_data) > 0:
                 seismic_nameA_data = seismic_nameA_data[0]
-                acquisition_surveys = self.get_seismic_surveys(
-                    seismic_nameA_data
-                )
+                acquisition_surveys = self.get_seismic_surveys(seismic_nameA_data)
 
                 if len(acquisition_surveys) > 1:
                     print(row["Name"])
-                    print("  - WARNING: Number of selected acquisitions are:", len(acquisition_surveys))
-                
+                    print(
+                        "  - WARNING: Number of selected acquisitions are:",
+                        len(acquisition_surveys),
+                    )
+
                 acquisition_surveyA = acquisition_surveys[0]
             else:
                 acquisition_surveyA = self.empty_seismic_acquisition()
@@ -436,18 +448,18 @@ class DefaultOsduService:
             #     acquisition_surveyA.ProjectReferenceDate,
             # )
 
-            seismic_nameB = row["SeismicProcessingTraces.SeismicVolumeB"]
             seismic_nameB_data = self.get_seismic_trace_data(seismic_nameB)
 
             if len(seismic_nameB_data) > 0:
                 seismic_nameB_data = seismic_nameB_data[0]
-                acquisition_surveys = self.get_seismic_surveys(
-                    seismic_nameB_data
-                )
+                acquisition_surveys = self.get_seismic_surveys(seismic_nameB_data)
 
                 if len(acquisition_surveys) > 1:
-                    print("  - WARNING: Number of selected acquisitions are:", len(acquisition_surveys))
-                
+                    print(
+                        "  - WARNING: Number of selected acquisitions are:",
+                        len(acquisition_surveys),
+                    )
+
                 acquisition_surveyB = acquisition_surveys[0]
             else:
                 acquisition_surveyB = self.empty_seismic_acquisition()
@@ -467,7 +479,7 @@ class DefaultOsduService:
 
         metadata["AcquisitionDateA"] = datesA
         metadata["AcquisitionDateB"] = datesB
-    
+
         print(" --- %s seconds ---" % (time.time() - start_time))
         print()
 
@@ -475,7 +487,6 @@ class DefaultOsduService:
         print(metadata[selected])
 
         return metadata
-
 
     def get_horizon_map(self, file_id: str) -> np.ndarray:
         # Some file id taken from metadata can sometimes end with ':', so remove it just in case
@@ -498,7 +509,7 @@ class DefaultOsduService:
         try:
             file_result = requests.get(signed_url)
             file_result.raise_for_status()
-            
+
             return file_result
 
         except IndexError:
