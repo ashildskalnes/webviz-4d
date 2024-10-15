@@ -1,4 +1,3 @@
-import sys
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 import warnings
 from datetime import datetime
@@ -33,27 +32,23 @@ def main():
     ]
 
     updated_metadata = osdu_service.update_reference_dates(selected_attribute_maps)
-    print(updated_metadata[["Name","AttributeMap.AttributeType","AttributeMap.SeismicTraceContent","AttributeMap.Coverage","AcquisitionDateA", "AcquisitionDateB"]])
+    print(
+        updated_metadata[
+            [
+                "Name",
+                "AttributeMap.AttributeType",
+                "AttributeMap.SeismicTraceContent",
+                "AttributeMap.Coverage",
+                "AcquisitionDateA",
+                "AcquisitionDateB",
+            ]
+        ]
+    )
 
 
 if __name__ == "__main__":
     main()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

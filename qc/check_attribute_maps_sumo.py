@@ -79,11 +79,15 @@ def main():
     ]
 
     tagname = selected_row["tagname"].values[0]
-    print("tagname", tagname)
+    # print("tagname", tagname)
 
     ensemble = None
     real = None
 
+    print("Loading surface from SUMO")
+    print(" - tagname", tagname)
+
+    start_time = time.time()
     surface = get_selected_surface(
         case=my_case,
         map_type=map_type,
@@ -93,6 +97,9 @@ def main():
         iteration_name=ensemble,
         realization=real,
     )
+    print(" --- %s seconds ---" % (time.time() - start_time))
+    number_cells = surface.nrow * surface.ncol
+    print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
 
     print(surface)
 
