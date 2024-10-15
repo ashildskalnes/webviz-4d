@@ -6,19 +6,20 @@ import numpy as np
 def get_osdu_metadata_attributes(horizons):
     metadata_dicts = []
 
-    print("Compiling all attribute data ...")
+    # print("Compiling all attribute data ...")
     start_time = time.time()
 
     for horizon in horizons:
-        metadata_dicts.append(horizon.__dict__)
+        if horizon:
+            metadata_dicts.append(horizon.__dict__)
 
     maps_df = pd.DataFrame(metadata_dicts)
     columns = maps_df.columns
     new_columns = [col.replace("_", ".") for col in columns]
     maps_df.columns = new_columns
 
-    print(" --- %s seconds ---" % (time.time() - start_time))
-    print()
+    # print(" --- %s seconds ---" % (time.time() - start_time))
+    # print()
     return maps_df
 
 
@@ -46,17 +47,17 @@ def convert_metadata(osdu_metadata):
     ]
 
     for _index, row in osdu_metadata.iterrows():
-        if row["MetadataVersion"] == "0.4.2":
+        if "0.4.2" in row["MetadataVersion"]:
             field_name = row["FieldName"]
-            irap_binary_dataset_id = row["IrapBinaryID"]
+            id = row["id"]
             attribute_type = row["AttributeExtractionType"]
             seismic_content = row["SeismicTraceAttribute"]
             coverage = row["SeismicCoverage"]
             difference = row["SeismicDifferenceType"]
-            horizon_names = row["HorizonSourceNames"]
+            horizon_names = row["StratigraphicZone"]
         else:
             field_name = row["AttributeMap.FieldName"]
-            irap_binary_dataset_id = row["IrapBinaryID"]
+            id = row["IrapBinaryID"]
             attribute_type = row["AttributeMap.AttributeType"]
             seismic_content = row["AttributeMap.SeismicTraceContent"]
             coverage = row["AttributeMap.Coverage"]
@@ -74,19 +75,19 @@ def convert_metadata(osdu_metadata):
                 seismic_horizon = seismic_horizon.replace("+", "_")
                 horizon_names.append(seismic_horizon)
 
-                seismic_horizon = row["CalculationWindow.BaseHorizonName"]
-                seismic_horizon = seismic_horizon.replace("+", "_")
-                horizon_names.append(seismic_horizon)
+                # seismic_horizon = row["CalculationWindow.BaseHorizonName"]
+                # seismic_horizon = seismic_horizon.replace("+", "_")
+                # horizon_names.append(seismic_horizon)
 
         field_names.append(field_name)
-        datasets.append(irap_binary_dataset_id)
+        datasets.append(id)
         attributes.append(attribute_type)
         seismic_contents.append(seismic_content)
         coverages.append(coverage)
         differences.append(difference)
-        surface_names.append(horizon_names[0])
-        times1.append(row["AcquisitionDateB"])
-        times2.append(row["AcquisitionDateA"])
+        surface_names.append(horizon_names)
+        times1.append(row["AcquisitionDates"][0])
+        times2.append(row["AcquisitionDates"][1])
 
     zipped_list = list(
         zip(

@@ -16,8 +16,10 @@ def load_auto4d_metadata(
     auto4d_dir, file_ext, mdata_version, selections, acquisition_dates
 ):
     all_metadata = pd.DataFrame()
+    names = []
     surface_names = []
     attributes = []
+    dates = []
     times1 = []
     times2 = []
     seismic_contents = []
@@ -25,10 +27,16 @@ def load_auto4d_metadata(
     differences = []
     filenames = []
     field_names = []
+    bin_grid_names = []
+    strat_zones = []
+    map_dims = []
+    attribute_diff_types = []
 
     headers = [
+        "map_name",
         "name",
         "attribute",
+        "dates",
         "time.t1",
         "time.t2",
         "seismic",
@@ -36,6 +44,9 @@ def load_auto4d_metadata(
         "difference",
         "filename",
         "field_name",
+        "bin_grid_name",
+        "strat_zone",
+        "diff_type",
     ]
 
     # Search for all metadata files
@@ -82,7 +93,7 @@ def load_auto4d_metadata(
                         status = True
 
                 if status:
-                    name = metadata.get("Name")
+                    map_name = metadata.get("Name")
                     field_name = metadata.get("FieldName")
                     attribute_type = metadata.get("AttributeExtractionType")
                     seismic_content = metadata.get("SeismicTraceAttribute")
@@ -97,10 +108,16 @@ def load_auto4d_metadata(
                     seismic_horizon = seismic_horizons[0]
                     time1 = str(acquisition_dates.get(seismic_traces[1]))
                     time2 = str(acquisition_dates.get(seismic_traces[0]))
-                    filename = os.path.join(auto4d_dir, name + ".gri")
+                    filename = os.path.join(auto4d_dir, map_name + ".gri")
+                    bin_grid_name = metadata.get("SeismicBinGridName")
+                    strat_zone = metadata.get("StratigraphicZone")
+                    map_dim = metadata.get("MapTypeDimension")
+                    diff_type = metadata.get("AttributeDifferenceType")
 
+                    names.append(map_name)
                     surface_names.append(seismic_horizon)
                     attributes.append(attribute_type)
+                    dates.append([time1, time2])
                     times1.append(time1)
                     times2.append(time2)
                     seismic_contents.append(seismic_content)
@@ -108,6 +125,10 @@ def load_auto4d_metadata(
                     differences.append(difference)
                     filenames.append(filename)
                     field_names.append(field_name)
+                    bin_grid_names.append(bin_grid_name)
+                    strat_zones.append(strat_zone)
+                    map_dims.append(map_dim)
+                    attribute_diff_types.append(diff_type)
 
     else:
         print("ERROR: Unsupported file extension", file_ext)
@@ -118,8 +139,10 @@ def load_auto4d_metadata(
 
     zipped_list = list(
         zip(
+            names,
             surface_names,
             attributes,
+            dates,
             times1,
             times2,
             seismic_contents,
@@ -127,12 +150,18 @@ def load_auto4d_metadata(
             differences,
             filenames,
             field_names,
+            bin_grid_names,
+            strat_zones,
+            attribute_diff_types,
         )
     )
 
     all_metadata = pd.DataFrame(zipped_list, columns=headers)
     all_metadata.fillna(value=np.nan, inplace=True)
     all_metadata["map_type"] = "observed"
+    all_metadata["metadata_version"] = mdata_version
+    all_metadata["source_id"] = ""
+    all_metadata["map_dim"] = "4D"
 
     # print("DEBUG auto4d_metadata")
     # print(all_metadata)
@@ -143,7 +172,7 @@ def load_auto4d_metadata(
 def create_auto4d_lists(metadata, interval_mode):
     # Metadata 0.4.2
     selectors = {
-        "name": "name",
+        "strat_zone": "name",
         "interval": "interval",
         "attribute": "attribute",
         "seismic": "seismic",

@@ -7,8 +7,7 @@ import time
 from os import path
 import pandas as pd
 from datetime import datetime, timedelta
-
-import xtgeo.cxtgeo._cxtgeo as _cxtgeo
+from xtgeo import _cxtgeo
 
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,

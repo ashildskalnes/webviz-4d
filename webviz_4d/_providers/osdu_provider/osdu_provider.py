@@ -1,13 +1,7 @@
-import abc
 from typing import Optional
 from dataclasses import dataclass, field
-from typing import List
-import numpy as np
-import pandas as pd
 from pydantic import BaseModel
 from typing import Optional
-
-from webviz_4d._providers.osdu_provider.osdu_config import Config
 
 
 class Schema(BaseModel):
@@ -32,7 +26,7 @@ class SeismicHorizon:
 
 
 @dataclass
-class SeismicAttributeHorizon:
+class SeismicAttributeHorizon_033:
     id: str
     kind: str
     Name: str
@@ -61,6 +55,37 @@ class SeismicAttributeHorizon:
 
 @dataclass
 class SeismicAttributeHorizon_042:
+    id: str
+    kind: str
+    Name: str
+    MetadataVersion: str
+    FieldName: str
+    SeismicBinGridName: str
+    ApplicationName: str
+    MapTypeDimension: str
+    SeismicTraceDataSource: str
+    SeismicTraceDataSourceNames: list
+    SeismicTraceDomain: str
+    SeismicTraceAttribute: str
+    OsduSeismicTraceNames: list
+    SeismicDifferenceType: str
+    AttributeWindowMode: str
+    HorizonDataSource: str
+    HorizonSourceNames: list
+    StratigraphicZone: str
+    AttributeExtractionType: str
+    AttributeDifferenceType: str
+    SeismicCoverage: Optional[str] = "Unknown"
+    SeismicTraceDataSourceIDs: Optional[list] = field(default_factory=lambda: ["", ""])
+    StratigraphicColumn: Optional[str] = ""
+    HorizonSourceIDs: Optional[list] = field(default_factory=lambda: ["", ""])
+    HorizonOffsets: Optional[list] = field(default_factory=lambda: ["", ""])
+    FixedWindowValues: Optional[list] = field(default_factory=lambda: ["", ""])
+    IrapBinaryID: Optional[str] = ""
+
+
+@dataclass
+class SeismicAttributeInterpretation:
     id: str
     kind: str
     Name: str

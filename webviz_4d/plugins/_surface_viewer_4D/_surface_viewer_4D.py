@@ -227,7 +227,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.metadata_version = osdu.get("metadata_version")
             self.coverage = osdu.get("coverage")
             self.osdu_service = DefaultOsduService()  # type: ignore
-            self.label = "OSDU: " + self.field_name + " coverage:" + self.coverage
+            self.label = "OSDU: " + self.field_name + " coverage: " + self.coverage
 
             print("Surfaces from OSDU Core: ")
             print("  Loading metadata ...")
@@ -282,30 +282,41 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.rddms_status = True
             self.metadata_version = rddms.get("metadata_version")
             self.coverage = rddms.get("coverage")
+            self.dataspace = rddms.get("dataspace")
             self.rddms_service = DefaultRddmsService()  # type: ignore
             self.osdu_service = DefaultOsduService()  # type: ignore
-            self.dataspace = rddms.get("dataspace")
-            self.label = "RDDMS: " + self.field_name + " coverage:" + self.coverage
+
+            self.label = (
+                "RDDMS - "
+                + self.dataspace
+                + ": "
+                + self.field_name
+                + " coverage: "
+                + self.coverage
+            )
 
             print("Surfaces from RDDMS: ")
-            print("  Loading metadata ...")
-            print(self.label, self.metadata_version, self.coverage)
+            print(
+                "  Searching for seismic 4D attribute maps in RDDMS",
+                self.dataspace,
+                self.metadata_version,
+                self.field_name,
+                " ...",
+            )
 
-            cache_file = "rddms_metadata_cache_" + self.coverage + ".csv"
+            cache_file = "rddms_metadata_cache.csv"
             metadata_file_cache = os.path.join(settings_folder, cache_file)
 
             if os.path.isfile(metadata_file_cache):
                 print("  Reading cached metadata from", metadata_file_cache)
                 metadata = pd.read_csv(metadata_file_cache)
-                updated_metadata = metadata.loc[
-                    metadata["SeismicCoverage"] == self.coverage
-                ]
             else:
                 print("  Reading metadata from RDDMS ...")
                 attribute_horizons = self.rddms_service.get_attribute_horizons(
                     self.dataspace, self.field_name
                 )
                 metadata = get_osdu_metadata_attributes(attribute_horizons)
+                # print("DEBUG metadata", metadata)
                 selected_attribute_maps = metadata.loc[
                     (
                         (metadata["MetadataVersion"] == self.metadata_version)
@@ -317,19 +328,16 @@ class SurfaceViewer4D(WebvizPluginABC):
                 updated_metadata = self.osdu_service.update_reference_dates(
                     selected_attribute_maps
                 )
-                updated_metadata.to_csv(metadata_file_cache)
+                # updated_metadata.to_csv(metadata_file_cache)
 
-            validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] != ""]
-            attribute_metadata = validA.loc[validA["AcquisitionDateB"] != ""]
+            # validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] != ""]
+            # attribute_metadata = validA.loc[validA["AcquisitionDateB"] != ""]
 
-            self.surface_metadata = convert_metadata(attribute_metadata)
+            self.surface_metadata = convert_metadata(updated_metadata)
 
             self.selection_list = create_osdu_lists(
                 self.surface_metadata, interval_mode
             )
-
-            print("DEBUG selection_list")
-            pprint(self.selection_list)
 
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in RDDMS")
@@ -558,7 +566,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 & (self.surface_metadata["map_type"] == map_type)
                 & (self.surface_metadata["time.t1"] == time1)
                 & (self.surface_metadata["time.t2"] == time2)
-                & (self.surface_metadata["name"] == name)
+                & (self.surface_metadata["strat_zone"] == name)
                 & (self.surface_metadata["attribute"] == attribute)
             ]
 
@@ -613,8 +621,8 @@ class SurfaceViewer4D(WebvizPluginABC):
         name = data["name"]
         attribute = data["attr"]
 
-        print("DEBUG get_osdu_dataset_id")
-        print(name, self.surface_metadata["name"])
+        # print("DEBUG get_osdu_dataset_id")
+        # print(name, self.surface_metadata["name"])
 
         if self.interval_mode == "normal":
             time2 = selected_interval[0:10]
@@ -636,8 +644,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 & (self.surface_metadata["attribute"] == attribute)
             ]
 
-            print("Selected dataset info:")
-            print(map_type, real, ensemble, name, attribute, time1, time2)
+            # print("Selected dataset info:")
+            # print(map_type, real, ensemble, name, attribute, time1, time2)
 
             if len(selected_metadata) > 1:
                 print("WARNING number of datasets", len(selected_metadata))
@@ -714,14 +722,14 @@ class SurfaceViewer4D(WebvizPluginABC):
         min_max = [None, None]
         attribute_settings = self.attribute_settings
         settings = attribute_settings.get(attribute_type)
-        auto_scaling = settings.get("auto_scaling", 15)
+        auto_scaling = settings.get("auto_scaling", 10)
 
         if attribute_settings and attribute_type in attribute_settings.keys():
             colormap_type = attribute_settings.get(attribute_type).get("type")
             surface_max_val = surface.values.max()
             surface_min_val = surface.values.min()
 
-            scaled_value = abs(surface.values.mean())
+            scaled_value = abs(surface.values.std())
 
             if "mean" in attribute_type.lower():
                 scaled_value = (abs(surface_min_val) + abs(surface_max_val)) / 2
@@ -813,17 +821,16 @@ class SurfaceViewer4D(WebvizPluginABC):
                 toc = time.perf_counter()
 
         if self.rddms_status:
-            data_source = "OSDU"
-            dataset_id = self.get_osdu_dataset_id(data, ensemble, real, map_type)
+            data_source = "RDDMS"
+            uuid = self.get_osdu_dataset_id(data, ensemble, real, map_type)
 
-            if dataset_id is not None:
+            if uuid is not None:
                 print("Loading surface from", data_source)
-                surface = None
-                # tic = time.perf_counter()
-                # dataset = self.rddms_service.get_horizon_map(file_id=dataset_id)
-                # blob = io.BytesIO(dataset.content)
-                # surface = xtgeo.surface_from_file(blob)
-                # toc = time.perf_counter()
+                tic = time.perf_counter()
+                surface = self.rddms_service.get_rddms_map(
+                    dataspace_name=self.dataspace, uuid=uuid
+                )
+                toc = time.perf_counter()
 
         if self.osdu_status:
             data_source = "OSDU"
