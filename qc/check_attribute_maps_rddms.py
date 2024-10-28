@@ -11,67 +11,12 @@ from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduSe
 from webviz_4d._datainput._osdu import (
     get_osdu_metadata_attributes,
     convert_metadata,
-    create_osdu_lists,
 )
+
+from webviz_4d._datainput._rddms import get_rddms_dataset_id, create_rddms_lists
 
 rddms_service = DefaultRddmsService()
 osdu_service = DefaultOsduService()
-
-
-def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type):
-    selected_interval = data["date"]
-    name = data["name"]
-    attribute = data["attr"]
-
-    if selected_interval[0:10] > selected_interval[11:]:
-        time2 = selected_interval[0:10]
-        time1 = selected_interval[11:]
-    else:
-        time1 = selected_interval[0:10]
-        time2 = selected_interval[11:]
-
-    surface_metadata.replace(np.nan, "", inplace=True)
-
-    items = [
-        "difference",
-        "seismic",
-        "map_type",
-        "time.t1",
-        "time.t2",
-        "name",
-        "attribute",
-    ]
-    print()
-    print("Webviz-4D metadata")
-    print(surface_metadata[items])
-
-    try:
-        selected_metadata = surface_metadata[
-            (surface_metadata["difference"] == real)
-            & (surface_metadata["seismic"] == ensemble)
-            & (surface_metadata["map_type"] == map_type)
-            & (surface_metadata["time.t1"] == time1)
-            & (surface_metadata["time.t2"] == time2)
-            & (surface_metadata["name"] == name)
-            & (surface_metadata["attribute"] == attribute)
-        ]
-
-        print()
-        print("Selected dataset info:")
-        print(map_type, real, ensemble, name, attribute, time1, time2)
-
-        if len(selected_metadata) > 1:
-            print("WARNING number of datasets", len(selected_metadata))
-            print(selected_metadata)
-
-        dataset_id = selected_metadata["dataset_id"].values[0]
-        return dataset_id
-    except:
-        dataset_id = None
-        print("WARNING: Selected map not found in OSDU. Selection criteria are:")
-        print(map_type, real, ensemble, name, attribute, time1, time2)
-
-    return dataset_id
 
 
 def main():
@@ -91,7 +36,7 @@ def main():
     selected_dataspace = settings.get("dataspace")
     metadata_version = settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
-    field_name = "JOHAN SVERDRUP"
+    field_name = shared_settings.get("field_name")
     selections = None
 
     print("Searching for Dataspaces in RDDMS:")
@@ -100,29 +45,8 @@ def main():
     for dataspace in dataspaces:
         print("Dataspace:", dataspace)
 
-    #     print(
-    #         "Searching for seismic 4D attribute maps in dataspace",
-    #         dataspace,
-    #         metadata_version,
-    #         " ...",
-    #     )
-
-    #     attribute_horizons = rddms_service.get_attribute_horizons(dataspace)
-    #     print(" - Number of Grid2Representations:", len(attribute_horizons))
-
-    #     for attribute_horizon in attribute_horizons:
-    #         if attribute_horizon:
-    #             print(
-    #                 "   -",
-    #                 attribute_horizon.FieldName,
-    #                 attribute_horizon.Name,
-    #                 attribute_horizon.id,
-    #             )
-    #     print()
-
     print("-----------------------------------------------------------------")
 
-    selected_dataspace = "maap/demo"
     print(
         "Searching for seismic 4D attribute maps in RDDMS",
         selected_dataspace,
@@ -130,8 +54,6 @@ def main():
         field_name,
         " ...",
     )
-
-    print("  Reading metadata from RDDMS ...")
 
     attribute_horizons = rddms_service.get_attribute_horizons(
         selected_dataspace, field_name
@@ -144,6 +66,7 @@ def main():
                 attribute_horizon.FieldName,
                 attribute_horizon.Name,
                 attribute_horizon.id,
+                attribute_horizon.DatasetIDs,
             )
 
     metadata = get_osdu_metadata_attributes(attribute_horizons)
@@ -166,6 +89,7 @@ def main():
     }
 
     standard_metadata = pd.DataFrame()
+
     for key, value in data_viewer_columns.items():
         standard_metadata[key] = updated_metadata[value]
 
@@ -193,7 +117,7 @@ def main():
     updated_metadata.to_csv(output_file)
     print("All metadata writen to", output_file)
 
-    selection_list = create_osdu_lists(converted_metadata, interval_mode)
+    selection_list = create_rddms_lists(converted_metadata, interval_mode)
 
     print()
     print("Webviz-4D selection list")
@@ -203,7 +127,7 @@ def main():
     data_source = "RDDMS"
     attribute = "Average"
     name = "Total"
-    map_type = "observed"
+    map_type = "simulated"
     seismic = "SWAT"
     difference = "NotTimeshifted"
     interval = "2021-05-17-2020-09-30"
@@ -213,16 +137,23 @@ def main():
 
     data = {"attr": attribute, "name": name, "date": interval}
 
-    uuid = get_osdu_dataset_id(converted_metadata, data, ensemble, real, map_type)
+    uuid_url = get_rddms_dataset_id(converted_metadata, data, ensemble, real, map_type)
+    selected_metadata = converted_metadata[converted_metadata["dataset_id"] == uuid_url]
+    uuid = selected_metadata["id"].values[0]
+    horizon_name = selected_metadata["original_name"].values[0]
 
     if uuid is not None:
         print()
         print("Loading surface from", data_source)
         print(" - uuid", uuid)
+        print(" - uuid_url", uuid_url)
 
         start_time = time.time()
         surface = rddms_service.get_rddms_map(
-            dataspace_name=selected_dataspace, uuid=uuid
+            dataspace_name=selected_dataspace,
+            horizon_name=horizon_name,
+            uuid=uuid,
+            uuid_url=uuid_url,
         )
         print(" --- %s seconds ---" % (time.time() - start_time))
         number_cells = surface.nrow * surface.ncol
@@ -230,7 +161,7 @@ def main():
 
         print()
         print(surface)
-        # surface.quickplot(seismic)
+        surface.quickplot(seismic)
 
 
 if __name__ == "__main__":

@@ -1,16 +1,33 @@
+import os
 import numpy as np
 import pandas as pd
-from webviz_4d._datainput._osdu import DefaultOsduService
-
-import warnings
+import time
 from datetime import datetime
+
+from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
+from webviz_4d._datainput._osdu import (
+    get_osdu_metadata_attributes,
+    convert_metadata,
+)
+import warnings
+
+
 warnings.filterwarnings("ignore")
-        
+
 
 def main():
     osdu_service = DefaultOsduService()
-    js_acquisitions = ["EQ19231", "EQ20231", "EQ21200", "EQ22200", "EQ22205", "EQ23200", "EQ23205"]
-    js_processings = ["EQ19231DZC23A-JOHAN-SVERDRUP-PRM", 
+    js_acquisitions = [
+        "EQ19231",
+        "EQ20231",
+        "EQ21200",
+        "EQ22200",
+        "EQ22205",
+        "EQ23200",
+        "EQ23205",
+    ]
+    js_processings = [
+        "EQ19231DZC23A-JOHAN-SVERDRUP-PRM",
         "EQ20231DZC23A-JOHAN-SVERDRUP-PRM",
         "EQ21200DZC23A-JOHAN-SVERDRUP-PRM",
         "EQ22200DZC23A-JOHAN-SVERDRUP-PRM",
@@ -18,7 +35,8 @@ def main():
         "EQ23200DZC23A-JOHAN-SVERDRUP-PRM",
         "EQ23205DZC23B-JOHAN-SVERDRUP-PRM",
     ]
-    js_cubes = ["EQ19231DZC23A-KPSDM-RAW-FULL-0535-TIME",
+    js_cubes = [
+        "EQ19231DZC23A-KPSDM-RAW-FULL-0535-TIME",
         "EQ20231DZC23A-KPSDM-RAW-FULL-0535-TIME",
         "EQ21200DZC23A-KPSDM-RAW-FULL-0535-TIME",
         "EQ22200DZC23A-KPSDM-RAW-FULL-0535-TIME",
@@ -41,151 +59,126 @@ def main():
         "data.time.t2",
         "dataset_ids",
     ]
-    attribute_horizons = osdu_service.get_attribute_horizons()
-    print("Seismic 4D attribute maps from OSDU:", len(attribute_horizons))
-    
-    for horizon in attribute_horizons:
-        ow_name=horizon.ow_horizon_name
-        monitor_date=horizon.monitor_date
-        base_date=horizon.base_date
-        seismic_content=horizon.seismic_content
-        horizon_content=horizon.horizon_content
 
-        names.append(ow_name)
-        date_reformat = (
-                monitor_date[6:10] + "-" + monitor_date[3:5] + "-" + monitor_date[0:2]
-            )
-        times2.append(date_reformat)
-        date_reformat = (
-                base_date[6:10] + "-" + base_date[3:5] + "-" + base_date[0:2]
-            )
-        times1.append(date_reformat)
-        attribute = seismic_content + "_" + horizon_content
-        attributes.append(attribute)
+    metadata_version = "0.3.3"
+    updated_version = "0.4.2*"
+    field_name = "JOHAN SVERDRUP"
 
-        dataset_ids = osdu_service.get_dataset_ids(horizon)
-        print("  - Datasets:")
+    config_folder = "/private/ashska/dev_311/my_forks/fields/johan_sverdrup/osdu_config"
+    cache_file = "metadata_cache.csv"
+    metadata_file_cache = os.path.join(config_folder, cache_file)
 
-        for dataset_id in dataset_ids:
-            print("    - dataset_id:",dataset_id[:-1])
-            dataset_info = osdu_service.get_dataset_info(dataset_id)
+    if os.path.isfile(metadata_file_cache):
+        print("  Reading cached metadata from", metadata_file_cache)
+        metadata = pd.read_csv(metadata_file_cache)
+        metadata = metadata.replace("---", "")
+        updated_metadata = metadata.loc[
+            (metadata["FieldName"] == field_name)
+            & (metadata["MetadataVersion"] == updated_version)
+        ]
 
-            if dataset_info:
-                print("      - Source:", dataset_info.source)
-                print("      - Name:", dataset_info.name)
-
-                if dataset_info.source == "OpenWorks":
-                    datasets.append(dataset_id)
-    zipped_list = list(
-        zip(
-            names,
-            attributes,
-            times1,
-            times2,
-            datasets,
+    else:
+        print("Extracting metadata from OSDU Core ...")
+        attribute_horizons = osdu_service.get_attribute_horizons(
+            field_name=field_name, metadata_version=metadata_version
         )
-    )
+        print("Number of valid attribute maps:", len(attribute_horizons))
 
-    metadata = pd.DataFrame(zipped_list, columns=headers)
-    metadata.fillna(value=np.nan, inplace=True)
+        metadata = get_osdu_metadata_attributes(attribute_horizons)
 
-    metadata["fmu_id.realization"] = "---"
-    metadata["fmu_id.iteration"] = "---"
-    metadata["map_type"] = "observed"
-    metadata["statistics"] = ""
+        updated_metadata = osdu_service.update_reference_dates(metadata)
+        updated_metadata.to_csv(metadata_file_cache)
+        print("Updated metadata stored to:", metadata_file_cache)
 
-    print("Metadata overview")
-    #pd.set_option('display.max_columns', None)
-    print(metadata)
-    print()
+    data_viewer_columns = {
+        "FieldName": "FieldName",
+        "Name": "Name",
+        "Zone": "StratigraphicZone",
+        "MapTypeDim": "MapTypeDimension",
+        "SeismicAttribute": "SeismicTraceAttribute",
+        "AttributeType": "AttributeExtractionType",
+        "Coverage": "SeismicCoverage",
+        "DifferenceType": "SeismicDifferenceType",
+        "AttributeDiff": "AttributeDifferenceType",
+        "Dates": "AcquisitionDates",
+        "Version": "MetadataVersion",
+    }
+
+    standard_metadata = pd.DataFrame()
+    for key, value in data_viewer_columns.items():
+        standard_metadata[key] = updated_metadata[value]
+
+    pd.set_option("display.max_rows", None)
+    print(standard_metadata)
 
     # Seismic horizons (structural interpretations)
-    horizons = osdu_service.get_seismic_horizons("")
-    print("Seismic horizons from OSDU:", len(horizons))
-    
-    for horizon in horizons:
-        name = horizon.name
-        id = horizon.id
-        dataset_ids = horizon.datasets
+    osdu_objects = osdu_service.get_seismic_horizons()
+    print("Seismic horizons from OSDU:", len(osdu_objects))
 
-        print("Horizon name:",name)
-        print("  - id:",id)
-        print("  - Datasets:")
+    seismic_horizons = []
 
-        for dataset_id in dataset_ids:
-            print("    - dataset_id:",dataset_id[:-1])
-            dataset_info = osdu_service.get_dataset_info(dataset_id)
+    for index, osdu_object in enumerate(osdu_objects):
+        seismic_horizon = osdu_service.parse_seismic_horizon(osdu_object)
 
-            try:
-                print("      - Source:", dataset_info.source)
-                print("      - Name:", dataset_info.name)
-            except:
-                print("      ERROR: invalid dataset information")
+        if seismic_horizon:
+            if seismic_horizon.FieldID != "":
+                print(index, seismic_horizon.Name, seismic_horizon.FieldID)
+                seismic_horizons.append(seismic_horizon)
 
     print("")
 
     # Seismic cubes
-    seismic_cubes = osdu_service.get_seismic_cubes(js_cubes)
-    print("Seismic cubes (JS) from OSDU:",len(seismic_cubes))
+    for seismic_cube in js_cubes:
+        seismic_cubes = osdu_service.get_seismic_trace_data(seismic_cube)
 
-    for cube in seismic_cubes:
-        print("Name:",cube.name)
-        print("  - id:",cube.id)
-        #print("  - source:", cube.source)
-        print("  - domain:", cube.domain)
-        print("  - inline_min:", cube.inline_min)
-        print("  - inline_max:", cube.inline_max)
-        print("  - xline_min:", cube.xline_min)
-        print("  - xline_max:", cube.xline_max)
-        print("  - sample_interval:", cube.sample_interval)
-        print("  - sample_count:", cube.sample_count)
+        if len(seismic_cubes) == 1:
+            cube = seismic_cubes[0]
+            print("Name:", cube.Name)
+            print("  - id:", cube.id)
+            print("  - domain:", cube.SeismicDomainTypeID)
+            print("  - inline_min:", cube.InlineMin)
+            print("  - inline_max:", cube.InlineMax)
+            print("  - xline_min:", cube.CrosslineMin)
+            print("  - xline_max:", cube.CrosslineMax)
+            print("  - sample_interval:", cube.SampleInterval)
+            print("  - sample_count:", cube.SampleCount)
+            print("  - dataset_id:", cube.DatasetID)
 
     print("")
 
     # Seismic processing projects
     processings = osdu_service.get_seismic_processings(js_processings)
-    print("Seismic processing projects (JS) from OSDU:",len(processings))
+    print("Seismic processing projects (JS) from OSDU:", len(processings))
 
     for processing in processings:
         project_name = processing.project_name
         id = processing.id
 
-        print("Project name:",project_name)
-        print("  - id:",id)
+        print("Project name:", project_name)
+        print("  - id:", id)
 
     print("")
 
     # Seismic acquisition surveys
     acquisitions = osdu_service.get_seismic_acquisitions(js_acquisitions)
-    print("Seismic acquisitions (JS) from OSDU:",len(acquisitions))
+    print("Seismic acquisitions (JS) from OSDU:", len(acquisitions))
 
     for acquisition in acquisitions:
         name = acquisition.name
         id = acquisition.id
 
-        begin_date = datetime.strptime(acquisition.begin_date[:10],"%Y-%m-%d")
-        end_date = datetime.strptime(acquisition.end_date[:10],"%Y-%m-%d")
-        reference_date = begin_date + (end_date - begin_date)/2
+        begin_date = datetime.strptime(acquisition.begin_date[:10], "%Y-%m-%d")
+        end_date = datetime.strptime(acquisition.end_date[:10], "%Y-%m-%d")
+        reference_date = begin_date + (end_date - begin_date) / 2
 
-        print("Project name:",name)
-        print("  - id:",id)
-        print("  - begin_date:", datetime.strftime(begin_date,"%Y-%m-%d" ))
-        print("  - end_date:", datetime.strftime(end_date,"%Y-%m-%d" )) 
-        print("  - ref_date:", datetime.strftime(reference_date,"%Y-%m-%d" )) 
+        print("Project name:", name)
+        print("  - id:", id)
+        print("  - begin_date:", datetime.strftime(begin_date, "%Y-%m-%d"))
+        print("  - end_date:", datetime.strftime(end_date, "%Y-%m-%d"))
+        print("  - ref_date:", datetime.strftime(reference_date, "%Y-%m-%d"))
 
     print("")
 
-    
 
-    
-
-
-        
-    
-
-
-
-   
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

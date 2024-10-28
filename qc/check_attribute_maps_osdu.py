@@ -7,6 +7,7 @@ import argparse
 import warnings
 from datetime import datetime
 import xtgeo
+from ast import literal_eval
 from pprint import pprint
 
 
@@ -73,6 +74,9 @@ def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type):
         print("WARNING: Selected map not found in OSDU. Selection criteria are:")
         print(map_type, real, ensemble, name, attribute, time1, time2)
 
+    if type(dataset_id) == str:
+        dataset_id = literal_eval(dataset_id)
+
     return dataset_id
 
 
@@ -98,7 +102,7 @@ def main():
 
     if os.path.isfile(metadata_file_cache):
         print("  Reading cached metadata from", metadata_file_cache)
-        metadata = pd.read_csv(metadata_file_cache)
+        updated_metadata = pd.read_csv(metadata_file_cache)
     else:
         print("Extracting metadata from OSDU Core ...")
         start_time = time.time()
@@ -115,13 +119,10 @@ def main():
         updated_metadata.to_csv(metadata_file_cache)
         print("Updated metadata stored to:", metadata_file_cache)
 
-    updated_metadata = osdu_service.update_reference_dates(metadata)
-
     print(updated_metadata)
 
     data_viewer_columns = {
         "FieldName": "FieldName",
-        "BinGridName": "SeismicBinGridName",
         "Name": "Name",
         "Zone": "StratigraphicZone",
         "MapTypeDim": "MapTypeDimension",
@@ -148,23 +149,26 @@ def main():
     standard_metadata.to_csv(output_file)
     print("Standard metadata written to", output_file)
 
-    converted_metadata = convert_metadata(updated_metadata)
-    print()
-    print(converted_metadata)
+    field_names = updated_metadata["FieldName"].unique()
 
-    output_file = os.path.join(
-        config_folder, "metadata_" + os.path.basename(config_file)
-    )
-    output_file = output_file.replace("yaml", "csv")
-    updated_metadata.to_csv(output_file)
-    print("All metadata writen to", output_file)
+    metadata_dicts = {}
 
-    selection_list = create_osdu_lists(converted_metadata, interval_mode)
+    for field_name in field_names:
+        print("Field name:", field_name)
+        selected_field_metadata = updated_metadata[
+            updated_metadata["FieldName"] == field_name
+        ]
 
-    print()
-    pprint(selection_list)
+        converted_metadata = convert_metadata(selected_field_metadata)
+        metadata_dicts.update({field_name: converted_metadata})
+        print(converted_metadata)
+        print()
+
+        selection_list = create_osdu_lists(converted_metadata, interval_mode)
+        pprint(selection_list)
 
     # Extract a selected map
+    field_name = "JOHAN SVERDRUP"
     data_source = "OSDU"
     attribute = "MaxPositive"
     name = "FullReservoirEnvelope"
@@ -177,6 +181,7 @@ def main():
     real = difference
 
     data = {"attr": attribute, "name": name, "date": interval}
+    converted_metadata = metadata_dicts.get(field_name)
 
     dataset_id = get_osdu_dataset_id(converted_metadata, data, ensemble, real, map_type)
 
