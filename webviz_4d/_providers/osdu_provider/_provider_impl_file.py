@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime
 import time
 import requests
+import json
+from ast import literal_eval
 
 from osdu_api.clients.search.search_client import SearchClient
 from osdu_api.clients.dataset.dataset_dms_client import DatasetDmsClient
@@ -47,6 +49,80 @@ class DefaultOsduService:
                 osdu_object = osdu_objects[0]
 
         return osdu_object
+
+    def parse_seismic_horizon(self, osdu_object: dict) -> osdu.SeismicHorizon:
+        Name = ""
+        FieldID = ""
+        SeismicDomainTypeID = ""
+        Datasets = []
+        InterpretationName = ""
+        BinGridID = ""
+        SeismicTraceDataID = ""
+        InlineMin = np.nan
+        InlineMax = np.nan
+        InlineIncrement = np.nan
+        CrosslineMin = np.nan
+        CrosslineMax = np.nan
+        CrosslineIncrement = np.nan
+
+        id = osdu_object.get("id")
+        kind = osdu_object.get("kind")
+        data = osdu_object.get("data")
+        tags = None
+
+        if data:
+            Name = data.get("Name", "")
+            geo_context = data.get("GeoContexts", None)
+
+            if geo_context and type(geo_context):
+                geo_context_2 = geo_context[2]
+                FieldID = geo_context_2.get("FieldID", "")
+
+            SeismicDomainTypeID = data.get("SeismicDomainTypeID", "")
+            Datasets = data.get("Datasets", "")
+            InterpretationName = data.get("InterpretationName", "")
+            BinGridID = data.get("BinGridID", "")
+            InlineMin = data.get("InlineMin", "")
+            InlineMax = data.get("InlineMax", "")
+            CrosslineMin = data.get("CrosslineMin", "")
+            CrosslineMax = data.get("CrosslineMax", "")
+            tags = data.get("tags")
+
+        if tags:
+            InlineIncrement = tags.get("InlineIncrement", "")
+            CrosslineIncrement = tags.get("CrosslineIncrement", "")
+
+            if InlineMin == "":
+                InlineMin = tags.get("InlineMin", "")
+
+            if InlineMax == "":
+                InlineMax = tags.get("InlineMax", "")
+
+            if CrosslineMin == "":
+                CrosslineMin = tags.get("CrosslineMin", "")
+
+            if CrosslineMax == "":
+                CrosslineMax = tags.get("CrosslineMax", "")
+
+        seismic_horizon = osdu.SeismicHorizon(
+            id,
+            kind,
+            Name,
+            FieldID,
+            SeismicDomainTypeID,
+            Datasets,
+            InterpretationName,
+            BinGridID,
+            SeismicTraceDataID,
+            InlineMin,
+            InlineMax,
+            InlineIncrement,
+            CrosslineMin,
+            CrosslineMax,
+            CrosslineIncrement,
+        )
+
+        return seismic_horizon
 
     def parse_seismic_attribute_horizon(
         self, osdu_object: dict
@@ -102,9 +178,7 @@ class DefaultOsduService:
             )
         else:
             print(Name, "  - WARNING: WindowMode is not valid:", WindowMode)
-            map = osdu.SeismicAttributeHorizon(
-                id=id, kind=kind, Name=Name, Source=Source
-            )
+            attribute_horizon = None
 
         if WindowMode == "BetweenHorizons" or WindowMode == "AroundHorizon":
             all_datasets = osdu_object.get("data").get("Datasets")
@@ -159,7 +233,7 @@ class DefaultOsduService:
                 SeismicProcessingTraces_SeismicVolumeB=osdu_object.get("tags").get(
                     "SeismicProcessingTraces.SeismicVolumeB", ""
                 ),
-                IrapBinaryID=irap_dataset_id,
+                DatasetIDs=[irap_dataset_id],
             )
 
         return attribute_horizon
@@ -179,6 +253,7 @@ class DefaultOsduService:
             PrincipalAcquisitionProjectID=osdu_object.get("data").get(
                 "PrincipalAcquisitionProjectID", ""
             ),
+            DatasetID=osdu_object.get("data").get("Datasets")[0],
         )
 
         return seismic_trace_data
@@ -276,7 +351,15 @@ class DefaultOsduService:
         ):
             zone = "3D+IUTU+JS+Z22+Merge_EQ20231_PH2DG3"
         else:
-            zone = ""
+            if attribute_horizon.CalculationWindow_TopHorizonName != "":
+                zone = attribute_horizon.CalculationWindow_TopHorizonName
+            elif attribute_horizon.CalculationWindow_TopHorizonName != "":
+                zone = attribute_horizon.CalculationWindow_HorizonName
+            elif attribute_horizon.CalculationWindow_HorizonName != "":
+                zone = attribute_horizon.CalculationWindow_HorizonName
+            else:
+                print("WARNING:", attribute_horizon.Name, "Zone = Unknown")
+                zone = "Unknown"
 
         seismic_attribute_horizon = osdu.SeismicAttributeInterpretation(
             id=attribute_horizon.id,
@@ -305,7 +388,7 @@ class DefaultOsduService:
             HorizonSourceIDs=["", ""],
             HorizonOffsets=horizon_offsets,
             FixedWindowValues=["", ""],
-            IrapBinaryID=attribute_horizon.IrapBinaryID,
+            DatasetIDs=attribute_horizon.DatasetIDs,
         )
 
         return seismic_attribute_horizon
@@ -313,7 +396,7 @@ class DefaultOsduService:
     def get_attribute_horizons(
         self,
         field_name: Optional[str] = "",
-        metadata_version: Optional[str] = "",
+        metadata_version: Optional[str] = "0.4.2",
     ) -> list[osdu.SeismicAttributeInterpretation]:
 
         # Search for all or selected objects of type GenericRepresentation or SeismicAttributeInterpretation
@@ -340,7 +423,7 @@ class DefaultOsduService:
         else:
             kinds = [metadata_version]
 
-        print("Searching for attribute horizons ...", field_name, metadata_version)
+        print("Searching for attribute horizons:", field_name, metadata_version, "...")
 
         if field_name != "":
             # query = field_name_options.get(metadata_version)
@@ -348,7 +431,7 @@ class DefaultOsduService:
 
         for kind in kinds:
             query_request = QueryRequest(
-                versions.get(metadata_version), query, limit=50
+                versions.get(metadata_version), query, limit=1000
             )
             # print("Query request:", query_request.kind)
 
@@ -402,6 +485,39 @@ class DefaultOsduService:
         print()
 
         return attribute_horizons
+
+    def get_seismic_horizons(
+        self,
+        field_name: Optional[str] = "",
+    ) -> list[osdu.SeismicHorizon]:
+        # Search for all or selected objects of type SeismicHorizon
+
+        query = ""
+        kind = "osdu:wks:work-product-component--SeismicHorizon:1.2.0"
+
+        print("Searching for seismic horizons:", field_name, "...")
+
+        if field_name != "":
+            query = f'tags.FieldName:"{field_name}"'
+
+        query_request = QueryRequest(kind, query, limit=800)
+
+        result = self.search_client.query_records(query_request, self.access_token)
+        result.raise_for_status()
+
+        if result.status_code == 200:
+            osdu_objects = result.json().get("results")
+            print(
+                "Number of",
+                kind,
+                "objects found:",
+                len(osdu_objects),
+            )
+            print()
+
+        print()
+
+        return osdu_objects
 
     def get_seismic_trace_data(self, selected_name) -> list[osdu.SeismicTraceData]:
         # Search for objects of type SeismicTraceData
@@ -526,6 +642,10 @@ class DefaultOsduService:
             dateB = ""
 
             seismic_names = row["OsduSeismicTraceNames"]
+
+            if type(seismic_names) is str:
+                seismic_names = literal_eval(seismic_names)
+
             seismic_nameA = seismic_names[1]
             seismic_nameB = seismic_names[0]
             # else:

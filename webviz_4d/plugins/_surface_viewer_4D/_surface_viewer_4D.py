@@ -9,7 +9,6 @@ import pandas as pd
 import xtgeo
 import logging
 import time
-from io import BytesIO
 from pprint import pprint
 
 from fmu.sumo.explorer import Explorer
@@ -62,6 +61,10 @@ from webviz_4d._datainput._osdu import (
     create_osdu_lists,
 )
 
+from webviz_4d._datainput._rddms import (
+    create_rddms_lists,
+)
+
 from webviz_4d._datainput._fmu import (
     load_fmu_metadata,
     create_fmu_lists,
@@ -97,7 +100,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         app,
         well_folder: Path = None,
         production_data: Path = None,
-        polygons_folder: Path = None,
         colormaps_folder: Path = None,
         map1_defaults: dict = None,
         map2_defaults: dict = None,
@@ -233,42 +235,45 @@ class SurfaceViewer4D(WebvizPluginABC):
             print("  Loading metadata ...")
             print(self.label, self.metadata_version, self.coverage)
 
-            osdu_key = "tags.AttributeMap.FieldName"
-            osdu_value = self.field_name
-
-            cache_file = "metadata_cache_" + self.coverage + ".csv"
+            cache_file = "metadata_cache.csv"
             metadata_file_cache = os.path.join(settings_folder, cache_file)
 
             if os.path.isfile(metadata_file_cache):
                 print("  Reading cached metadata from", metadata_file_cache)
                 metadata = pd.read_csv(metadata_file_cache)
                 updated_metadata = metadata.loc[
-                    metadata["AttributeMap.Coverage"] == self.coverage
+                    metadata["SeismicCoverage"] == self.coverage
                 ]
             else:
                 print("  Reading metadata from OSDU Core ...")
                 attribute_horizons = self.osdu_service.get_attribute_horizons(
-                    osdu_key, osdu_value
+                    field_name=self.field_name, metadata_version=self.metadata_version
                 )
+
+                if len(attribute_horizons) == 0:
+                    print(" - execution stopped")
+                    exit()
+
                 metadata = get_osdu_metadata_attributes(attribute_horizons)
                 selected_attribute_maps = metadata.loc[
                     (
                         (metadata["MetadataVersion"] == self.metadata_version)
-                        & (metadata["Name"] == metadata["AttributeMap.Name"])
-                        & (metadata["AttributeMap.FieldName"] == self.field_name)
-                        & (metadata["AttributeMap.Coverage"] == self.coverage)
+                        & (metadata["Name"] == metadata["Name"])
+                        & (metadata["FieldName"] == self.field_name)
+                        & (metadata["SeismicCoverage"] == self.coverage)
                     )
                 ]
+
+                # print("DEBUG selected_attribute_maps")
+                # print(selected_attribute_maps)
 
                 updated_metadata = self.osdu_service.update_reference_dates(
                     selected_attribute_maps
                 )
                 updated_metadata.to_csv(metadata_file_cache)
+                print("Updated metadata written to", metadata_file_cache)
 
-            validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] != ""]
-            attribute_metadata = validA.loc[validA["AcquisitionDateB"] != ""]
-
-            self.surface_metadata = convert_metadata(attribute_metadata)
+            self.surface_metadata = convert_metadata(updated_metadata)
 
             self.selection_list = create_osdu_lists(
                 self.surface_metadata, interval_mode
@@ -286,14 +291,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.rddms_service = DefaultRddmsService()  # type: ignore
             self.osdu_service = DefaultOsduService()  # type: ignore
 
-            self.label = (
-                "RDDMS - "
-                + self.dataspace
-                + ": "
-                + self.field_name
-                + " coverage: "
-                + self.coverage
-            )
+            self.label = "RDDMS - " + self.dataspace + ": " + self.field_name
 
             print("Surfaces from RDDMS: ")
             print(
@@ -330,12 +328,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 )
                 # updated_metadata.to_csv(metadata_file_cache)
 
-            # validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] != ""]
-            # attribute_metadata = validA.loc[validA["AcquisitionDateB"] != ""]
-
             self.surface_metadata = convert_metadata(updated_metadata)
 
-            self.selection_list = create_osdu_lists(
+            self.selection_list = create_rddms_lists(
                 self.surface_metadata, interval_mode
             )
 
@@ -616,6 +611,48 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return path
 
+    def get_rddms_dataset_id(self, data, ensemble, real, map_type):
+        selected_interval = data["date"]
+        name = data["name"]
+        attribute = data["attr"]
+
+        if selected_interval[0:10] > selected_interval[11:]:
+            time2 = selected_interval[0:10]
+            time1 = selected_interval[11:]
+        else:
+            time1 = selected_interval[0:10]
+            time2 = selected_interval[11:]
+
+        self.surface_metadata.replace(np.nan, "", inplace=True)
+
+        try:
+            selected_metadata = self.surface_metadata[
+                (self.surface_metadata["difference"] == real)
+                & (self.surface_metadata["seismic"] == ensemble)
+                & (self.surface_metadata["map_type"] == map_type)
+                & (self.surface_metadata["time.t1"] == time1)
+                & (self.surface_metadata["time.t2"] == time2)
+                & (self.surface_metadata["name"] == name)
+                & (self.surface_metadata["attribute"] == attribute)
+            ]
+
+            print()
+            print("Selected dataset info:")
+            print(map_type, real, ensemble, name, attribute, time1, time2)
+
+            if len(selected_metadata) > 1:
+                print("WARNING number of datasets", len(selected_metadata))
+                print(selected_metadata)
+
+            dataset_id = selected_metadata["dataset_id"].values[0]
+            return dataset_id
+        except:
+            dataset_id = None
+            print("WARNING: Selected map not found in RDDMS. Selection criteria are:")
+            print(map_type, real, ensemble, name, attribute, time1, time2)
+
+        return dataset_id
+
     def get_osdu_dataset_id(self, data, ensemble, real, map_type):
         selected_interval = data["date"]
         name = data["name"]
@@ -632,6 +669,11 @@ class SurfaceViewer4D(WebvizPluginABC):
             time2 = selected_interval[11:]
 
         self.surface_metadata.replace(np.nan, "", inplace=True)
+
+        print("DEBUG get_osdu_dataset_id surface_metadata")
+        print(self.surface_metadata)
+
+        print(real, ensemble, map_type, time1, time2, name, attribute)
 
         try:
             selected_metadata = self.surface_metadata[
@@ -822,15 +864,30 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         if self.rddms_status:
             data_source = "RDDMS"
-            uuid = self.get_osdu_dataset_id(data, ensemble, real, map_type)
+            uuid_url = self.get_rddms_dataset_id(data, ensemble, real, map_type)
 
-            if uuid is not None:
+            if uuid_url is not None:
+                selected_metadata = self.surface_metadata[
+                    self.surface_metadata["dataset_id"] == uuid_url
+                ]
+                uuid = selected_metadata["id"].values[0]
+                horizon_name = selected_metadata["original_name"].values[0]
+
                 print("Loading surface from", data_source)
+                print(" - uuid", uuid)
+                print(" - uuid_url", uuid_url)
+
                 tic = time.perf_counter()
                 surface = self.rddms_service.get_rddms_map(
-                    dataspace_name=self.dataspace, uuid=uuid
+                    dataspace_name=self.dataspace,
+                    horizon_name=horizon_name,
+                    uuid=uuid,
+                    uuid_url=uuid_url,
                 )
                 toc = time.perf_counter()
+
+                print("DEBUG rddms surface")
+                print(surface)
 
         if self.osdu_status:
             data_source = "OSDU"

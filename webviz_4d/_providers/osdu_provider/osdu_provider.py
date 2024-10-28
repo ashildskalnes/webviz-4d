@@ -13,12 +13,19 @@ class Schema(BaseModel):
 class SeismicHorizon:
     id: str
     kind: str
-    name: str
-    datasets: list[str]
-    interpretation_name: str
-    bin_grid_id: str
-    seismic_trace_id: str
-    remark: str
+    Name: str
+    FieldID: str
+    SeismicDomainTypeID: str
+    Datasets: list[str]
+    InterpretationName: str
+    BinGridID: str
+    SeismicTraceDataID: str
+    InlineMin: float
+    InlineMax: float
+    InlineIncrement: float
+    CrosslineMin: float
+    CrosslineMax: float
+    CrosslineIncrement: float
 
 
 # class SeismicBinGrid(Schema):
@@ -50,7 +57,7 @@ class SeismicAttributeHorizon_033:
     CalculationWindow_HorizonOffsetDeep: Optional[str] = ""
     SeismicProcessingTraces_SeismicVolumeA: Optional[str] = ""
     SeismicProcessingTraces_SeismicVolumeB: Optional[str] = ""
-    IrapBinaryID: Optional[str] = ""
+    DatasetIDs: Optional[str] = ""
 
 
 @dataclass
@@ -81,7 +88,7 @@ class SeismicAttributeHorizon_042:
     HorizonSourceIDs: Optional[list] = field(default_factory=lambda: ["", ""])
     HorizonOffsets: Optional[list] = field(default_factory=lambda: ["", ""])
     FixedWindowValues: Optional[list] = field(default_factory=lambda: ["", ""])
-    IrapBinaryID: Optional[str] = ""
+    DatasetIDs: Optional[list] = field(default_factory=lambda: ["", ""])
 
 
 @dataclass
@@ -113,7 +120,7 @@ class SeismicAttributeInterpretation:
     HorizonSourceIDs: Optional[list] = field(default_factory=lambda: ["", ""])
     HorizonOffsets: Optional[list] = field(default_factory=lambda: ["", ""])
     FixedWindowValues: Optional[list] = field(default_factory=lambda: ["", ""])
-    IrapBinaryID: Optional[str] = ""
+    DatasetIDs: Optional[list] = ""
 
 
 @dataclass
@@ -155,3 +162,4 @@ class SeismicTraceData:
     SampleCount: int
     SeismicDomainTypeID: Optional[str] = ""
     PrincipalAcquisitionProjectID: Optional[str] = ""
+    DatasetID: Optional[str] = ""

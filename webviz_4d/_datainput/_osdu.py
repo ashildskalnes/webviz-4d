@@ -1,6 +1,7 @@
 import pandas as pd
 import time
 import numpy as np
+from ast import literal_eval
 
 
 def get_osdu_metadata_attributes(horizons):
@@ -20,10 +21,14 @@ def get_osdu_metadata_attributes(horizons):
 
     # print(" --- %s seconds ---" % (time.time() - start_time))
     # print()
-    return maps_df
+
+    maps_updated_df = maps_df.replace("", "---")
+
+    return maps_updated_df
 
 
 def convert_metadata(osdu_metadata):
+    ids = []
     surface_names = []
     attributes = []
     times1 = []
@@ -33,8 +38,10 @@ def convert_metadata(osdu_metadata):
     differences = []
     datasets = []
     field_names = []
+    map_types = []
 
     headers = [
+        "id",
         "name",
         "attribute",
         "time.t1",
@@ -44,20 +51,28 @@ def convert_metadata(osdu_metadata):
         "difference",
         "dataset_id",
         "field_name",
+        "map_type",
     ]
 
     for _index, row in osdu_metadata.iterrows():
         if "0.4.2" in row["MetadataVersion"]:
-            field_name = row["FieldName"]
             id = row["id"]
+            field_name = row["FieldName"]
             attribute_type = row["AttributeExtractionType"]
             seismic_content = row["SeismicTraceAttribute"]
             coverage = row["SeismicCoverage"]
             difference = row["SeismicDifferenceType"]
             horizon_names = row["StratigraphicZone"]
+            dataset_ids = row["DatasetIDs"]
+
+            if type(dataset_ids) == str:
+                dataset_ids = literal_eval(dataset_ids)
+
+            dataset_id = dataset_ids[0]
         else:
+            id = row["id"]
             field_name = row["AttributeMap.FieldName"]
-            id = row["IrapBinaryID"]
+            dataset_id = row["IrapBinaryID"]
             attribute_type = row["AttributeMap.AttributeType"]
             seismic_content = row["AttributeMap.SeismicTraceContent"]
             coverage = row["AttributeMap.Coverage"]
@@ -79,18 +94,33 @@ def convert_metadata(osdu_metadata):
                 # seismic_horizon = seismic_horizon.replace("+", "_")
                 # horizon_names.append(seismic_horizon)
 
+        name = row["Name"]
+
+        if "simulated" in name:
+            map_type = "simulated"
+        else:
+            map_type = "observed"
+
+        map_types.append(map_type)
         field_names.append(field_name)
-        datasets.append(id)
+        ids.append(id)
+        datasets.append(dataset_id)
         attributes.append(attribute_type)
         seismic_contents.append(seismic_content)
         coverages.append(coverage)
         differences.append(difference)
         surface_names.append(horizon_names)
-        times1.append(row["AcquisitionDates"][0])
-        times2.append(row["AcquisitionDates"][1])
+        times = row["AcquisitionDates"]
+
+        if type(times) == str:
+            times = literal_eval(times)
+
+        times1.append(times[0])
+        times2.append(times[1])
 
     zipped_list = list(
         zip(
+            ids,
             surface_names,
             attributes,
             times1,
@@ -100,13 +130,13 @@ def convert_metadata(osdu_metadata):
             differences,
             datasets,
             field_names,
+            map_types,
         )
     )
 
     metadata = pd.DataFrame(zipped_list, columns=headers)
     metadata.fillna(value=np.nan, inplace=True)
     metadata["original_name"] = osdu_metadata["Name"]
-    metadata["map_type"] = "observed"
 
     return metadata
 
@@ -128,6 +158,7 @@ def create_osdu_lists(metadata, interval_mode):
         map_type_dict = {}
 
         map_type_metadata = metadata[metadata["map_type"] == map_type]
+        map_type_metadata = map_type_metadata.where(~map_type_metadata.isna(), "")
 
         intervals_df = map_type_metadata[["time.t1", "time.t2"]]
         intervals = []

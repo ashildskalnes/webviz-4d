@@ -30,7 +30,10 @@ class DefaultRddmsService:
             print("ERROR: RDDMS bearer key not found")
             exit
 
-        self.bearer_key = bearer_key
+        self.headers = {
+            "accept": "application/json",
+            "Authorization": f"Bearer {bearer_key}",
+        }
 
         self.rddms_host = (
             "https://interop-rddms.azure-api.net/connected/rest/Reservoir/v2/"
@@ -45,14 +48,10 @@ class DefaultRddmsService:
 
     def get_dataspaces(self):
         # List the available data space(s)
-        headers = {
-            "accept": "application/json",
-            "Authorization": f"Bearer {self.bearer_key}",
-        }
 
         params = {
             "$skip": "0",
-            "$top": "30",
+            "$top": "50",
         }
 
         dataspaces = []
@@ -60,7 +59,7 @@ class DefaultRddmsService:
         response = requests.get(
             self.rddms_host + "/dataspaces",
             params=params,
-            headers=headers,
+            headers=self.headers,
             verify=False,
         )
 
@@ -73,165 +72,291 @@ class DefaultRddmsService:
 
         return dataspaces
 
-    def get_rddms_map(self, dataspace_name, uuid: str) -> xtgeo.surface:
-        dataspace_name = dataspace_name.replace("/", "%2F")
+    def get_rddms_map(
+        self, dataspace_name, horizon_name, uuid, uuid_url
+    ) -> xtgeo.surface:
+        dataspace = dataspace_name.replace("/", "%2F")
 
-        headers = {
-            "accept": "application/json",
-            "Authorization": f"Bearer {self.bearer_key}",
+        grid_geometry = self.get_grid2d_metadata(dataspace, uuid)
+        z_values = self.get_grid2_values(dataspace, uuid, uuid_url)
+
+        ncol = grid_geometry.get("nrow")
+        nrow = grid_geometry.get("ncol")
+        xinc = grid_geometry.get("xinc")
+        yinc = grid_geometry.get("yinc")
+        xori = grid_geometry.get("origin")[0]
+        yori = grid_geometry.get("origin")[1]
+        rotation = grid_geometry.get("rotation")
+
+        if "swat" in horizon_name:
+            rotation = rotation + 220
+
+        rddms_surface = xtgeo.RegularSurface(
+            ncol=ncol,
+            nrow=nrow,
+            xinc=xinc,
+            yinc=yinc,
+            yflip=-1,
+            xori=xori,
+            yori=yori,
+            values=z_values,
+            name=horizon_name,
+            rotation=rotation,
+        )
+
+        return rddms_surface
+
+    def get_grid2ds(self, dataspace, object_type):
+        params = {
+            "$skip": "0",
+            "$top": "100",
         }
+
+        grid2s = []
+
+        response = requests.get(
+            f"{self.rddms_host}/dataspaces/{dataspace}/resources/{object_type}",
+            params=params,
+            headers=self.headers,
+            verify=False,
+        )
+
+        ngrid2s = len(response.json())
+
+        if ngrid2s == 0:
+            print("ERROR: No objects found:", object_type)
+            return grid2s
+
+        for index in range(ngrid2s):
+            uuid = urllib.parse.quote(
+                response.json()[index]["uri"].split("(")[-1].replace(")", "")
+            )
+            name = urllib.parse.quote(response.json()[index]["name"])
+
+            grid2s.append({"name": name, "uuid": uuid})
+
+        return grid2s
+
+    def get_extra_metadata(self, dataspace, uuid, field_name):
+        metadata = {}
 
         params = {
             "$skip": "0",
-            "$top": "50",
+            "$top": "100",
         }
 
         response = requests.get(
-            f"{self.rddms_host}/dataspaces/{dataspace_name}/resources/resqml20.obj_Grid2dRepresentation/{uuid}",
+            f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}",
             params=params,
-            headers=headers,
+            headers=self.headers,
+            verify=False,
+        )
+
+        response_flat = pd.json_normalize(response.json()).to_dict(orient="records")[0]
+
+        extra_metadata = response_flat.get("ExtraMetadata")
+
+        if extra_metadata is not None:
+            metadata_dict = {}
+
+            for item in extra_metadata:
+                name = item.get("Name")
+                value = item.get("Value")
+
+                metadata_dict.update({name: value})
+                self.name = name
+
+            attribute_schema = self.schema_properties
+
+            for key in attribute_schema.keys():
+                tag = key
+
+                if tag not in metadata_dict:
+                    tag = "osdu/tags/" + key
+
+                if tag not in metadata_dict:
+                    tag = "osdu/" + key
+
+                metadata_value = metadata_dict.get(tag)
+
+                if metadata_value is None:
+                    metadata_value = []
+
+                elif metadata_value is not None and type(metadata_value) != list:
+                    metadata_value = metadata_value.split("\n")
+
+                    if type(metadata_value) == list:
+                        metadata_list = []
+
+                        for item in metadata_value:
+                            meta = item.replace("- ", "")
+
+                            if "None" in item:
+                                metadata_list.append("")
+                            elif item != "...":
+                                metadata_list.append(meta)
+                        metadata_value = metadata_list
+                    else:
+                        if "None" in metadata_value:
+                            metadata_value = []
+
+                elif metadata_value is not None and type(metadata_value) == list:
+                    metadata_list = []
+
+                    for item in metadata_value:
+                        if "None" not in item:
+                            metadata_value = item.replace("- ", "")
+                        else:
+                            metadata_value = ""
+
+                        metadata_list.append(metadata_value)
+
+                    metadata_value = metadata_list
+
+                metadata_dict.update({key: metadata_value})
+
+            if field_name != "":
+                metadata_field_name = metadata_dict.get("FieldName", "")[0]
+
+                if metadata_field_name != "" and metadata_field_name == field_name:
+                    metadata = metadata_dict
+                else:
+                    metadata = {}
+            else:
+                metadata = metadata_dict
+
+        return metadata
+
+    def get_grid2d_metadata(self, dataspace_name, uuid):
+        geometry_dict = {}
+        params = {
+            "$format": "json",
+            "arrayMetadata": "false",
+            "arrayValues": "false",
+            "referencedContent": "true",
+        }
+
+        dataspace = dataspace_name.replace("/", "%2F")
+
+        response = requests.get(
+            f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}",
+            params=params,
+            headers=self.headers,
             verify=False,
         )
 
         grid2d = response.json()
-        XOffset = (
-            grid2d[0]
-            .get("Grid2dPatch")
-            .get("Geometry")
-            .get("LocalCrs")
-            .get("_data")
-            .get("XOffset")
-        )
-        YOffset = (
-            grid2d[0]
-            .get("Grid2dPatch")
-            .get("Geometry")
-            .get("LocalCrs")
-            .get("_data")
-            .get("YOffset")
-        )
 
-        origin_1 = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"]["SupportingGeometry"][
-            "Origin"
-        ]["Coordinate1"]
-        origin_2 = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"]["SupportingGeometry"][
-            "Origin"
-        ]["Coordinate2"]
+        if len(grid2d) > 0:
 
-        offset = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"]["SupportingGeometry"][
-            "Offset"
-        ]
-        # offset_coord1 = offset[0].get("Offset").get("Coordinate1")
-        # offset_coord2 = offset[0].get("Offset").get("Coordinate2")
+            XOffset = (
+                grid2d[0]
+                .get("Grid2dPatch")
+                .get("Geometry")
+                .get("LocalCrs")
+                .get("_data")
+                .get("XOffset")
+            )
+            YOffset = (
+                grid2d[0]
+                .get("Grid2dPatch")
+                .get("Geometry")
+                .get("LocalCrs")
+                .get("_data")
+                .get("YOffset")
+            )
 
-        # print(XOffset + origin_1, YOffset + origin_2)
+            origin_1 = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
+                "SupportingGeometry"
+            ]["Origin"]["Coordinate1"]
+            origin_2 = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
+                "SupportingGeometry"
+            ]["Origin"]["Coordinate2"]
 
-        surf_ori = [XOffset + origin_1, YOffset + origin_2]
+            offset = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
+                "SupportingGeometry"
+            ]["Offset"]
 
-        increments = []
-        counts = []
+            # print(XOffset + origin_1, YOffset + origin_2)
 
-        for item in offset:
-            inc = item["Spacing"]["Value"]
-            increments.append(inc)
+            surf_ori = [XOffset + origin_1, YOffset + origin_2]
 
-            count = item["Spacing"]["Count"]
-            counts.append(count)
+            increments = []
+            counts = []
 
-        nrow = counts[0]
-        ncol = counts[1]
-        dx = increments[1]
-        dy = increments[0]
+            for item in offset:
+                inc = item["Spacing"]["Value"]
+                increments.append(inc)
 
-        response = requests.get(
-            f"{self.rddms_host}/dataspaces/{dataspace_name}/resources/resqml20.obj_Grid2dRepresentation/{uuid}/arrays",
-            params=params,
-            headers=headers,
-            verify=False,
-        )
-        # print(json.dumps(response.json(), indent=4))
+                count = item["Spacing"]["Count"]
+                counts.append(count)
 
-        uuid_url = urllib.parse.quote(
-            response.json()[0]["uid"]["pathInResource"], safe=""
-        )
-        # print("uuid_url:", uuid_url)
+            nrow = counts[0]
+            ncol = counts[1]
+            dx = increments[1]
+            dy = increments[0]
 
-        response = requests.get(
-            f"{self.rddms_host}/dataspaces/{dataspace_name}/resources/resqml20.obj_Grid2dRepresentation/{uuid}/arrays/{uuid_url}",
-            params=params,
-            headers=headers,
-            verify=False,
-        )
+            rotation = 90
+            yflip = -1
 
-        z = np.array(response.json()["data"]["data"], dtype=np.float32)
+            geometry_dict = {
+                "nrow": nrow,
+                "ncol": ncol,
+                "origin": surf_ori,
+                "xinc": dx,
+                "yinc": dy,
+                "rotation": rotation,
+                "yflip": yflip,
+            }
 
-        rotation = 90
-        x_ori = surf_ori[0]
-        y_ori = surf_ori[1]
+            response = requests.get(
+                f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}/arrays",
+                params=params,
+                headers=self.headers,
+                verify=False,
+            )
 
-        if uuid == "337b9678-add0-4ab7-bb40-7fe4729d80db":
-            rotation = rotation + 220
-            # x_ori = x_ori + 8613
+            uuid_url = urllib.parse.quote(
+                response.json()[0]["uid"]["pathInResource"], safe=""
+            )
 
-        surface = xtgeo.RegularSurface(
-            ncol=nrow,
-            nrow=ncol,
-            xinc=dx,
-            yinc=dy,
-            xori=x_ori,
-            yori=y_ori,
-            values=z,
-            yflip=-1,
-            rotation=rotation,
-        )
+            geometry_dict.update({"uuid_url": uuid_url})
 
-        return surface
+        return geometry_dict
 
     def get_attribute_horizons(
         self,
         dataspace_name: str,
         field_name: Optional[str] = "",
+        object_type: Optional[str] = "resqml20.obj_Grid2dRepresentation",
     ) -> list[osdu.SeismicAttributeHorizon_042]:
 
-        # print("DEBUG get_attribute_horizons")
-        # print(" - dataspace", dataspace_name)
-        # print(" - field_name", field_name)
-
+        seismic_attribute_horizons = []
         dataspace = dataspace_name.replace("/", "%2F")
 
-        # Search for all attribute horizons for a given field name in a selecte dataspace
-        seismic_attribute_horizons = []
+        # Search for all attribute horizons for a given field name in a selected dataspace
 
-        bearer_key = self.bearer_key
-        attribute_schema = self.schema_properties
+        grid2d_objects = self.get_grid2ds(dataspace, object_type)
+        print(" - ", object_type, ":", len(grid2d_objects))
 
-        headers = {
-            "accept": "application/json",
-            "Authorization": f"Bearer {bearer_key}",
-        }
+        for grid2_object in grid2d_objects:
+            uuid = grid2_object.get("uuid")
+            rddms_horizon = self.get_extra_metadata(dataspace, uuid, field_name)
+            uuid_url = self.get_grid2_url(dataspace, uuid)
 
-        params = {
-            "$skip": "0",
-            "$top": "50",
-        }
+            if rddms_horizon and uuid_url:
+                attribute_horizon = self.parse_seismic_attribute_horizon(
+                    rddms_horizon, uuid, uuid_url
+                )
 
-        # Search for attribute maps in the given dataspace
-        response = requests.get(
-            f"{self.rddms_host}/dataspaces/{dataspace}/resources",
-            headers=headers,
-            verify=False,
-        )
+            if attribute_horizon:
+                seismic_attribute_horizons.append(attribute_horizon)
 
-        response_flat = pd.json_normalize(response.json()).to_dict(orient="records")
-        # response_df = pd.DataFrame.from_dict(response_flat)
-        # print(response_df)
+        return seismic_attribute_horizons
 
-        surface_response = requests.get(
-            f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation",
-            params=params,
-            headers=headers,
-            verify=False,
-        )
+    def get_grid2_values(self, dataspace_name, uuid, uuid_url):
+        dataspace = dataspace_name.replace("/", "%2F")
+        z_values = []
 
         params = {
             "$format": "json",
@@ -240,144 +365,42 @@ class DefaultRddmsService:
             "referencedContent": "true",
         }
 
-        nsurfaces = len(surface_response.json())
-        print("Number of attribute maps found:", nsurfaces)
+        response = requests.get(
+            f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}/arrays/{uuid_url}",
+            params=params,
+            headers=self.headers,
+            verify=False,
+        )
 
-        if nsurfaces == 0:
-            print("ERROR: No 4D attribute maps found")
-            return seismic_attribute_horizons
+        z_values = np.array(response.json()["data"]["data"], dtype=np.float32)
 
-        for index in range(nsurfaces):
-            uuid = urllib.parse.quote(
-                surface_response.json()[index]["uri"].split("(")[-1].replace(")", "")
-            )
-            name = urllib.parse.quote(surface_response.json()[index]["name"])
+        return z_values
 
-            response = requests.get(
-                f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}",
-                params=params,
-                headers=headers,
-                verify=False,
-            )
+    def get_grid2_url(self, dataspace, uuid):
+        uuid_url = None
 
-            response_flat = pd.json_normalize(response.json()).to_dict(
-                orient="records"
-            )[0]
-            # pprint(response_flat)
+        params = {
+            "$format": "json",
+            "arrayMetadata": "false",
+            "arrayValues": "false",
+            "referencedContent": "true",
+        }
 
-            extra_metadata = response_flat.get("ExtraMetadata")
-            # pprint(extra_metadata)
+        response = requests.get(
+            f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}/arrays",
+            params=params,
+            headers=self.headers,
+            verify=False,
+        )
 
-            if extra_metadata is None:
-                print("WARNING: Extra metadata not found")
-            else:
-                metadata_dict = {}
+        uuid_url = urllib.parse.quote(
+            response.json()[0]["uid"]["pathInResource"], safe=""
+        )
 
-                for item in extra_metadata:
-                    name = item.get("Name")
-                    value = item.get("Value")
-
-                    metadata_dict.update({name: value})
-                    self.name = name
-
-                # print("Extra metadata:")
-                # pprint(metadata_dict)
-
-                rddms_object = {}
-
-                for key in attribute_schema.keys():
-                    tag = key
-
-                    if tag not in metadata_dict:
-                        tag = "osdu/tags/" + key
-
-                    if tag not in metadata_dict:
-                        tag = "osdu/" + key
-
-                    metadata_value = metadata_dict.get(tag)
-
-                    if metadata_value is None:
-                        metadata_value = []
-
-                    elif metadata_value is not None and type(metadata_value) != list:
-                        metadata_value = metadata_value.split("\n")
-
-                        if type(metadata_value) == list:
-                            metadata_list = []
-
-                            for item in metadata_value:
-                                meta = item.replace("- ", "")
-
-                                if "None" in item:
-                                    metadata_list.append("")
-                                elif item != "...":
-                                    metadata_list.append(meta)
-                            metadata_value = metadata_list
-                        else:
-                            if "None" in metadata_value:
-                                metadata_value = []
-
-                    elif metadata_value is not None and type(metadata_value) == list:
-                        metadata_list = []
-
-                        for item in metadata_value:
-                            if "None" not in item:
-                                metadata_value = item.replace("- ", "")
-                            else:
-                                metadata_value = ""
-
-                            metadata_list.append(metadata_value)
-
-                        metadata_value = metadata_list
-
-                    rddms_object.update({key: metadata_value})
-                    # print(key, ":", metadata_value)
-
-                # print("DEBUG rddms_object")
-                # pprint(rddms_object)
-
-                response = requests.get(
-                    f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}/arrays",
-                    params=params,
-                    headers=headers,
-                    verify=False,
-                )
-                # print(json.dumps(response.json(), indent=4))
-
-                resp = response.json()
-
-                if len(resp) == 0:
-                    print("WARNING: uid not found")
-                else:
-                    uuid_url = urllib.parse.quote(
-                        response.json()[0]["uid"]["pathInResource"], safe=""
-                    )
-
-                    if (
-                        field_name != ""
-                        and rddms_object.get("FieldName")[0] == field_name
-                    ):
-                        seismic_attribute_horizon = (
-                            self.parse_seismic_attribute_horizon(
-                                rddms_object, uuid, uuid_url
-                            )
-                        )
-                        seismic_attribute_horizons.append(seismic_attribute_horizon)
-                    else:
-                        seismic_attribute_horizon = (
-                            self.parse_seismic_attribute_horizon(
-                                rddms_object, uuid, uuid_url
-                            )
-                        )
-                        seismic_attribute_horizons.append(seismic_attribute_horizon)
-
-        return seismic_attribute_horizons
+        return uuid_url
 
     def parse_seismic_attribute_horizon(
-        self,
-        rddms_object: dict,
-        uuid: str,
-        uuid_url: str,
+        self, rddms_object: dict, uuid: str, uuid_url: str
     ) -> osdu.SeismicAttributeHorizon_042:
 
         try:
@@ -410,7 +433,7 @@ class DefaultRddmsService:
                 StratigraphicZone=rddms_object.get("StratigraphicZone")[0],
                 AttributeExtractionType=rddms_object.get("AttributeExtractionType")[0],
                 AttributeDifferenceType=rddms_object.get("AttributeDifferenceType")[0],
-                IrapBinaryID=uuid_url,
+                DatasetIDs=[uuid_url],
             )
         except:
             attribute_horizon = None
