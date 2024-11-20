@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import time
 import requests
-import json
+from pprint import pprint
 from ast import literal_eval
 
 from osdu_api.clients.search.search_client import SearchClient
@@ -132,7 +132,13 @@ class DefaultOsduService:
         id = osdu_object.get("id")
         kind = osdu_object.get("kind")
         Name = osdu_object.get("data").get("Name", "")
-        metadata_version = osdu_object.get("tags").get("MetadataVersion")
+
+        if "seismic-attribute-interpretation" in kind:
+            metadata_version = kind[-5:]
+            metadata = osdu_object.get("data")
+        else:
+            metadata_version = osdu_object.get("tags").get("MetadataVersion")
+            metadata = osdu_object.get("tags")
 
         if metadata_version is None:
             return None
@@ -142,54 +148,99 @@ class DefaultOsduService:
         if Source is None:
             Source = ""
 
-        WindowMode = osdu_object.get("tags").get("CalculationWindow.WindowMode", "")
+        if metadata_version == "0.4.2":
+            field_name = metadata.get("FieldName")
+            seismic_content = metadata.get("SeismicTraceAttribute")
+            coverage = metadata.get("SeismicCoverage")
+            difference = metadata.get("SeismicDifferenceType")
 
-        if WindowMode == "BetweenHorizons":
-            TopHorizonName = osdu_object.get("tags").get(
-                "CalculationWindow.TopHorizonName", ""
-            )
-            BaseHorizonName = osdu_object.get("tags").get(
-                "CalculationWindow.BaseHorizonName", ""
-            )
-            TopHorizonOffset = osdu_object.get("tags").get(
-                "CalculationWindow.TopHorizonOffset", ""
-            )
-            BaseHorizonOffset = osdu_object.get("tags").get(
-                "CalculationWindow.BaseHorizonOffset", ""
+            if type(difference) is float:
+                difference = "---"
+
+            bin_grid_name = metadata.get("SeismicBinGridName")
+            window_mode = metadata.get("AttributeWindowMode")
+
+            datasets = osdu_object.get("data").get("Datasets")
+
+            attribute_horizon = osdu.SeismicAttributeInterpretation(
+                id=id,
+                kind=kind,
+                Name=Name,
+                MetadataVersion=metadata_version,
+                FieldName=field_name,
+                SeismicBinGridName=bin_grid_name,
+                ApplicationName=metadata.get("ApplicationName"),
+                MapTypeDimension=metadata.get("MapTypeDimension"),
+                SeismicTraceDataSource=metadata.get("SeismicTraceDataSource"),
+                SeismicTraceDataSourceNames=metadata.get("SeismicTraceDataSourceNames"),
+                SeismicTraceDomain=metadata.get("SeismicTraceDomain"),
+                SeismicTraceAttribute=seismic_content,
+                OsduSeismicTraceNames=["", ""],
+                SeismicDifferenceType=difference,
+                AttributeWindowMode=window_mode,
+                HorizonDataSource=metadata.get("HorizonDataSource"),
+                HorizonSourceNames=metadata.get("HorizonSourceNames"),
+                StratigraphicZone=metadata.get("StratigraphicZone"),
+                AttributeExtractionType=metadata.get("AttributeExtractionType"),
+                AttributeDifferenceType=metadata.get("AttributeDifferenceType"),
+                SeismicCoverage=coverage,
+                SeismicTraceDataSourceIDs=metadata.get("SeismicTraceIDs"),
+                StratigraphicColumn=metadata.get("StratigraphicColumn"),
+                HorizonSourceIDs=metadata.get("HorizonSourceIDs"),
+                HorizonOffsets=metadata.get("HorizonOffsets"),
+                FixedWindowValues=["", ""],
+                DatasetIDs=datasets,
             )
 
-            HorizonName = ""
-            HorizonOffsetShallow = ""
-            HorizonOffsetDeep = ""
-        elif WindowMode == "AroundHorizon":
-            TopHorizonName = ""
-            BaseHorizonName = ""
-            TopHorizonOffset = ""
-            BaseHorizonOffset = ""
+        elif metadata_version == "0.3.1":
+            WindowMode = osdu_object.get("tags").get("CalculationWindow.WindowMode", "")
 
-            HorizonName = osdu_object.get("tags").get(
-                "CalculationWindow.HorizonName", ""
-            )
-            HorizonOffsetShallow = osdu_object.get("tags").get(
-                "CalculationWindow.HorizonOffsetShallow", ""
-            )
-            HorizonOffsetDeep = osdu_object.get("tags").get(
-                "CalculationWindow.HorizonOffsetSDeep", ""
-            )
-        else:
-            print(Name, "  - WARNING: WindowMode is not valid:", WindowMode)
-            attribute_horizon = None
+            if WindowMode == "BetweenHorizons":
+                TopHorizonName = osdu_object.get("tags").get(
+                    "CalculationWindow.TopHorizonName", ""
+                )
+                BaseHorizonName = osdu_object.get("tags").get(
+                    "CalculationWindow.BaseHorizonName", ""
+                )
+                TopHorizonOffset = osdu_object.get("tags").get(
+                    "CalculationWindow.TopHorizonOffset", ""
+                )
+                BaseHorizonOffset = osdu_object.get("tags").get(
+                    "CalculationWindow.BaseHorizonOffset", ""
+                )
 
-        if WindowMode == "BetweenHorizons" or WindowMode == "AroundHorizon":
-            all_datasets = osdu_object.get("data").get("Datasets")
-            irap_dataset_id = ""
+                HorizonName = ""
+                HorizonOffsetShallow = ""
+                HorizonOffsetDeep = ""
+            elif WindowMode == "AroundHorizon":
+                TopHorizonName = ""
+                BaseHorizonName = ""
+                TopHorizonOffset = ""
+                BaseHorizonOffset = ""
 
-            for dataset_id in all_datasets:
-                metadata = self.get_osdu_metadata(dataset_id)
-                format_type = metadata.get("data").get("EncodingFormatTypeID", "")
+                HorizonName = osdu_object.get("tags").get(
+                    "CalculationWindow.HorizonName", ""
+                )
+                HorizonOffsetShallow = osdu_object.get("tags").get(
+                    "CalculationWindow.HorizonOffsetShallow", ""
+                )
+                HorizonOffsetDeep = osdu_object.get("tags").get(
+                    "CalculationWindow.HorizonOffsetSDeep", ""
+                )
+            else:
+                print(Name, "  - WARNING: WindowMode is not valid:", WindowMode)
+                attribute_horizon = None
 
-                if format_type and "irap-binary" in format_type:
-                    irap_dataset_id = dataset_id
+            if WindowMode == "BetweenHorizons" or WindowMode == "AroundHorizon":
+                all_datasets = osdu_object.get("data").get("Datasets")
+                irap_dataset_id = ""
+
+                for dataset_id in all_datasets:
+                    metadata = self.get_osdu_metadata(dataset_id)
+                    format_type = metadata.get("data").get("EncodingFormatTypeID", "")
+
+                    if format_type and "irap-binary" in format_type:
+                        irap_dataset_id = dataset_id
 
             attribute_horizon = osdu.SeismicAttributeHorizon_033(
                 id=id,
@@ -399,6 +450,9 @@ class DefaultOsduService:
         metadata_version: Optional[str] = "0.4.2",
     ) -> list[osdu.SeismicAttributeInterpretation]:
 
+        if metadata_version is None:
+            metadata_version = "0.4.2"
+
         # Search for all or selected objects of type GenericRepresentation or SeismicAttributeInterpretation
         versions = {
             "0.3.3": "osdu:wks:work-product-component--GenericRepresentation:*",
@@ -421,13 +475,21 @@ class DefaultOsduService:
         if metadata_version == "":
             kinds = list(versions.values())
         else:
-            kinds = [metadata_version]
+            kinds = [versions.get(metadata_version)]
 
-        print("Searching for attribute horizons:", field_name, metadata_version, "...")
+        print(
+            "Searching for attribute horizons:",
+            field_name,
+            metadata_version,
+            kinds[0],
+            "...",
+        )
 
         if field_name != "":
-            # query = field_name_options.get(metadata_version)
-            query = f'tags.AttributeMap.FieldName:"{field_name}"'
+            if metadata_version == "0.4.2":
+                query = f'data.FieldName:"{field_name}"'
+            else:
+                query = f'tags.AttributeMap.FieldName:"{field_name}"'
 
         for kind in kinds:
             query_request = QueryRequest(
@@ -441,43 +503,64 @@ class DefaultOsduService:
             if result.status_code == 200:
                 osdu_objects = result.json().get("results")
                 print(
-                    "Number of ",
-                    versions.get(kind),
+                    "Number of",
+                    versions.get(metadata_version),
                     "objects found:",
                     len(osdu_objects),
                 )
                 print()
                 print("Extracting attribute data ...")
 
+                valid_objects = []
+
                 for osdu_object in osdu_objects:
                     data = osdu_object.get("data")
                     tags = osdu_object.get("tags")
+                    object_kind = osdu_object.get("kind")
+                    id = osdu_object.get("id")
 
-                    if data and tags:
-                        metadata_version = osdu_object.get("tags").get(
-                            "MetadataVersion"
-                        )
+                    if data:
                         name = data.get("Name")
-                    else:
-                        metadata_version = None
+                        field_name = data.get("FieldName")
+                        if name:
+                            if object_kind[-5:] == metadata_version:
+                                metadata_version = object_kind[-5:]
 
-                    if metadata_version in versions:
-                        attribute_horizon = self.parse_seismic_attribute_horizon(
-                            osdu_object
-                        )
+                            elif data and tags:
+                                metadata_version = osdu_object.get("tags").get(
+                                    "MetadataVersion"
+                                )
+                                name = data.get("Name")
+                                print("DEBUG", name)
+                            else:
+                                metadata_version = None
 
-                        if attribute_horizon is not None:
-                            seismic_attribute_horizon = self.convert_attribute_horizon(
-                                attribute_horizon
-                            )
-                    else:
-                        print(
-                            "WARNING:",
-                            name,
-                            " Unsupported metadata version:",
-                            metadata_version,
-                        )
-                        seismic_attribute_horizon = None
+                            print(name, field_name, metadata_version, id)
+
+                            if metadata_version in versions:
+                                attribute_horizon = (
+                                    self.parse_seismic_attribute_horizon(osdu_object)
+                                )
+
+                                if (
+                                    attribute_horizon is not None
+                                    and metadata_version == "0.3.3"
+                                ):
+                                    seismic_attribute_horizon = (
+                                        self.convert_attribute_horizon(
+                                            attribute_horizon
+                                        )
+                                    )
+                                else:
+                                    seismic_attribute_horizon = attribute_horizon
+                            else:
+                                print(
+                                    "WARNING:",
+                                    name,
+                                    " Unsupported metadata version:",
+                                    metadata_version,
+                                )
+                                seismic_attribute_horizon = None
 
                     if seismic_attribute_horizon:
                         attribute_horizons.append(seismic_attribute_horizon)
@@ -551,23 +634,35 @@ class DefaultOsduService:
                     id = osdu_object.get("id")
                     kind = osdu_object.get("kind")
                     Name = osdu_object.get("data").get("Name", "")
+
+                    if Name == "":
+                        print(id, "-  WARNING: Name not found")
+
                     print(
                         Name, "  - WARNING: Not possible to convert to SeismicTraceData"
                     )
-                    seismic_trace_data = osdu.SeismicTraceData(id, kind, Name)
-                    seismic_trace_datas.append(seismic_trace_data)
 
         return seismic_trace_datas
 
     def get_seismic_surveys(
-        self, selected_trace_data: Optional[osdu.SeismicTraceData]
+        self,
+        selected_processing_project: Optional[osdu.SeismicProcessingProject],
+        selected_trace_data: Optional[osdu.SeismicTraceData],
+        selected_acquisition_name: Optional[str],
     ) -> list[osdu.SeismicAcquisitionSurvey]:
         # Search for objects of type SeismicAcquisitionSurvey
         query = ""
 
         seismic_surveys = []
 
-        if selected_trace_data:
+        if selected_acquisition_name:
+            query = f'data.ProjectName:"{selected_acquisition_name}"'
+
+        elif selected_processing_project:
+            survey_id = selected_processing_project.acquisition_survey_id
+            query = f'data.id:"{survey_id}"'
+
+        elif selected_trace_data:
             survey_id = selected_trace_data.PrincipalAcquisitionProjectID
             survey_object = self.get_osdu_metadata(survey_id)
 
@@ -615,6 +710,48 @@ class DefaultOsduService:
 
         return seismic_surveys
 
+    def get_processing_projects(
+        self, project_name: Optional[str]
+    ) -> list[osdu.SeismicProcessingProject]:
+        # Search for objects of type SeismicProject
+        query = ""
+
+        seismic_projects = []
+
+        if project_name:
+            query = f'data.ProjectName:"{project_name}"'
+
+        query_request = QueryRequest(
+            "osdu:wks:master-data--SeismicProcessingProject:*", query, limit=1000
+        )
+
+        # print("Query request:", query_request.kind)
+
+        result = self.search_client.query_records(query_request, self.access_token)
+        result.raise_for_status()
+
+        if result.status_code == 200:
+            osdu_objects = result.json().get("results")
+            # print("Number of Seismic Processing projects:", len(osdu_objects))
+
+            for osdu_object in osdu_objects:
+                data = osdu_object.get("data")
+
+                if data:
+                    id = osdu_object.get("id")
+                    kind = osdu_object.get("kind")
+                    ProjectName = data.get("ProjectName", "")
+                    acquisition_survey_id = data.get("SeismicAcquisitionSurveys", "")
+
+                    if acquisition_survey_id != "":
+                        seismic_project = osdu.SeismicProcessingProject(
+                            id, kind, ProjectName, acquisition_survey_id[0]
+                        )
+
+                    seismic_projects.append(seismic_project)
+
+        return seismic_projects
+
     def get_metadata_attributes(self, horizons):
         metadata_dicts = []
 
@@ -628,11 +765,57 @@ class DefaultOsduService:
 
         return maps_df
 
+    def get_seismic_names(self, row):
+        status = False
+        seismic_names = row["OsduSeismicTraceNames"]
+
+        if type(seismic_names) is str:
+            seismic_names = literal_eval(seismic_names)
+
+        if len(seismic_names) != 2:
+            print(
+                row["Name"],
+                "WARNING: Number of input seismic traces is",
+                len(seismic_names),
+            )
+        else:
+            seismic_nameA = seismic_names[1]
+            seismic_nameB = seismic_names[0]
+
+        if seismic_nameA == "" or seismic_nameB == "":
+            print(row["Name"], "WARNING: OsduSeismicTraceNames are missing")
+
+            seismic_names = row["SeismicTraceDataSourceNames"]
+
+            if type(seismic_names) is str:
+                seismic_names = literal_eval(seismic_names)
+
+            if len(seismic_names) != 2:
+                print(
+                    row["Name"],
+                    "WARNING: Number of input seismic traces is",
+                    len(seismic_names),
+                )
+            else:
+                status = True
+                seismic_nameA = seismic_names[1]
+                seismic_nameB = seismic_names[0]
+        else:
+            status = True
+            seismic_nameA = seismic_names[1]
+            seismic_nameB = seismic_names[0]
+
+        if status:
+            seismic_names = [seismic_nameB, seismic_nameA]
+        else:
+            seismic_names = []
+
+        return seismic_names
+
     def update_reference_dates(self, metadata_input):
         metadata = metadata_input.copy(deep=True)
         dates = []
-
-        metadata_version = metadata_input["MetadataVersion"].values[0]
+        statuses = []
 
         start_time = time.time()
 
@@ -640,75 +823,88 @@ class DefaultOsduService:
             # print(" - ", row["Name"])
             dateA = ""
             dateB = ""
+            status = False
 
-            seismic_names = row["OsduSeismicTraceNames"]
+            seismic_names = self.get_seismic_names(row)
 
-            if type(seismic_names) is str:
-                seismic_names = literal_eval(seismic_names)
+            if len(seismic_names) == 2:
+                status = True
+                seismic_nameA = seismic_names[1]
+                seismic_nameB = seismic_names[0]
 
-            seismic_nameA = seismic_names[1]
-            seismic_nameB = seismic_names[0]
-            # else:
-            #     seismic_nameA = row["SeismicProcessingTraces.SeismicVolumeA"]
-            #     seismic_nameB = row["SeismicProcessingTraces.SeismicVolumeB"]
+            if status:
+                seismic_nameA_data = self.get_seismic_trace_data(seismic_nameA)
 
-            seismic_nameA_data = self.get_seismic_trace_data(seismic_nameA)
+                if len(seismic_nameA_data) > 0:
+                    seismic_nameA_data = seismic_nameA_data[0]
+                    survey_nameA = seismic_nameA[:7]
+                    acquisition_surveys = self.get_seismic_surveys(
+                        selected_trace_data=None,
+                        selected_processing_project=None,
+                        selected_acquisition_name=survey_nameA,
+                    )
 
-            if len(seismic_nameA_data) > 0:
-                seismic_nameA_data = seismic_nameA_data[0]
-                acquisition_surveys = self.get_seismic_surveys(seismic_nameA_data)
+                    if len(acquisition_surveys) > 1:
+                        print(row["Name"])
+                        print(
+                            "  - WARNING: Number of selected acquisitions are:",
+                            len(acquisition_surveys),
+                        )
 
-                if len(acquisition_surveys) > 1:
+                    acquisition_surveyA = acquisition_surveys[0]
+                else:
+                    acquisition_surveyA = self.empty_seismic_acquisition()
                     print(row["Name"])
-                    print(
-                        "  - WARNING: Number of selected acquisitions are:",
-                        len(acquisition_surveys),
+                    print("  - WARNING: No acquisitions surveys found")
+
+                # print(
+                #     "  - Seismic name",
+                #     seismic_nameA,
+                #     acquisition_surveyA.ProjectBeginDate,
+                #     acquisition_surveyA.ProjectEndDate,
+                #     acquisition_surveyA.ProjectReferenceDate,
+                # )
+
+                seismic_nameB_data = self.get_seismic_trace_data(seismic_nameB)
+
+                print(row["Name"], seismic_nameA, seismic_nameB)
+
+                if len(seismic_nameB_data) > 0:
+                    seismic_nameB_data = seismic_nameB_data[0]
+                    survey_nameB = seismic_nameB[:7]
+                    acquisition_surveys = self.get_seismic_surveys(
+                        selected_trace_data=None,
+                        selected_processing_project=None,
+                        selected_acquisition_name=survey_nameB,
                     )
 
-                acquisition_surveyA = acquisition_surveys[0]
-            else:
-                acquisition_surveyA = self.empty_seismic_acquisition()
-                print(row["Name"])
-                print("  - WARNING: No acquisitions surveys found")
+                    if len(acquisition_surveys) > 1:
+                        print(
+                            "  - WARNING: Number of selected acquisitions are:",
+                            len(acquisition_surveys),
+                        )
 
-            # print(
-            #     "  - Seismic name",
-            #     seismic_nameA,
-            #     acquisition_surveyA.ProjectBeginDate,
-            #     acquisition_surveyA.ProjectEndDate,
-            #     acquisition_surveyA.ProjectReferenceDate,
-            # )
+                    acquisition_surveyB = acquisition_surveys[0]
+                else:
+                    acquisition_surveyB = self.empty_seismic_acquisition()
+                    print("  - WARNING: No acquisitions surveys found")
 
-            seismic_nameB_data = self.get_seismic_trace_data(seismic_nameB)
+                dateA = acquisition_surveyA.ProjectReferenceDate
+                dateB = acquisition_surveyB.ProjectReferenceDate
 
-            if len(seismic_nameB_data) > 0:
-                seismic_nameB_data = seismic_nameB_data[0]
-                acquisition_surveys = self.get_seismic_surveys(seismic_nameB_data)
-
-                if len(acquisition_surveys) > 1:
-                    print(
-                        "  - WARNING: Number of selected acquisitions are:",
-                        len(acquisition_surveys),
-                    )
-
-                acquisition_surveyB = acquisition_surveys[0]
-            else:
-                acquisition_surveyB = self.empty_seismic_acquisition()
-                print("  - WARNING: No acquisitions surveys found")
-
-            dateA = acquisition_surveyA.ProjectReferenceDate
-            dateB = acquisition_surveyB.ProjectReferenceDate
+                if dateA == "" or dateB == "":
+                    status = False
 
             dates.append([dateA, dateB])
             # print("   - acquisition dates found:", [dateA, dateB])
 
+            statuses.append(status)
+
         metadata["AcquisitionDates"] = dates
+        metadata["Status"] = statuses
 
-        # print(" --- %s seconds ---" % (time.time() - start_time))
-        # print()
-
-        # selected = ["Name", "AcquisitionDates"]
-        # print(metadata[selected])
+        selected = ["Name", "AcquisitionDates", "Status"]
+        print(metadata[selected])
 
         return metadata
 

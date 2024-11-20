@@ -70,6 +70,7 @@ from webviz_4d._datainput._fmu import (
     create_fmu_lists,
 )
 
+import webviz_4d._providers.wellbore_provider.wellbore_provider as wb
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
@@ -229,7 +230,10 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.metadata_version = osdu.get("metadata_version")
             self.coverage = osdu.get("coverage")
             self.osdu_service = DefaultOsduService()  # type: ignore
-            self.label = "OSDU: " + self.field_name + " coverage: " + self.coverage
+            self.label = "OSDU: " + self.field_name
+
+            if self.coverage and self.coverage != "":
+                self.label = self.label + " coverage: " + self.coverage
 
             print("Surfaces from OSDU Core: ")
             print("  Loading metadata ...")
@@ -241,9 +245,13 @@ class SurfaceViewer4D(WebvizPluginABC):
             if os.path.isfile(metadata_file_cache):
                 print("  Reading cached metadata from", metadata_file_cache)
                 metadata = pd.read_csv(metadata_file_cache)
-                updated_metadata = metadata.loc[
-                    metadata["SeismicCoverage"] == self.coverage
-                ]
+
+                if self.coverage and self.coverage != "":
+                    updated_metadata = metadata.loc[
+                        metadata["SeismicCoverage"] == self.coverage
+                    ]
+                else:
+                    updated_metadata = metadata
             else:
                 print("  Reading metadata from OSDU Core ...")
                 attribute_horizons = self.osdu_service.get_attribute_horizons(
@@ -264,14 +272,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                     )
                 ]
 
-                # print("DEBUG selected_attribute_maps")
-                # print(selected_attribute_maps)
-
                 updated_metadata = self.osdu_service.update_reference_dates(
                     selected_attribute_maps
                 )
-                updated_metadata.to_csv(metadata_file_cache)
-                print("Updated metadata written to", metadata_file_cache)
 
             self.surface_metadata = convert_metadata(updated_metadata)
 
@@ -370,7 +373,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             home = os.path.expanduser("~")
             env_path = os.path.expanduser(os.path.join(home, omnia_env))
             self.smda_provider = ProviderImplFile(env_path, "SMDA")
-            self.pozo_provider = ProviderImplFile(env_path, "POZO")
+            # self.pozo_provider = ProviderImplFile(env_path, "POZO")
             self.pdm_provider = ProviderImplFile(env_path, "PDM")
 
             self.drilled_wells_info = load_smda_metadata(
@@ -386,19 +389,22 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
 
             if "planned" in self.basic_well_layers:
-                planned_wells = load_planned_wells(
-                    self.pozo_provider, self.field_name.upper()
+                self.planned_wells_info = self.smda_provider.planned_wellbore_metadata(
+                    field=self.field_name,
                 )
-                self.planned_wells_info = planned_wells[0]
-                self.planned_wells_df = planned_wells[1]
+                self.planned_wells_df = self.smda_provider.planned_trajectories(
+                    self.planned_wells_info.dataframe,
+                )
             else:
-                self.planned_wells_info = pd.DataFrame()
-                self.planned_wells_df = pd.DataFrame()
+                self.planned_wells_info = wb.PlannedWellboreMetadata(pd.DataFrame())
+                self.planned_wells_df = wb.Trajectories(
+                    coordinate_system="", dataframe=pd.DataFrame()
+                )
 
             self.well_basic_layers = create_basic_well_layers(
                 self.basic_well_layers,
-                self.planned_wells_info,
-                self.planned_wells_df,
+                self.planned_wells_info.dataframe,
+                self.planned_wells_df.dataframe,
                 self.drilled_wells_info,
                 self.drilled_wells_df,
                 self.surface_picks,
@@ -670,10 +676,10 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         self.surface_metadata.replace(np.nan, "", inplace=True)
 
-        print("DEBUG get_osdu_dataset_id surface_metadata")
-        print(self.surface_metadata)
+        # print("DEBUG get_osdu_dataset_id surface_metadata")
+        # print(self.surface_metadata)
 
-        print(real, ensemble, map_type, time1, time2, name, attribute)
+        # print(real, ensemble, map_type, time1, time2, name, attribute)
 
         try:
             selected_metadata = self.surface_metadata[
@@ -778,13 +784,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             max_val = scaled_value * auto_scaling
 
-            # print(
-            #     "DEBUG auto_scaling",
-            #     surface_min_val,
-            #     surface_max_val,
-            #     max_val,
-            # )
-
             if colormap_type == "diverging":
                 min_val = -max_val
             elif colormap_type == "positive":
@@ -886,7 +885,6 @@ class SurfaceViewer4D(WebvizPluginABC):
                 )
                 toc = time.perf_counter()
 
-                print("DEBUG rddms surface")
                 print(surface)
 
         if self.osdu_status:
@@ -992,7 +990,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
                 if self.polygon_layers is not None:
                     for polygon_layer in self.polygon_layers:
-                        layer_name = polygon_layer["name"]
                         layer = polygon_layer
 
                         surface_layers.append(layer)
@@ -1000,7 +997,11 @@ class SurfaceViewer4D(WebvizPluginABC):
             # print("Basic well layers")
             if self.basic_well_layers:
                 for well_layer in self.well_basic_layers:
-                    # print(" ", well_layer["name"])
+                    # print("DEBUG planned well layer")
+                    # print(well_layer["name"])
+                    # if well_layer["name"] == "Planned wells":
+                    #     print(well_layer["name"])
+                    #     print(well_layer["type"]["positions"])
                     surface_layers.append(well_layer)
 
             interval = data["date"]

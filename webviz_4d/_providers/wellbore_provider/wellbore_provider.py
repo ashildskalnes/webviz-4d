@@ -53,7 +53,7 @@ class Trajectories:
             "tvd_msl",
             "md",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
@@ -67,7 +67,7 @@ class WellborePicks:
             "tvd_msl",
             "obs_no",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
@@ -86,22 +86,21 @@ class DrilledWellboreMetadata:
             "completion_date",
             "license_identifier",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
 class PlannedWellboreMetadata:
     dataframe: pd.DataFrame(
         columns=[
-            "name",
-            "purpose",
+            "uuid",
+            "unique_wellbore_identifier",
             "status",
-            "templateName",
-            "fieldName",
-            "wellTypeName",
-            "updateDate",
+            "design_name",
+            "field_identifier",
+            "update_date",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
@@ -115,7 +114,7 @@ class PlannedTrajectories:
             "tvd_msl",
             "md",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
@@ -136,7 +135,7 @@ class Completions:
             "md_bottom",
             "field_id",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
@@ -149,7 +148,7 @@ class Perforations:
             "md_bottom",
             "field_id",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
@@ -166,7 +165,7 @@ class DailyProductionVolumes:
             "WB_WATER_VOL_M3",
             "GOV_FIELD_NAME",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
@@ -182,12 +181,12 @@ class DailyInjectionVolumes:
             "WB_INJ_VOL",
             "GOV_FIELD_NAME",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
 class PdmDates:
-    dataframe: pd.DataFrame(columns=["WB_UWBI", "WB_START_DATE", "WB_END_DATE"]) # type: ignore
+    dataframe: pd.DataFrame(columns=["WB_UWBI", "WB_START_DATE", "WB_END_DATE"])  # type: ignore
 
 
 @dataclass
@@ -205,7 +204,7 @@ class ProductionVolumes:
             "GAS_VOL",
             "WATER_VOL",
         ]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
@@ -217,17 +216,17 @@ class InjectionVolumes:
     last_data: str
     dataframe: pd.DataFrame(
         columns=["WB_UWBI", "WB_UUID", "GI_VOL", "WI_VOL", "CI_VOL"]
-    ) # type: ignore
+    )  # type: ignore
 
 
 @dataclass
 class FaultLines:
-    dataframe: pd.DataFrame(columns=["name", "SEG I.D.", "geometry", "coordinates"]) # type: ignore
+    dataframe: pd.DataFrame(columns=["name", "SEG I.D.", "geometry", "coordinates"])  # type: ignore
 
 
 @dataclass
 class Polygons:
-    dataframe: pd.DataFrame(columns=["name", "label", "geometry", "coordinates"]) # type: ignore
+    dataframe: pd.DataFrame(columns=["name", "label", "geometry", "coordinates"])  # type: ignore
 
 
 # Class provides data for wellbores

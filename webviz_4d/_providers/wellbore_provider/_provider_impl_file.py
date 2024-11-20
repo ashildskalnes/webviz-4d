@@ -8,6 +8,8 @@ from webviz_4d._providers.wellbore_provider._smda import (
     extract_metadata,
     extract_trajectories,
     extract_picks,
+    extract_planned_metadata,
+    extract_planned_trajectories,
 )
 from webviz_4d._providers.wellbore_provider._pdm import (
     pdm_connect,
@@ -28,11 +30,12 @@ from webviz_4d._providers.wellbore_provider._ssdl import (
     extract_ssdl_perforation,
     extract_ssdl_wellbores,
 )
-from webviz_4d._providers.wellbore_provider._pozo import (
-    pozo_connect,
-    extract_planned_data,
-    extract_plannedWell_position,
-)
+
+# from webviz_4d._providers.wellbore_provider._pozo import (
+#     pozo_connect,
+#     extract_planned_data,
+#     extract_plannedWell_position,
+# )
 
 import webviz_4d._providers.wellbore_provider.wellbore_provider as wb
 
@@ -40,7 +43,7 @@ LOGGER = logging.getLogger(__name__)
 MAX_ITEMS = 9000
 
 SMDA_API = "https://api.gateway.equinor.com/smda/v2.0/smda-api/"
-POZO_API = "https://wfmwellapiprod.azurewebsites.net/"
+# POZO_API = "https://wfmwellapiprod.azurewebsites.net/"
 SSDL_API = "https://api.gateway.equinor.com/subsurfacedata/v3/api/v3.0/"
 PDM_API = "https://api.gateway.equinor.com/pdm-internal-api/v3/api"
 
@@ -50,9 +53,9 @@ class ProviderImplFile(wb.WellboreProvider):
         if db_name == "SMDA":
             self.smdahandle = smda_connect(omnia_path)
             self.smda_address = wb.SmdaAddress(api=SMDA_API, session=self.smdahandle)
-        elif db_name == "POZO":
-            self.pozohandle = pozo_connect(omnia_path)
-            self.pozo_address = wb.PozoAddress(api=POZO_API, session=self.pozohandle)
+        # elif db_name == "POZO":
+        #     self.pozohandle = pozo_connect(omnia_path)
+        #     self.pozo_address = wb.PozoAddress(api=POZO_API, session=self.pozohandle)
         elif db_name == "SSDL":
             self.ssdlhandle = ssdl_connect(omnia_path)
             self.ssdl_address = wb.SsdlAddress(api=SSDL_API, session=self.ssdlhandle)
@@ -123,6 +126,48 @@ class ProviderImplFile(wb.WellboreProvider):
 
                 trajectory = wb.Trajectory(
                     coordinate_system=crs,
+                    x_arr=selected_trajectory_df["easting"].to_numpy(),
+                    y_arr=selected_trajectory_df["northing"].to_numpy(),
+                    z_arr=selected_trajectory_df["tvd_msl"].to_numpy(),
+                    md_arr=selected_trajectory_df["md"].to_numpy(),
+                )
+
+        return trajectory
+
+    def planned_wellbore_trajectory(
+        self,
+        wellbore_name: str,
+        md_min: Optional[float] = 0,
+        md_max: Optional[float] = None,
+    ) -> wb.Trajectory:
+        trajectory = None
+        metadata = None
+
+        if wellbore_name:
+            trajectories_df = extract_planned_trajectories(
+                self.smda_address, metadata, wellbore_name
+            )
+
+            trajectory_df = trajectories_df[0]
+
+            if not trajectory_df.empty:
+                trajectory_df.sort_values(by=["md"], inplace=True)
+
+                if md_min > 0:
+                    if md_max:
+                        selected_trajectory_df = trajectory_df[
+                            (trajectory_df["md"] >= md_min)
+                            & (trajectory_df["md"] <= md_max)
+                        ]
+                    else:
+                        selected_trajectory_df = trajectory_df[
+                            trajectory_df["md"] >= md_min
+                        ]
+                else:
+                    selected_trajectory_df = trajectory_df
+
+                trajectory = wb.Trajectory(
+                    coordinate_system="",
                     x_arr=selected_trajectory_df["easting"].to_numpy(),
                     y_arr=selected_trajectory_df["northing"].to_numpy(),
                     z_arr=selected_trajectory_df["tvd_msl"].to_numpy(),
@@ -262,54 +307,25 @@ class ProviderImplFile(wb.WellboreProvider):
 
         return dates
 
-    def planned_wellbore_metadata(self, metadata) -> wb.PlannedWellboreMetadata:
-        return metadata
-
-    def planned_trajectories(self, trajectories) -> wb.PlannedTrajectories:
-        return trajectories
-
-    def get_planned_wellbores(
+    def planned_trajectories(
         self,
-        field_name: str,
-    ) -> wb.PlannedWellbores:
-        planned_wellbores = None
+        metadata: str,
+    ) -> wb.PlannedTrajectories:
+        trajectories = None
+        print("Loading planned well trajectories from SMDA")
 
-        endpoint = self.pozo_address.api + "api/v3/RepWellDesign?FieldId=&phase=1"
+        dataframe = extract_planned_trajectories(
+            self.smda_address,
+            metadata,
+            "",
+        )
 
-        planned_df = None
-        planned_df = extract_planned_data(self.pozo_address.session, endpoint)
+        unique_wellbores = dataframe["unique_wellbore_identifier"].unique()
 
-        # Replace any underscore in field name with space and compare with wanted field in uppercase
-        planned_df["fieldName"] = planned_df["fieldName"].str.replace("_", " ")
-        planned_df["fieldName"] = planned_df["fieldName"].str.upper()
-        selected_wells_df = planned_df.loc[planned_df["fieldName"] == field_name]
+        trajectories = wb.Trajectories(dataframe=dataframe, coordinate_system="")
+        print("  - Planned wellbores:", len(unique_wellbores))
 
-        metadata = DataFrame()
-        trajectories = wb.PlannedTrajectories(DataFrame())
-
-        if not selected_wells_df.empty:
-            metadata_df = selected_wells_df[
-                ["name", "templateName", "fieldName", "wellTypeName", "updateDate"]
-            ]
-            metadata_df = metadata_df.copy()
-            metadata_df["purpose"] = metadata_df["wellTypeName"]
-            metadata_df["status"] = "planned"
-            metadata_df["content"] = ""
-            metadata_df["unique_wellbore_identifier"] = metadata_df["name"]
-
-            if not planned_df.empty:
-                metadata = wb.PlannedWellboreMetadata(metadata_df)
-
-            planned_trajectories = extract_plannedWell_position(selected_wells_df)
-            planned_trajectories["unique_wellbore_identifier"] = planned_trajectories[
-                "name"
-            ]
-            planned_trajectories.rename(columns={"tvdmsl": "tvd_msl"}, inplace=True)
-            trajectories = wb.PlannedTrajectories(planned_trajectories)
-
-            planned_wellbores = wb.PlannedWellbores(metadata, trajectories)
-
-        return planned_wellbores
+        return trajectories
 
     def get_prod_data(
         self,
@@ -621,3 +637,18 @@ class ProviderImplFile(wb.WellboreProvider):
         wellbores_overview = DataFrame()
 
         return wellbores_overview
+
+    def planned_wellbore_metadata(
+        self,
+        field: str,
+    ) -> wb.PlannedWellboreMetadata:
+        metadata = None
+
+        filter = "field_identifier=" + field
+        print("Loading planned well metadata from SMDA")
+        metadata_df = extract_planned_metadata(self.smda_address, filter)
+
+        if not metadata_df.empty:
+            metadata = wb.PlannedWellboreMetadata(metadata_df)
+
+        return metadata

@@ -35,10 +35,10 @@ def load_custom_colormaps(csv_files):
 
         if not name in pl.colormaps():
             color_map = colors.LinearSegmentedColormap.from_list(name, array)
-            pl.register_cmap(cmap=color_map)
+            pl.colormaps.register(cmap=color_map)
 
             color_map_r = color_map.reversed()
-            pl.register_cmap(cmap=color_map_r)
+            pl.colormaps.register(cmap=color_map_r)
 
 
 def change_inferno():
@@ -98,6 +98,7 @@ def get_colormap_settings(configuration, attribute):
             print("No default colormaps found for ", attribute)
 
     return colormap, minval, maxval
+
 
 def get_auto_colormap_settings(configuration, attribute):
     colormap = None

@@ -2,6 +2,7 @@ import pandas as pd
 import time
 import numpy as np
 from ast import literal_eval
+from pprint import pprint
 
 
 def get_osdu_metadata_attributes(horizons):
@@ -39,6 +40,7 @@ def convert_metadata(osdu_metadata):
     datasets = []
     field_names = []
     map_types = []
+    map_names = []
 
     headers = [
         "id",
@@ -52,6 +54,7 @@ def convert_metadata(osdu_metadata):
         "dataset_id",
         "field_name",
         "map_type",
+        "map_names",
     ]
 
     for _index, row in osdu_metadata.iterrows():
@@ -64,11 +67,15 @@ def convert_metadata(osdu_metadata):
             difference = row["SeismicDifferenceType"]
             horizon_names = row["StratigraphicZone"]
             dataset_ids = row["DatasetIDs"]
+            map_name = row["Name"]
 
             if type(dataset_ids) == str:
                 dataset_ids = literal_eval(dataset_ids)
 
-            dataset_id = dataset_ids[0]
+            if dataset_ids and len(dataset_ids) > 0:
+                dataset_id = dataset_ids[1]
+            else:
+                dataset_id = ""
         else:
             id = row["id"]
             field_name = row["AttributeMap.FieldName"]
@@ -96,6 +103,12 @@ def convert_metadata(osdu_metadata):
 
         name = row["Name"]
 
+        if difference == "RawDifference":
+            difference = "NotTimeshifted"
+
+        if difference == "TimeshiftedDifference":
+            difference = "Timeshifted"
+
         if "simulated" in name:
             map_type = "simulated"
         else:
@@ -117,6 +130,7 @@ def convert_metadata(osdu_metadata):
 
         times1.append(times[0])
         times2.append(times[1])
+        map_names.append(map_name)
 
     zipped_list = list(
         zip(
@@ -131,6 +145,7 @@ def convert_metadata(osdu_metadata):
             datasets,
             field_names,
             map_types,
+            map_names,
         )
     )
 
@@ -196,6 +211,9 @@ def create_osdu_lists(metadata, interval_mode):
                 map_type_dict[value] = items
 
         map_dict[map_type] = map_type_dict
+
+        print("DEBUG create osdu_list")
+        print(map_dict)
 
     return map_dict
 

@@ -142,10 +142,10 @@ class SeismicAcquisitionSurvey:
 
 
 @dataclass
-class SeismicProject:
+class SeismicProcessingProject:
     id: str
     kind: str
-    Name: str
+    ProjectName: str
     acquisition_survey_id: str
 
 

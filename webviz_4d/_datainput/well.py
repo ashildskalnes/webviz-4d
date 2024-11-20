@@ -55,7 +55,7 @@ def load_cached_data(cache_file_name):
 
 
 def load_smda_metadata(provider, field):
-    print("Loading drilled well metadata from SMDA ...")
+    print(" - Loading drilled well metadata from SMDA ...")
 
     # Check file cache
     api = "SMDA"
@@ -77,7 +77,7 @@ def load_smda_metadata(provider, field):
 
 
 def load_smda_wellbores(provider, field):
-    print("Loading drilled well trajectories from SMDA ...")
+    print(" - Loading drilled well trajectories from SMDA ...")
 
     # Check file cache
     api = "SMDA"
@@ -102,21 +102,22 @@ def load_smda_wellbores(provider, field):
 
 
 def load_planned_wells(provider, field):
-    print("Loading planned well data from POZO ...")
+    print("Loading planned well data from SMDA ...")
 
     # Check file cache
-    api = "POZO"
+    api = "Planned"
     mode = "meta"
 
     cache_file_name = get_cache_filename(field, api, mode)
     meta_dataframe = load_cached_data(cache_file_name)
 
     if meta_dataframe.empty:
-        planned_wells = provider.get_planned_wellbores(
+        print(" - Loading planned well metadata from SMDA ...")
+        planned_wells = provider.planned_wellbore_metadata(
             field_name=field,
         )
 
-        print("DEBUG planned_wells", planned_wells)
+        # print("DEBUG planned_wells", planned_wells)
 
         meta_dataframe = planned_wells.metadata.dataframe
         meta_dataframe.to_csv(cache_file_name)
@@ -128,7 +129,8 @@ def load_planned_wells(provider, field):
     data_dataframe = load_cached_data(cache_file_name)
 
     if data_dataframe.empty:
-        planned_wells = provider.get_planned_wellbores(
+        print(" - Loading planned well trajectories from SMDA ...")
+        planned_wells = provider.planned_trajectories(
             field_name=field,
         )
 
@@ -180,8 +182,6 @@ def create_basic_well_layers(
         if color is None:
             color = well_colors.get("default", None)
 
-        # print("  ", layer_name)
-
         tooltips = []
         md_end = np.nan
         layer_df = pd.DataFrame()
@@ -192,11 +192,12 @@ def create_basic_well_layers(
 
         if layer_name == "planned":
             metadata = planned_wells_info
-            trajectories = planned_wells_df
+            trajectories = planned_wells_df.dropna()
+
         if layer_name == "drilled_wells":
             metadata = drilled_wells_info
             trajectories = drilled_wells_df
-        elif layer_name == "reservoir_section":
+        elif layer_name == "reservoir_sections":
             metadata = drilled_wells_info
             trajectories = drilled_wells_df
 
@@ -206,10 +207,9 @@ def create_basic_well_layers(
 
             df = row[1]
             wellbore_name = df["unique_wellbore_identifier"]
-
             md_start = 0
 
-            if layer_name == "reservoir_section":
+            if layer_name == "reservoir_sections":
                 if surface_picks is not None and not surface_picks.empty:
                     try:
                         selected_surface_pick = surface_picks[
@@ -469,6 +469,13 @@ def create_well_layer(
 
     layer = {"name": label, "checked": check_status, "base_layer": False, "data": data}
 
+    # print("DEBUG well layer", layer.get("name"))
+    # data = layer.get("data")
+
+    # for item in data:
+    #     tooltip = item.get("tooltip")
+    #     print(" - ", tooltip)
+
     return layer
 
 
@@ -487,20 +494,24 @@ def create_basic_tooltip(row, layer_name):
         if short_name == "":
             short_name = wellbore_name
 
-        purpose = df["purpose"]
-        content = df["content"]
-        status = df["status"]
+        if layer_name == "planned":
+            tooltip = df["design_name"]
+        else:
+            purpose = df["purpose"]
+            content = df["content"]
+            status = df["status"]
 
-        if content is None or type(content) == float:
-            content = ""
+            if content is None or type(content) == float:
+                content = ""
 
-        if purpose is None or type(purpose) == float:
-            if status is not None:
-                purpose = df["status"]
-            else:
-                purpose = ""
+            if purpose is None or type(purpose) == float:
+                if status is not None:
+                    purpose = df["status"]
+                else:
+                    purpose = ""
 
-        tooltip = short_name + ":" + purpose + "(" + content + ")"
+            tooltip = short_name + ":" + purpose + "(" + content + ")"
+
         # print(wellbore_name, tooltip)
 
     return tooltip
@@ -592,7 +603,7 @@ def get_position_data(well_dataframe, md_start, md_end):
         "Z_TVDSS": "tvd_msl",
     }
 
-    delta = 200
+    delta = 50
     positions = None
 
     if "MD" in well_dataframe.columns:
@@ -646,6 +657,12 @@ def resample_well(well_df, md_start, md_end, delta):
     dfr_new["tvd_msl"] = tvd_new
     dfr_new["md"] = md_new
 
+    # dfr_new = pd.DataFrame()
+    # dfr_new["easting"] = x
+    # dfr_new["northing"] = y
+    # dfr_new["tvd_msl"] = tvd
+    # dfr_new["md"] = md
+
     return dfr_new
 
 
@@ -658,7 +675,13 @@ def get_well_polyline(
 ):
     """Create polyline data - contains well trajectory, color and tooltip"""
 
-    positions = get_position_data(well_dataframe, md_start, md_end)
+    sorted_dataframe = well_dataframe.sort_values(by=["md"])
+    positions = get_position_data(sorted_dataframe, md_start, md_end)
+
+    # if tooltip in ["NO 16/3-P-3 H planned", "D-32T2:production(oil)"]:
+    # print("DEBUG get_well_polyline")
+    #     print(tooltip)
+    #     print(positions)
 
     if positions is not None:
         return {

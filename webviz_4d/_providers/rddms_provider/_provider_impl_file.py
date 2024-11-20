@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import math
 import json
 import requests
 import urllib.parse
@@ -74,35 +75,53 @@ class DefaultRddmsService:
 
     def get_rddms_map(
         self, dataspace_name, horizon_name, uuid, uuid_url
-    ) -> xtgeo.surface:
+    ) -> xtgeo.RegularSurface:
         dataspace = dataspace_name.replace("/", "%2F")
+        mode = "default"
+        rddms_surface = None
 
-        grid_geometry = self.get_grid2d_metadata(dataspace, uuid)
-        z_values = self.get_grid2_values(dataspace, uuid, uuid_url)
+        grid_geometry = self.get_grid2d_metadata(dataspace, uuid, mode)
 
-        ncol = grid_geometry.get("nrow")
-        nrow = grid_geometry.get("ncol")
-        xinc = grid_geometry.get("xinc")
-        yinc = grid_geometry.get("yinc")
-        xori = grid_geometry.get("origin")[0]
-        yori = grid_geometry.get("origin")[1]
-        rotation = grid_geometry.get("rotation")
+        if grid_geometry:
+            z_values = self.get_grid2_values(dataspace, uuid, uuid_url)
 
-        if "swat" in horizon_name:
-            rotation = rotation + 220
+            ncol = grid_geometry.get("nrow")
+            nrow = grid_geometry.get("ncol")
+            xinc = grid_geometry.get("xinc")
+            yinc = grid_geometry.get("yinc")
+            xori = grid_geometry.get("origin")[0]
+            yori = grid_geometry.get("origin")[1]
+            rotation = grid_geometry.get("rotation")
 
-        rddms_surface = xtgeo.RegularSurface(
-            ncol=ncol,
-            nrow=nrow,
-            xinc=xinc,
-            yinc=yinc,
-            yflip=-1,
-            xori=xori,
-            yori=yori,
-            values=z_values,
-            name=horizon_name,
-            rotation=rotation,
-        )
+            if "swat" in horizon_name:
+                rotation = rotation + 220
+
+            print("DEBUG grid rotation", rotation)
+
+            try:
+                rddms_surface = xtgeo.RegularSurface(
+                    ncol=ncol,
+                    nrow=nrow,
+                    xinc=xinc,
+                    yinc=yinc,
+                    yflip=-1,
+                    xori=xori,
+                    yori=yori,
+                    values=z_values,
+                    name=horizon_name,
+                    rotation=rotation,
+                )
+            except Exception as e:
+                print("ERROR cannot create RegularSurface object:")
+                if hasattr(e, "message"):
+                    print("  ", e.message)
+                else:
+                    print("  ", e)
+
+                rddms_surface = None
+
+        else:
+            print("ERROR: grid geometry not found")
 
         return rddms_surface
 
@@ -120,6 +139,10 @@ class DefaultRddmsService:
             headers=self.headers,
             verify=False,
         )
+
+        if response.status_code == 500:
+            print("ERROR: Internal server error")
+            return grid2s
 
         ngrid2s = len(response.json())
 
@@ -152,9 +175,13 @@ class DefaultRddmsService:
             verify=False,
         )
 
-        response_flat = pd.json_normalize(response.json()).to_dict(orient="records")[0]
+        response_flat = pd.json_normalize(response.json()).to_dict(orient="records")
 
-        extra_metadata = response_flat.get("ExtraMetadata")
+        if response_flat and len(response_flat):
+            response_object = response_flat[0]
+            extra_metadata = response_object.get("ExtraMetadata")
+        else:
+            print("WARNING: error in response request:", uuid, response_flat)
 
         if extra_metadata is not None:
             metadata_dict = {}
@@ -216,7 +243,12 @@ class DefaultRddmsService:
                 metadata_dict.update({key: metadata_value})
 
             if field_name != "":
-                metadata_field_name = metadata_dict.get("FieldName", "")[0]
+                metadata_field_name = metadata_dict.get("FieldName", None)
+
+                if metadata_field_name:
+                    metadata_field_name = metadata_field_name[0]
+                else:
+                    metadata_field_name = ""
 
                 if metadata_field_name != "" and metadata_field_name == field_name:
                     metadata = metadata_dict
@@ -227,7 +259,24 @@ class DefaultRddmsService:
 
         return metadata
 
-    def get_grid2d_metadata(self, dataspace_name, uuid):
+    def calculate_rotation_angle(self, x1, y1, x2, y2):
+        # Calculate the differences in coordinates
+        delta_x = x2 - x1
+        delta_y = y2 - y1
+
+        # Calculate the angle of rotation using arctan
+        # math.atan2 is used to handle the correct quadrant of the angle
+        theta_radians = math.atan2(delta_y, delta_x)
+
+        # Convert the angle from radians to degrees
+        theta_degrees = math.degrees(theta_radians)
+
+        # Normalize the angle to be between 0 and 360 degrees
+        theta_degrees = theta_degrees % 360
+
+        return theta_degrees
+
+    def get_grid2d_metadata(self, dataspace_name, uuid, mode):
         geometry_dict = {}
         params = {
             "$format": "json",
@@ -248,79 +297,115 @@ class DefaultRddmsService:
         grid2d = response.json()
 
         if len(grid2d) > 0:
+            try:
+                XOffset = (
+                    grid2d[0]
+                    .get("Grid2dPatch")
+                    .get("Geometry")
+                    .get("LocalCrs")
+                    .get("_data")
+                    .get("XOffset")
+                )
+                YOffset = (
+                    grid2d[0]
+                    .get("Grid2dPatch")
+                    .get("Geometry")
+                    .get("LocalCrs")
+                    .get("_data")
+                    .get("YOffset")
+                )
 
-            XOffset = (
-                grid2d[0]
-                .get("Grid2dPatch")
-                .get("Geometry")
-                .get("LocalCrs")
-                .get("_data")
-                .get("XOffset")
-            )
-            YOffset = (
-                grid2d[0]
-                .get("Grid2dPatch")
-                .get("Geometry")
-                .get("LocalCrs")
-                .get("_data")
-                .get("YOffset")
-            )
+                origin_1 = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
+                    "SupportingGeometry"
+                ]["Origin"]["Coordinate1"]
+                origin_2 = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
+                    "SupportingGeometry"
+                ]["Origin"]["Coordinate2"]
 
-            origin_1 = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
-                "SupportingGeometry"
-            ]["Origin"]["Coordinate1"]
-            origin_2 = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
-                "SupportingGeometry"
-            ]["Origin"]["Coordinate2"]
+                offset = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
+                    "SupportingGeometry"
+                ]["Offset"]
 
-            offset = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
-                "SupportingGeometry"
-            ]["Offset"]
+                # print(XOffset + origin_1, YOffset + origin_2)
 
-            # print(XOffset + origin_1, YOffset + origin_2)
+                arealRotation = (
+                    grid2d[0]
+                    .get("Grid2dPatch")
+                    .get("Geometry")
+                    .get("LocalCrs")
+                    .get("_data")
+                    .get("ArealRotation")
+                )
+                # print("arealRotation", arealRotation)
 
-            surf_ori = [XOffset + origin_1, YOffset + origin_2]
+                surf_ori = [XOffset + origin_1, YOffset + origin_2]
 
-            increments = []
-            counts = []
+                increments = []
+                counts = []
+                x_values = []
+                y_values = []
 
-            for item in offset:
-                inc = item["Spacing"]["Value"]
-                increments.append(inc)
+                for item in offset:
+                    inc = item["Spacing"]["Value"]
+                    increments.append(inc)
 
-                count = item["Spacing"]["Count"]
-                counts.append(count)
+                    count = item["Spacing"]["Count"]
+                    counts.append(count)
 
-            nrow = counts[0]
-            ncol = counts[1]
-            dx = increments[1]
-            dy = increments[0]
+                    x = item["Offset"]["Coordinate1"]
+                    x_values.append(x)
 
-            rotation = 90
-            yflip = -1
+                    y = item["Offset"]["Coordinate2"]
+                    y_values.append(y)
 
-            geometry_dict = {
-                "nrow": nrow,
-                "ncol": ncol,
-                "origin": surf_ori,
-                "xinc": dx,
-                "yinc": dy,
-                "rotation": rotation,
-                "yflip": yflip,
-            }
+                calc_rotation = self.calculate_rotation_angle(
+                    x_values[0],
+                    y_values[0],
+                    x_values[1],
+                    y_values[1],
+                )
 
-            response = requests.get(
-                f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}/arrays",
-                params=params,
-                headers=self.headers,
-                verify=False,
-            )
+                print("DEBUG calculated rotation:", calc_rotation)
 
-            uuid_url = urllib.parse.quote(
-                response.json()[0]["uid"]["pathInResource"], safe=""
-            )
+                nrow = counts[0]
+                ncol = counts[1]
+                dx = increments[1]
+                dy = increments[0]
 
-            geometry_dict.update({"uuid_url": uuid_url})
+                rotation = 90
+                yflip = -1
+
+                if mode == "calculated":
+                    rotation = calc_rotation
+
+                geometry_dict = {
+                    "nrow": nrow,
+                    "ncol": ncol,
+                    "origin": surf_ori,
+                    "xinc": dx,
+                    "yinc": dy,
+                    "rotation": rotation,
+                    "yflip": yflip,
+                }
+
+                response = requests.get(
+                    f"{self.rddms_host}/dataspaces/{dataspace}/resources/resqml20.obj_Grid2dRepresentation/{uuid}/arrays",
+                    params=params,
+                    headers=self.headers,
+                    verify=False,
+                )
+
+                uuid_url = urllib.parse.quote(
+                    response.json()[0]["uid"]["pathInResource"], safe=""
+                )
+
+                geometry_dict.update({"uuid_url": uuid_url})
+            except Exception as e:
+                print("ERROR during extraction of grid geometry")
+                if hasattr(e, "message"):
+                    print(e.message)
+                else:
+                    print(e)
 
         return geometry_dict
 
@@ -343,6 +428,8 @@ class DefaultRddmsService:
             uuid = grid2_object.get("uuid")
             rddms_horizon = self.get_extra_metadata(dataspace, uuid, field_name)
             uuid_url = self.get_grid2_url(dataspace, uuid)
+
+            attribute_horizon = None
 
             if rddms_horizon and uuid_url:
                 attribute_horizon = self.parse_seismic_attribute_horizon(
@@ -372,7 +459,12 @@ class DefaultRddmsService:
             verify=False,
         )
 
-        z_values = np.array(response.json()["data"]["data"], dtype=np.float32)
+        data = response.json().get("data")
+
+        if data:
+            z_values = np.array(data["data"], dtype=np.float32)
+        else:
+            print("ERROR: data field not found")
 
         return z_values
 
@@ -393,9 +485,10 @@ class DefaultRddmsService:
             verify=False,
         )
 
-        uuid_url = urllib.parse.quote(
-            response.json()[0]["uid"]["pathInResource"], safe=""
-        )
+        if len(response.json()) > 0:
+            uuid_url = urllib.parse.quote(
+                response.json()[0]["uid"]["pathInResource"], safe=""
+            )
 
         return uuid_url
 
