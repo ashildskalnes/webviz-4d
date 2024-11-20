@@ -109,7 +109,9 @@ def main():
         standard_metadata[key] = updated_metadata[value]
 
     pd.set_option("display.max_rows", None)
+    # pd.set_option("display.max_columns", None)
     print(standard_metadata)
+    standard_metadata.to_csv("standard_metadata.csv")
 
     # Seismic horizons (structural interpretations)
     osdu_objects = osdu_service.get_seismic_horizons()
@@ -147,37 +149,45 @@ def main():
     print("")
 
     # Seismic processing projects
-    processings = osdu_service.get_seismic_processings(js_processings)
-    print("Seismic processing projects (JS) from OSDU:", len(processings))
+    processings = []
 
-    for processing in processings:
-        project_name = processing.project_name
+    for js_processing in js_processings:
+        processing = osdu_service.get_processing_projects(js_processing)
+
+        if len(processing) == 1:
+            processing = processing[0]
+
+        project_name = processing.ProjectName
         id = processing.id
+        acquisition_survey_id = processing.acquisition_survey_id
 
         print("Project name:", project_name)
         print("  - id:", id)
+        print("  - acquisition_id:", acquisition_survey_id)
 
-    print("")
+        # Seismic acquisition surveys
+        surveys = osdu_service.get_seismic_surveys(
+            selected_processing_project=processing, selected_trace_data=None
+        )
 
-    # Seismic acquisition surveys
-    acquisitions = osdu_service.get_seismic_acquisitions(js_acquisitions)
-    print("Seismic acquisitions (JS) from OSDU:", len(acquisitions))
+        if len(surveys) == 1:
+            survey = surveys[0]
+            acquisition = osdu_service.parse_seismic_acquisition(survey)
 
-    for acquisition in acquisitions:
-        name = acquisition.name
-        id = acquisition.id
+            name = acquisition.ProjectName
+            id = acquisition.id
 
-        begin_date = datetime.strptime(acquisition.begin_date[:10], "%Y-%m-%d")
-        end_date = datetime.strptime(acquisition.end_date[:10], "%Y-%m-%d")
-        reference_date = begin_date + (end_date - begin_date) / 2
+            begin_date = acquisition.ProjectBeginDate
+            end_date = acquisition.ProjectEndDate
+            reference_date = acquisition.ProjectReferenceDate
 
-        print("Project name:", name)
-        print("  - id:", id)
-        print("  - begin_date:", datetime.strftime(begin_date, "%Y-%m-%d"))
-        print("  - end_date:", datetime.strftime(end_date, "%Y-%m-%d"))
-        print("  - ref_date:", datetime.strftime(reference_date, "%Y-%m-%d"))
+            print("Project name:", name)
+            print("  - id:", id)
+            print("  - begin_date:", datetime.strftime(begin_date, "%Y-%m-%d"))
+            print("  - end_date:", datetime.strftime(end_date, "%Y-%m-%d"))
+            print("  - ref_date:", datetime.strftime(reference_date, "%Y-%m-%d"))
 
-    print("")
+        print("")
 
 
 if __name__ == "__main__":

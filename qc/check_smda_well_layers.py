@@ -3,6 +3,7 @@ import argparse
 import pandas as pd
 import xtgeo
 from pathlib import Path
+from pprint import pprint
 
 from fmu.sumo.explorer import Explorer
 
@@ -27,11 +28,18 @@ from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 
-from webviz_4d._datainput._sumo import create_selector_lists, get_realization_surface, get_aggregated_surface
+from webviz_4d._datainput._sumo import (
+    create_selector_lists,
+    get_realization_surface,
+    get_aggregated_surface,
+)
+
+import webviz_4d._providers.wellbore_provider.wellbore_provider as wb
 
 import warnings
 
 warnings.filterwarnings("ignore")
+
 
 def get_path(path) -> Path:
     return Path(path)
@@ -103,7 +111,7 @@ def get_top_res_surface_file(surface_info):
 
 
 def main():
-    description = "Test well layers based on well data from POZO and SMDA"
+    description = "Test well layers based on well data from SMDA"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("config_file")
 
@@ -142,7 +150,6 @@ def main():
     home = os.path.expanduser("~")
     env_path = os.path.expanduser(os.path.join(home, omnia_env))
     smda_provider = ProviderImplFile(env_path, "SMDA")
-    pozo_provider = ProviderImplFile(env_path, "POZO")
     pdm_provider = ProviderImplFile(env_path, "PDM")
 
     print("Loading drilled well data from SMDA ...")
@@ -155,32 +162,39 @@ def main():
     surface_picks = get_surface_picks(drilled_wells_df, top_res_surface)
 
     if "planned" in basic_well_layers:
-        print("Loading planned well data from POZO ...")
-        planned_wells = load_planned_wells(pozo_provider, field_name)
-        planned_wells_info = planned_wells.metadata.dataframe
-        planned_wells_df = planned_wells.trajectories.dataframe
+        planned_wells_info = smda_provider.planned_wellbore_metadata(
+            field=field_name,
+        )
+        planned_wells_df = smda_provider.planned_trajectories(
+            planned_wells_info.dataframe,
+        )
     else:
-        planned_wells_info = pd.DataFrame()
-        planned_wells_df = pd.DataFrame()
+        planned_wells_info = wb.PlannedWellboreMetadata(pd.DataFrame())
+        planned_wells_df = wb.Trajectories(
+            coordinate_system="", dataframe=pd.DataFrame()
+        )
 
     well_basic_layers = create_basic_well_layers(
         basic_well_layers,
-        planned_wells_info,
-        planned_wells_df,
+        planned_wells_info.dataframe,
+        planned_wells_df.dataframe,
         drilled_wells_info,
         drilled_wells_df,
         surface_picks,
         well_colors,
     )
 
-    print("Basic well layers")
-    for layer in well_basic_layers:
-        data = layer.get("data")
-        print("  ", layer.get("name"), len(data))
+    # print("Basic well layers")
+    # for layer in well_basic_layers:
+    #     data = layer.get("data")
+    #     print("  ", layer.get("name"), len(data))
 
-        # for well in data:
-        #     tooltip = well.get("tooltip")
-        #     print("    ", tooltip)
+    #     for well in data:
+    #         tooltip = well.get("tooltip")
+    #         if layer == "planned":
+    #             print("    ", tooltip)
+    #     print(layer.get("data")[0].get("tooltip"))
+    #     pprint(layer.get("data")[0].get("positions"))
 
     selectors = create_selector_lists(my_case, "timelapse")
     map_types = ["observed", "simulated"]

@@ -4,6 +4,9 @@ import pandas as pd
 import argparse
 import time
 from pprint import pprint
+import xtgeoviz.plot as xtgplot
+import xtgeo
+
 
 from webviz_4d._datainput.common import read_config
 from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddmsService
@@ -37,7 +40,6 @@ def main():
     metadata_version = settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
     field_name = shared_settings.get("field_name")
-    selections = None
 
     print("Searching for Dataspaces in RDDMS:")
     dataspaces = rddms_service.get_dataspaces()
@@ -46,7 +48,6 @@ def main():
         print("Dataspace:", dataspace)
 
     print("-----------------------------------------------------------------")
-
     print(
         "Searching for seismic 4D attribute maps in RDDMS",
         selected_dataspace,
@@ -149,19 +150,40 @@ def main():
         print(" - uuid_url", uuid_url)
 
         start_time = time.time()
+
         surface = rddms_service.get_rddms_map(
             dataspace_name=selected_dataspace,
             horizon_name=horizon_name,
             uuid=uuid,
             uuid_url=uuid_url,
         )
+
         print(" --- %s seconds ---" % (time.time() - start_time))
         number_cells = surface.nrow * surface.ncol
         print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
 
         print()
         print(surface)
-        surface.quickplot(seismic)
+        surface.quickplot()
+
+        # rotation = "calculated"
+
+        # start_time = time.time()
+        # surface = rddms_service.get_rddms_map(
+        #     dataspace_name=selected_dataspace,
+        #     horizon_name=horizon_name,
+        #     uuid=uuid,
+        #     uuid_url=uuid_url,
+        #     mode=rotation,
+        # )
+
+        # print(" --- %s seconds ---" % (time.time() - start_time))
+        # number_cells = surface.nrow * surface.ncol
+        # print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
+
+        # print()
+        # print(surface)
+        # surface.quickplot(title=rotation)
 
 
 if __name__ == "__main__":

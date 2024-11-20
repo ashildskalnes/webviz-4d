@@ -63,11 +63,15 @@ def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type):
         print("Selected dataset info:")
         print(map_type, real, ensemble, name, attribute, time1, time2)
 
-        if len(selected_metadata) > 1:
-            print("WARNING number of datasets", len(selected_metadata))
+        if len(selected_metadata) != 1:
+            print("WARNING number of datasets =", len(selected_metadata))
             print(selected_metadata)
 
         dataset_id = selected_metadata["dataset_id"].values[0]
+        map_name = selected_metadata["map_names"].values[0]
+
+        print("  ", map_name, dataset_id)
+
         return dataset_id
     except:
         dataset_id = None
@@ -93,31 +97,45 @@ def main():
     config_folder = os.path.dirname(config_file)
 
     shared_settings = config.get("shared_settings")
+    field_name = shared_settings.get("field_name")
     settings = shared_settings.get("osdu")
     metadata_version = settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
 
-    cache_file = "metadata_cache.csv"
+    cache_file = "metadata_cache_" + metadata_version + ".csv"
     metadata_file_cache = os.path.join(config_folder, cache_file)
+
+    try:
+        os.remove(metadata_file_cache)
+        print(f"File '{metadata_file_cache}' deleted successfully.")
+
+    except FileNotFoundError:
+        print(f"File '{metadata_file_cache}' not found.")
 
     if os.path.isfile(metadata_file_cache):
         print("  Reading cached metadata from", metadata_file_cache)
         updated_metadata = pd.read_csv(metadata_file_cache)
     else:
         print("Extracting metadata from OSDU Core ...")
-        start_time = time.time()
+
         attribute_horizons = osdu_service.get_attribute_horizons(
-            metadata_version=metadata_version
+            metadata_version=metadata_version, field_name=field_name
         )
-        print("Number of valid attribute maps:", len(attribute_horizons))
+
+        print("Number of attribute maps:", len(attribute_horizons))
+        print("Checking all metadata ...")
+
+        if len(attribute_horizons) == 0:
+            exit()
 
         metadata = get_osdu_metadata_attributes(attribute_horizons)
-        # print(" --- %s seconds ---" % (time.time() - start_time))
-        # print()
 
         updated_metadata = osdu_service.update_reference_dates(metadata)
-        updated_metadata.to_csv(metadata_file_cache)
-        print("Updated metadata stored to:", metadata_file_cache)
+        print()
+        pprint("updated_metadata")
+        # updated_metadata.to_csv(metadata_file_cache)
+
+        # print("Updated metadata stored to:", metadata_file_cache)
 
     print(updated_metadata)
 
@@ -125,7 +143,7 @@ def main():
         "FieldName": "FieldName",
         "Name": "Name",
         "Zone": "StratigraphicZone",
-        "MapTypeDim": "MapTypeDimension",
+        "MapDim": "MapTypeDimension",
         "SeismicAttribute": "SeismicTraceAttribute",
         "AttributeType": "AttributeExtractionType",
         "Coverage": "SeismicCoverage",
@@ -158,6 +176,7 @@ def main():
         selected_field_metadata = updated_metadata[
             updated_metadata["FieldName"] == field_name
         ]
+        selected_field_metadata["map_type"] = "observed"
 
         converted_metadata = convert_metadata(selected_field_metadata)
         metadata_dicts.update({field_name: converted_metadata})
@@ -174,7 +193,7 @@ def main():
     name = "FullReservoirEnvelope"
     map_type = "observed"
     seismic = "Amplitude"
-    difference = "RawDifference"
+    difference = "NotTimeshifted"
     interval = "2021-05-17-2020-09-30"
 
     ensemble = seismic
