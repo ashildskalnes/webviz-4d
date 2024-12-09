@@ -1,6 +1,6 @@
 import os
-import time
 import glob
+import time
 import numpy as np
 import pandas as pd
 import yaml
@@ -28,33 +28,33 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
     differences = []
     filenames = []
     field_names = []
+    map_names = []
 
     headers = [
         "name",
         "attribute",
-        "time.t1",
-        "time.t2",
+        "time1",
+        "time2",
         "seismic",
         "coverage",
         "difference",
         "filename",
         "field_name",
+        "map_name",
     ]
 
     file_ext = ".yml"
 
     # Search for all metadata files
-    # start_time = time.time()
+    start_time = time.time()
     metadata_files = glob.glob(fmu_dir + "/" + map_directory + ".*" + file_ext)
-    print("Metadata files found:", len(metadata_files))
 
     for metadata_file in metadata_files:
         metadata = read_yaml_file(metadata_file)
         file = metadata.get("file")
         data = metadata.get("data")
 
-        name = os.path.basename(file.get("absolute_path")).replace("yml", "")
-        zone = data.get("name")
+        name = os.path.basename(file.get("absolute_path")).replace("gri", "")
         tag_name = data.get("tagname")
         tag_name_info = tag_name.split("_")
         attribute_type = tag_name_info[-1]
@@ -68,9 +68,9 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
 
         horizon_items = name.split("--")
         seismic_horizon = horizon_items[0]
-        time = data.get("time")
-        time1 = str(time.get("t0").get("value"))[0:10]
-        time2 = str(time.get("t1").get("value"))[0:10]
+        times = data.get("time")
+        time1 = str(times.get("t0").get("value"))[0:10]
+        time2 = str(times.get("t1").get("value"))[0:10]
         filename = file.get("absolute_path")
 
         surface_names.append(seismic_horizon)
@@ -82,9 +82,11 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
         differences.append(difference)
         filenames.append(filename)
         field_names.append(field_name)
+        map_names.append(name)
 
-    # print(" --- %s seconds ---" % (time.time() - start_time))
-    # print()
+    print("Metadata loaded:")
+    print(" --- %s seconds ---" % (time.time() - start_time))
+    print(" --- ", len(surface_names), "files")
 
     zipped_list = list(
         zip(
@@ -97,6 +99,7 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
             differences,
             filenames,
             field_names,
+            map_names,
         )
     )
 
@@ -126,7 +129,7 @@ def create_fmu_lists(metadata, interval_mode):
 
         map_type_metadata = metadata[metadata["map_type"] == map_type]
 
-        intervals_df = map_type_metadata[["time.t1", "time.t2"]]
+        intervals_df = map_type_metadata[["time1", "time2"]]
         intervals = []
 
         for key, value in selectors.items():
@@ -136,8 +139,8 @@ def create_fmu_lists(metadata, interval_mode):
 
             if selector == "interval":
                 for _index, row in intervals_df.iterrows():
-                    t1 = str(row["time.t1"])
-                    t2 = str(row["time.t2"])
+                    t1 = str(row["time1"])
+                    t2 = str(row["time2"])
 
                     if interval_mode == "normal":
                         interval = t2 + "-" + t1

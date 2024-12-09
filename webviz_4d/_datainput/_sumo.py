@@ -136,17 +136,19 @@ def load_sumo_observed_metadata(my_case):
     coverages = []
     differences = []
     field_names = []
+    map_names = []
 
     headers = [
         "name",
         "tagname",
         "attribute",
-        "time.t1",
-        "time.t2",
+        "time1",
+        "time2",
         "seismic",
         "coverage",
         "difference",
         "field_name",
+        "map_name",
     ]
 
     map_type = "observed"
@@ -181,6 +183,7 @@ def load_sumo_observed_metadata(my_case):
         coverages.append(coverage)
         differences.append(difference)
         field_names.append(field_name)
+        map_names.append(map_names)
 
     zipped_list = list(
         zip(
@@ -193,6 +196,7 @@ def load_sumo_observed_metadata(my_case):
             coverages,
             differences,
             field_names,
+            map_names,
         )
     )
 
@@ -803,7 +807,7 @@ def create_sumo_lists(metadata, interval_mode):
 
         map_type_metadata = metadata[metadata["map_type"] == map_type]
 
-        intervals_df = map_type_metadata[["time.t1", "time.t2"]]
+        intervals_df = map_type_metadata[["time1", "time2"]]
         intervals = []
 
         for key, value in selectors.items():
@@ -813,8 +817,8 @@ def create_sumo_lists(metadata, interval_mode):
 
             if selector == "interval":
                 for _index, row in intervals_df.iterrows():
-                    t1 = str(row["time.t1"])
-                    t2 = str(row["time.t2"])
+                    t1 = str(row["time1"])
+                    t2 = str(row["time2"])
 
                     if interval_mode == "normal":
                         interval = t2 + "-" + t1

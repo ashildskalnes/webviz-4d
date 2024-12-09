@@ -98,6 +98,7 @@ class SeismicAttributeInterpretation:
     Name: str
     MetadataVersion: str
     Name: str
+    FieldID: str
     FieldName: str
     SeismicBinGridName: str
     ApplicationName: str
@@ -134,6 +135,7 @@ class Dataset:
 class SeismicAcquisitionSurvey:
     id: str
     kind: str
+    FieldID: str
     ProjectName: str
     ProjectID: str
     ProjectBeginDate: str
@@ -145,6 +147,7 @@ class SeismicAcquisitionSurvey:
 class SeismicProcessingProject:
     id: str
     kind: str
+    FieldID: str
     ProjectName: str
     acquisition_survey_id: str
 
@@ -154,6 +157,7 @@ class SeismicTraceData:
     id: str
     kind: str
     Name: str
+    FieldID: str
     InlineMin: float
     InlineMax: float
     CrosslineMin: float

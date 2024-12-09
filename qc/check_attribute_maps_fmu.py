@@ -3,12 +3,12 @@ import time
 import argparse
 from pprint import pprint
 
-from webviz_4d._datainput.common import read_config
+from webviz_4d._datainput.common import read_config, print_metadata
 from webviz_4d._datainput._fmu import load_fmu_metadata, create_fmu_lists
 
 
 def main():
-    """Load metadata for all observed timelapse maps from a FMU case (on /scratch)"""
+    """Load metadata for all observed timelapse maps from a FMU case on /project"""
     description = "Compile metadata for all observed 4D maps"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("config_file", help="Enter path to the configuration file")
@@ -33,14 +33,11 @@ def main():
         interval_mode = shared_settings.get("interval_mode", "normal")
 
         metadata = load_fmu_metadata(fmu_dir, map_dir, field_name)
-        print(metadata)
+        print_metadata(metadata)
 
-        metadata.to_csv("metadata_fmu_test.csv")
-
-        # Create selectors
+        print()
+        print("Create auto4d selection lists ...")
         selectors = create_fmu_lists(metadata, interval_mode)
-
-        print("Selectors")
         pprint(selectors)
 
     else:

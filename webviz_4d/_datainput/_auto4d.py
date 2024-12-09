@@ -1,15 +1,9 @@
 import os
 import time
 import glob
-import argparse
 import json
 import numpy as np
 import pandas as pd
-from pprint import pprint
-
-from webviz_4d._datainput.common import (
-    read_config,
-)
 
 
 def load_auto4d_metadata(
@@ -37,8 +31,8 @@ def load_auto4d_metadata(
         "name",
         "attribute",
         "dates",
-        "time.t1",
-        "time.t2",
+        "time1",
+        "time2",
         "seismic",
         "coverage",
         "difference",
@@ -58,9 +52,13 @@ def load_auto4d_metadata(
             selection_status_list = []
 
             # Opening metadata file
-            with open(metadata_file) as meta_file:
-                metadata = json.load(meta_file)
+            try:
+                f = open(metadata_file)
+                metadata = json.load(f)
+            except:
+                metadata = None
 
+            if metadata:
                 # Check metadata version
                 metadata_version = metadata.get("MetadataVersion")
 
@@ -134,8 +132,9 @@ def load_auto4d_metadata(
         print("ERROR: Unsupported file extension", file_ext)
         return all_metadata
 
+    print("Metadata loaded:")
     print(" --- %s seconds ---" % (time.time() - start_time))
-    print()
+    print(" --- ", len(names), "files")
 
     zipped_list = list(
         zip(
@@ -163,9 +162,6 @@ def load_auto4d_metadata(
     all_metadata["source_id"] = ""
     all_metadata["map_dim"] = "4D"
 
-    # print("DEBUG auto4d_metadata")
-    # print(all_metadata)
-
     return all_metadata
 
 
@@ -188,7 +184,7 @@ def create_auto4d_lists(metadata, interval_mode):
 
         map_type_metadata = metadata[metadata["map_type"] == map_type]
 
-        intervals_df = map_type_metadata[["time.t1", "time.t2"]]
+        intervals_df = map_type_metadata[["time1", "time2"]]
         intervals = []
 
         for key, value in selectors.items():
@@ -198,8 +194,8 @@ def create_auto4d_lists(metadata, interval_mode):
 
             if selector == "interval":
                 for _index, row in intervals_df.iterrows():
-                    t1 = str(row["time.t1"])
-                    t2 = str(row["time.t2"])
+                    t1 = str(row["time1"])
+                    t2 = str(row["time2"])
 
                     if interval_mode == "normal":
                         interval = t2 + "-" + t1
@@ -210,14 +206,12 @@ def create_auto4d_lists(metadata, interval_mode):
                         intervals.append(interval)
 
                 # sorted_intervals = sort_intervals(intervals)
-                sorted_intervals = intervals
+                sorted_intervals = sorted(intervals)
 
                 map_type_dict[value] = sorted_intervals
             else:
                 items = list(map_type_metadata[selector].unique())
-                items.sort()
-
-                map_type_dict[value] = items
+                map_type_dict[value] = sorted(items)
 
         map_dict[map_type] = map_type_dict
 

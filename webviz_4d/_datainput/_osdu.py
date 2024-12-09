@@ -5,6 +5,70 @@ from ast import literal_eval
 from pprint import pprint
 
 
+def get_correct_list(name, raw_metatadata_items):
+    status = False
+
+    metatadata_items = raw_metatadata_items
+
+    if type(metatadata_items) is list and len(metatadata_items) == 1:
+        items = metatadata_items[0]
+
+        if "[" in metatadata_items[0]:
+            new_names = items.replace("[", "").replace('"', "").replace("]", "")
+
+        new_names = new_names.split(",")
+
+        if type(new_names) is list and len(new_names) == 2:
+            metatadata_items = new_names
+        else:
+            metatadata_items = [items]
+
+    if type(metatadata_items) is str:
+        names_split = metatadata_items.split(",")
+        metatadata_items = names_split
+
+    if len(metatadata_items) == 1:
+        # print(name)
+        # print(
+        #     " - WARNING: Number of input seismic traces is",
+        #     len(metatadata_items),
+        # )
+
+        nameA = metatadata_items[0]
+        nameB = ""
+
+    else:
+        nameA = metatadata_items[0]
+        nameB = metatadata_items[1]
+
+    if nameA == "" or nameB == "":
+        metatadata_items = raw_metatadata_items
+
+        if type(metatadata_items) is str:
+            metatadata_items = literal_eval(metatadata_items)
+
+        if len(metatadata_items) != 2:
+            status = False
+        else:
+            status = True
+            nameA = metatadata_items[0]
+            nameB = metatadata_items[1]
+    else:
+        status = True
+        nameA = metatadata_items[0]
+        nameB = metatadata_items[1]
+
+    if status:
+        metatadata_items = [
+            nameA.replace(" ", ""),
+            nameB.replace(" ", ""),
+        ]
+    else:
+        metatadata_items = []
+
+    return metatadata_items
+
+
 def get_osdu_metadata_attributes(horizons):
     metadata_dicts = []
 
@@ -46,15 +110,15 @@ def convert_metadata(osdu_metadata):
         "id",
         "name",
         "attribute",
-        "time.t1",
-        "time.t2",
+        "time1",
+        "time2",
         "seismic",
         "coverage",
         "difference",
         "dataset_id",
         "field_name",
         "map_type",
-        "map_names",
+        "map_name",
     ]
 
     for _index, row in osdu_metadata.iterrows():
@@ -67,12 +131,13 @@ def convert_metadata(osdu_metadata):
             difference = row["SeismicDifferenceType"]
             horizon_names = row["StratigraphicZone"]
             dataset_ids = row["DatasetIDs"]
-            map_name = row["Name"]
 
             if type(dataset_ids) == str:
                 dataset_ids = literal_eval(dataset_ids)
 
-            if dataset_ids and len(dataset_ids) > 0:
+            if dataset_ids and len(dataset_ids) == 1:
+                dataset_id = dataset_ids[0]
+            elif dataset_ids and len(dataset_ids) == 2:
                 dataset_id = dataset_ids[1]
             else:
                 dataset_id = ""
@@ -103,34 +168,41 @@ def convert_metadata(osdu_metadata):
 
         name = row["Name"]
 
-        if difference == "RawDifference":
+        if difference == "RawDifference" or difference == "NotTimeshifted":
             difference = "NotTimeshifted"
-
-        if difference == "TimeshiftedDifference":
+        elif difference == "TimeshiftedDifference" or difference == "Timeshifted":
             difference = "Timeshifted"
+        elif difference == "":
+            difference = "seismic_content"
+        else:
+            difference = "---"
 
         if "simulated" in name:
             map_type = "simulated"
         else:
             map_type = "observed"
 
-        map_types.append(map_type)
-        field_names.append(field_name)
-        ids.append(id)
-        datasets.append(dataset_id)
-        attributes.append(attribute_type)
-        seismic_contents.append(seismic_content)
-        coverages.append(coverage)
-        differences.append(difference)
-        surface_names.append(horizon_names)
         times = row["AcquisitionDates"]
 
         if type(times) == str:
             times = literal_eval(times)
 
-        times1.append(times[0])
-        times2.append(times[1])
-        map_names.append(map_name)
+        if times[0] != "" and times[0] != "":
+            times1.append(times[0])
+            times2.append(times[1])
+
+            map_types.append(map_type)
+            field_names.append(field_name)
+            ids.append(id)
+            datasets.append(dataset_id)
+            attributes.append(attribute_type)
+            seismic_contents.append(seismic_content)
+            coverages.append(coverage)
+            differences.append(difference)
+            surface_names.append(horizon_names)
+            map_names.append(name)
+        else:
+            print("WARNING: No time interval information found:", name)
 
     zipped_list = list(
         zip(
@@ -151,7 +223,6 @@ def convert_metadata(osdu_metadata):
 
     metadata = pd.DataFrame(zipped_list, columns=headers)
     metadata.fillna(value=np.nan, inplace=True)
-    metadata["original_name"] = osdu_metadata["Name"]
 
     return metadata
 
@@ -175,18 +246,19 @@ def create_osdu_lists(metadata, interval_mode):
         map_type_metadata = metadata[metadata["map_type"] == map_type]
         map_type_metadata = map_type_metadata.where(~map_type_metadata.isna(), "")
 
-        intervals_df = map_type_metadata[["time.t1", "time.t2"]]
+        intervals_df = map_type_metadata[["time1", "time2"]]
         intervals = []
 
         for key, value in selectors.items():
             selector = key
             map_type_metadata = metadata[metadata["map_type"] == map_type]
+
             map_type_dict[value] = {}
 
             if selector == "interval":
                 for _index, row in intervals_df.iterrows():
-                    t1 = row["time.t1"]
-                    t2 = row["time.t2"]
+                    t1 = row["time1"]
+                    t2 = row["time2"]
 
                     if type(t1) == str and type(t2) is str:
                         if interval_mode == "normal":
@@ -206,14 +278,15 @@ def create_osdu_lists(metadata, interval_mode):
                 map_type_dict[value] = sorted_intervals
             else:
                 items = list(map_type_metadata[selector].unique())
-                items.sort()
+                cleaned_list = [x for x in items if str(x) != "nan"]
 
-                map_type_dict[value] = items
+                # if len(cleaned_list) == 1:
+                #     items = cleaned_list
+                # else:
+                #     items = cleaned_list.sort()
+                map_type_dict[value] = sorted(cleaned_list)
 
         map_dict[map_type] = map_type_dict
-
-        print("DEBUG create osdu_list")
-        print(map_dict)
 
     return map_dict
 

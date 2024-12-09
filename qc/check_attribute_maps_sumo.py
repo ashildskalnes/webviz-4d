@@ -5,7 +5,7 @@ from pprint import pprint
 
 from fmu.sumo.explorer import Explorer
 
-from webviz_4d._datainput.common import read_config
+from webviz_4d._datainput.common import read_config, print_metadata
 from webviz_4d._datainput._sumo import (
     create_sumo_lists,
     load_sumo_observed_metadata,
@@ -53,7 +53,7 @@ def main():
     print("Searching for observed timelapse maps in Sumo ...")
 
     metadata = load_sumo_observed_metadata(my_case)
-    print(metadata)
+    print_metadata(metadata)
 
     selection_list = create_sumo_lists(metadata, interval_mode)
     pprint(selection_list)
@@ -74,8 +74,8 @@ def main():
         & (metadata["seismic"] == seismic)
         & (metadata["attribute"] == attribute)
         & (metadata["difference"] == difference)
-        & (metadata["time.t1"] == time1)
-        & (metadata["time.t2"] == time2)
+        & (metadata["time1"] == time1)
+        & (metadata["time2"] == time2)
     ]
 
     tagname = selected_row["tagname"].values[0]

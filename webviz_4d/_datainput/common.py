@@ -7,6 +7,7 @@ import yaml
 from typing import Optional
 from io import BytesIO
 import pandas as pd
+import prettytable as pt
 
 
 defaults = {
@@ -153,41 +154,6 @@ def get_plot_label(date_labels, interval):
     return label
 
 
-# def get_plot_label(configuration, interval):
-#     difference_mode = "normal"
-#     labels = []
-
-#     dates = [
-#         interval[:4] + interval[5:7] + interval[8:10],
-#         interval[11:15] + interval[16:18] + interval[19:21],
-#     ]
-
-#     print("DEBUG dates", dates)
-#     print("DEBUG configuration", configuration)
-
-#     for date in dates:
-#         # date = convert_date(date)
-
-#         labels_dict = configuration.get("date_labels")
-#         print("DEBUG labels_dict", labels_dict)
-
-#         if labels_dict is not None:
-#             label = labels_dict.get(int(date))
-#             print("DEBUG label", label)
-
-#         if label is None:
-#             label = date[:4] + "-" + date[4:6] + "-" + date[6:8]
-
-#         labels.append(label)
-
-#     if difference_mode == "normal":
-#         label = str(labels[0]) + " - " + str(labels[1])
-#     else:
-#         label = str(labels[1]) + " - " + str(labels[0])
-
-#     return label
-
-
 def get_well_colors(settings):
     """Return well colors from a configuration"""
 
@@ -267,3 +233,26 @@ def read_csv(
     dtype: Optional[str] = None,
 ) -> pd.DataFrame:
     return pd.read_csv(csv_file, sep=sep, dtype=dtype, low_memory=False)
+
+
+def print_metadata(metadata):
+    table = pt.PrettyTable()
+    field_names = [
+        "attribute",
+        "name",
+        "map_type",
+        "seismic",
+        "difference",
+        "time2",
+        "time1",
+        "coverage",
+        "map_name",
+    ]
+
+    table.field_names = field_names
+
+    for idx, row in metadata.iterrows():
+        table.add_row(row[field_names])
+
+    print()
+    print(table.get_string(sortby="attribute"))

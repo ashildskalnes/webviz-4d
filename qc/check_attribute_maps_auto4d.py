@@ -8,7 +8,7 @@ import time
 import warnings
 from pprint import pprint
 
-from webviz_4d._datainput.common import read_config
+from webviz_4d._datainput.common import read_config, print_metadata
 from webviz_4d._datainput._auto4d import (
     load_auto4d_metadata,
     create_auto4d_lists,
@@ -37,8 +37,8 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type):
             (surface_metadata["difference"] == real)
             & (surface_metadata["seismic"] == ensemble)
             & (surface_metadata["map_type"] == map_type)
-            & (surface_metadata["time.t1"] == time1)
-            & (surface_metadata["time.t2"] == time2)
+            & (surface_metadata["time1"] == time1)
+            & (surface_metadata["time2"] == time2)
             & (surface_metadata["strat_zone"] == name)
             & (surface_metadata["attribute"] == attribute)
         ]
@@ -65,8 +65,6 @@ def main():
     config_file = args.config_file
     config_file = os.path.abspath(config_file)
     config = read_config(config_file)
-    config_folder = os.path.dirname(config_file)
-
     shared_settings = config.get("shared_settings")
     auto4d_settings = shared_settings.get("auto4d")
     directory = auto4d_settings.get("directory")
@@ -76,51 +74,17 @@ def main():
     interval_mode = shared_settings.get("interval_mode")
     selections = None
 
-    print("Searching for seismic 4D attribute maps on disk ...")
+    print("Searching for seismic 4D attribute maps on disk:", directory, " ...")
 
     attribute_metadata = load_auto4d_metadata(
         directory, metadata_format, metadata_version, selections, acquisition_dates
     )
 
-    data_viewer_columns = {
-        "FieldName": "field_name",
-        "BinGridName": "bin_grid_name",
-        "Name": "map_name",
-        "Zone": "strat_zone",
-        "MapTypeDim": "map_dim",
-        "SeismicAttribute": "seismic",
-        "AttributeType": "attribute",
-        "Coverage": "coverage",
-        "DifferenceType": "difference",
-        "AttributeDiff": "diff_type",
-        "Dates": "dates",
-        "Version": "metadata_version",
-    }
+    print_metadata(attribute_metadata)
 
-    standard_metadata = pd.DataFrame()
-    for key, value in data_viewer_columns.items():
-        standard_metadata[key] = attribute_metadata[value]
-
-    pd.set_option("display.max_rows", None)
-    print(standard_metadata)
-
-    output_file = os.path.join(
-        config_folder, "standard_metadata_" + os.path.basename(config_file)
-    )
-    output_file = output_file.replace("yaml", "csv")
-    standard_metadata.to_csv(output_file)
-    print("Standard metadata written to", output_file)
-
-    output_file = os.path.join(
-        config_folder, "metadata_" + os.path.basename(config_file)
-    )
-    output_file = output_file.replace("yaml", "csv")
-    attribute_metadata.to_csv(output_file)
-    print("All metadata writen to", output_file)
-
+    print()
     print("Create auto4d selection lists ...")
     selection_list = create_auto4d_lists(attribute_metadata, interval_mode)
-
     pprint(selection_list)
 
     # Extract a selected map
@@ -140,12 +104,14 @@ def main():
     path = get_auto4d_filename(attribute_metadata, data, ensemble, real, map_type)
 
     if os.path.isfile(path):
-        print("Loading surface from", data_source)
+        print()
+        print("Loading surface from disk")
         start_time = time.time()
         surface = xtgeo.surface_from_file(path)
         print(" --- %s seconds ---" % (time.time() - start_time))
 
         print(surface)
+        print()
 
 
 if __name__ == "__main__":

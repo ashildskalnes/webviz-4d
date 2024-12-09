@@ -1,14 +1,10 @@
 import os
-import numpy as np
 import pandas as pd
 import argparse
 import time
 from pprint import pprint
-import xtgeoviz.plot as xtgplot
-import xtgeo
 
-
-from webviz_4d._datainput.common import read_config
+from webviz_4d._datainput.common import read_config, print_metadata
 from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddmsService
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._datainput._osdu import (
@@ -37,15 +33,17 @@ def main():
     shared_settings = config.get("shared_settings")
     settings = shared_settings.get("rddms")
     selected_dataspace = settings.get("dataspace")
+    # selected_dataspace = "auto4d/test-cloud2"
+    # selected_dataspace = "JS/Soumik_2"
     metadata_version = settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
     field_name = shared_settings.get("field_name")
 
-    print("Searching for Dataspaces in RDDMS:")
-    dataspaces = rddms_service.get_dataspaces()
+    # print("Searching for Dataspaces in RDDMS:")
+    # dataspaces = rddms_service.get_dataspaces()
 
-    for dataspace in dataspaces:
-        print("Dataspace:", dataspace)
+    # for dataspace in dataspaces:
+    #     print("Dataspace:", dataspace)
 
     print("-----------------------------------------------------------------")
     print(
@@ -56,9 +54,26 @@ def main():
         " ...",
     )
 
+    cache_file = "metadata_cache_" + metadata_version + ".csv"
+    metadata_file_cache = os.path.join(config_folder, cache_file)
+
+    # if os.path.isfile(metadata_file_cache):
+    #     print("Reading cached metadata from", metadata_file_cache)
+    #     metadata = pd.read_csv(metadata_file_cache)
+    #     print(metadata[["Name", "SeismicTraceDataSourceNames"]])
+    # else:
+    print("Extracting metadata from OSDU RDDMS ...")
+    print()
+
     attribute_horizons = rddms_service.get_attribute_horizons(
-        selected_dataspace, field_name
+        dataspace_name=selected_dataspace, field_name=field_name
     )
+
+    # print("Number of attribute maps:", len(attribute_horizons))
+    print("Checking the extracted metadata ...")
+
+    if len(attribute_horizons) == 0:
+        exit()
 
     for attribute_horizon in attribute_horizons:
         if attribute_horizon:
@@ -66,65 +81,45 @@ def main():
                 " -",
                 attribute_horizon.FieldName,
                 attribute_horizon.Name,
+                attribute_horizon.SeismicTraceDataSourceNames,
                 attribute_horizon.id,
                 attribute_horizon.DatasetIDs,
             )
 
     metadata = get_osdu_metadata_attributes(attribute_horizons)
+    metadata.to_csv(metadata_file_cache)
+
+    print("Updated metadata stored to:", metadata_file_cache)
+
     updated_metadata = osdu_service.update_reference_dates(metadata)
-    # updated_metadata.to_csv(metadata_file_cache)
-
-    data_viewer_columns = {
-        "FieldName": "FieldName",
-        "BinGridName": "SeismicBinGridName",
-        "Name": "Name",
-        "Zone": "StratigraphicZone",
-        "MapTypeDim": "MapTypeDimension",
-        "SeismicAttribute": "SeismicTraceAttribute",
-        "AttributeType": "AttributeExtractionType",
-        "Coverage": "SeismicCoverage",
-        "DifferenceType": "AttributeDifferenceType",
-        "AttributeDiff": "AttributeDifferenceType",
-        "Dates": "AcquisitionDates",
-        "Version": "MetadataVersion",
-    }
-
-    standard_metadata = pd.DataFrame()
-
-    for key, value in data_viewer_columns.items():
-        standard_metadata[key] = updated_metadata[value]
-
-    pd.set_option("display.max_rows", None)
-    print()
-    print("Standard metadata:")
-    print(standard_metadata)
-
-    output_file = os.path.join(
-        config_folder, "standard_metadata_" + os.path.basename(config_file)
-    )
-    output_file = output_file.replace("yaml", "csv")
-    standard_metadata.to_csv(output_file)
-    print()
-    print("Standard metadata written to", output_file)
 
     converted_metadata = convert_metadata(updated_metadata)
+    print_metadata(converted_metadata)
     print()
-    print(converted_metadata)
 
-    output_file = os.path.join(
-        config_folder, "metadata_" + os.path.basename(config_file)
-    )
-    output_file = output_file.replace("yaml", "csv")
-    updated_metadata.to_csv(output_file)
-    print("All metadata writen to", output_file)
+    # selection_list = create_rddms_lists(converted_metadata, interval_mode)
 
-    selection_list = create_rddms_lists(converted_metadata, interval_mode)
+    # print()
+    # print("Webviz-4D selection list")
+    # pprint(selection_list)
 
-    print()
-    print("Webviz-4D selection list")
-    pprint(selection_list)
+    # Get a selected map and display
+    # data_source = "RDDMS"
+    # attribute = "Value"
+    # name = "3D+IUTU+JS+Z22+Merge_EQ20231_PH2DG3"
+    # map_type = "observed"
+    # seismic = "Timeshift"
+    # difference = "---"
+    # interval = "2023-05-16-2022-08-28"
 
-    # Extract a selected map
+    # data_source = "RDDMS"
+    # attribute = "MaxPositive"
+    # name = "FullReservoirEnvelope"
+    # map_type = "observed"
+    # seismic = "RelativeAcousticImpedance"
+    # difference = "Timeshifted"
+    # interval = "2023-09-20-2019-09-12"
+
     data_source = "RDDMS"
     attribute = "Average"
     name = "Total"
@@ -133,21 +128,38 @@ def main():
     difference = "NotTimeshifted"
     interval = "2021-05-17-2020-09-30"
 
+    # data_source = "RDDMS"
+    # attribute = "Max"
+    # name = "Total"
+    # map_type = "observed"
+    # seismic = "Amplitude"
+    # difference = "NotTimeshifted"
+    # interval = "2021-05-17-2020-09-30"
+
     ensemble = seismic
     real = difference
 
     data = {"attr": attribute, "name": name, "date": interval}
-
     uuid_url = get_rddms_dataset_id(converted_metadata, data, ensemble, real, map_type)
+
+    if uuid_url is None:
+        print("ERROR selected dataset not found")
+        print("ensemble:", ensemble)
+        print("real:", real)
+        print("map_type:", map_type)
+        pprint(data)
+        exit()
+
     selected_metadata = converted_metadata[converted_metadata["dataset_id"] == uuid_url]
     uuid = selected_metadata["id"].values[0]
-    horizon_name = selected_metadata["original_name"].values[0]
+    horizon_name = selected_metadata["map_name"].values[0]
 
     if uuid is not None:
         print()
         print("Loading surface from", data_source)
-        print(" - uuid", uuid)
-        print(" - uuid_url", uuid_url)
+        print(" - name:", horizon_name)
+        print(" - uuid:", uuid)
+        print(" - uuid_url:", uuid_url)
 
         start_time = time.time()
 
@@ -158,32 +170,14 @@ def main():
             uuid_url=uuid_url,
         )
 
-        print(" --- %s seconds ---" % (time.time() - start_time))
-        number_cells = surface.nrow * surface.ncol
-        print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
+        if surface:
+            print(" --- %s seconds ---" % (time.time() - start_time))
+            number_cells = surface.nrow * surface.ncol
+            print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
+            print()
 
-        print()
-        print(surface)
-        surface.quickplot()
-
-        # rotation = "calculated"
-
-        # start_time = time.time()
-        # surface = rddms_service.get_rddms_map(
-        #     dataspace_name=selected_dataspace,
-        #     horizon_name=horizon_name,
-        #     uuid=uuid,
-        #     uuid_url=uuid_url,
-        #     mode=rotation,
-        # )
-
-        # print(" --- %s seconds ---" % (time.time() - start_time))
-        # number_cells = surface.nrow * surface.ncol
-        # print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
-
-        # print()
-        # print(surface)
-        # surface.quickplot(title=rotation)
+            print(surface)
+            surface.quickplot(title=horizon_name + " " + data_source)
 
 
 if __name__ == "__main__":

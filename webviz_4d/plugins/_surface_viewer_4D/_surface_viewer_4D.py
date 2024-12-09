@@ -10,6 +10,7 @@ import xtgeo
 import logging
 import time
 from pprint import pprint
+import prettytable as pt
 
 from fmu.sumo.explorer import Explorer
 
@@ -26,12 +27,12 @@ from webviz_4d._datainput.common import (
     get_well_colors,
     get_plot_label,
     get_dates,
+    print_metadata,
 )
 
 from webviz_4d._datainput.well import (
     load_smda_metadata,
     load_smda_wellbores,
-    load_planned_wells,
     load_pdm_info,
     create_basic_well_layers,
     get_surface_picks,
@@ -209,6 +210,8 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             acquisition_dates = auto4d.get("acquisition_dates")
             selections = auto4d.get("selections")
+            self.coverage = selections.get("SeismicCoverage")
+            self.label = "auto4d files coverage: " + self.coverage
 
             print("Surfaces from Auto4d files: ")
             print("  Loading metadata ...")
@@ -216,6 +219,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.surface_metadata = load_auto4d_metadata(
                 auto4d_directory, file_ext, md_version, selections, acquisition_dates
             )
+            print_metadata(self.surface_metadata)
 
             self.selection_list = create_auto4d_lists(
                 self.surface_metadata, interval_mode
@@ -277,6 +281,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 )
 
             self.surface_metadata = convert_metadata(updated_metadata)
+            print_metadata(self.surface_metadata)
 
             self.selection_list = create_osdu_lists(
                 self.surface_metadata, interval_mode
@@ -565,8 +570,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 (self.surface_metadata["difference"] == real)
                 & (self.surface_metadata["seismic"] == ensemble)
                 & (self.surface_metadata["map_type"] == map_type)
-                & (self.surface_metadata["time.t1"] == time1)
-                & (self.surface_metadata["time.t2"] == time2)
+                & (self.surface_metadata["time1"] == time1)
+                & (self.surface_metadata["time2"] == time2)
                 & (self.surface_metadata["strat_zone"] == name)
                 & (self.surface_metadata["attribute"] == attribute)
             ]
@@ -601,8 +606,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 (self.surface_metadata["difference"] == real)
                 & (self.surface_metadata["seismic"] == ensemble)
                 & (self.surface_metadata["map_type"] == map_type)
-                & (self.surface_metadata["time.t1"] == time1)
-                & (self.surface_metadata["time.t2"] == time2)
+                & (self.surface_metadata["time1"] == time1)
+                & (self.surface_metadata["time2"] == time2)
                 & (self.surface_metadata["name"] == name)
                 & (self.surface_metadata["attribute"] == attribute)
             ]
@@ -636,8 +641,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 (self.surface_metadata["difference"] == real)
                 & (self.surface_metadata["seismic"] == ensemble)
                 & (self.surface_metadata["map_type"] == map_type)
-                & (self.surface_metadata["time.t1"] == time1)
-                & (self.surface_metadata["time.t2"] == time2)
+                & (self.surface_metadata["time1"] == time1)
+                & (self.surface_metadata["time2"] == time2)
                 & (self.surface_metadata["name"] == name)
                 & (self.surface_metadata["attribute"] == attribute)
             ]
@@ -686,8 +691,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 (self.surface_metadata["difference"] == real)
                 & (self.surface_metadata["seismic"] == ensemble)
                 & (self.surface_metadata["map_type"] == map_type)
-                & (self.surface_metadata["time.t1"] == time1)
-                & (self.surface_metadata["time.t2"] == time2)
+                & (self.surface_metadata["time1"] == time1)
+                & (self.surface_metadata["time2"] == time2)
                 & (self.surface_metadata["name"] == name)
                 & (self.surface_metadata["attribute"] == attribute)
             ]
@@ -839,8 +844,8 @@ class SurfaceViewer4D(WebvizPluginABC):
                 & (self.surface_metadata["seismic"] == ensemble)
                 & (self.surface_metadata["attribute"] == attribute)
                 & (self.surface_metadata["difference"] == real)
-                & (self.surface_metadata["time.t1"] == time1)
-                & (self.surface_metadata["time.t2"] == time2)
+                & (self.surface_metadata["time1"] == time1)
+                & (self.surface_metadata["time2"] == time2)
                 & (self.surface_metadata["map_type"] == map_type)
             ]
 
@@ -885,7 +890,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 )
                 toc = time.perf_counter()
 
-                print(surface)
+                # print(surface)
 
         if self.osdu_status:
             data_source = "OSDU"

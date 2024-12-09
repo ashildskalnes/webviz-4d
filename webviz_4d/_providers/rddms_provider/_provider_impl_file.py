@@ -13,6 +13,8 @@ import xtgeo
 import warnings
 
 import webviz_4d._providers.osdu_provider.osdu_provider as osdu
+from webviz_4d._datainput._osdu import get_correct_list
+from webviz_4d._datainput._rddms import get_angle, get_incs_and_angle
 
 warnings.filterwarnings("ignore")
 
@@ -79,24 +81,46 @@ class DefaultRddmsService:
         dataspace = dataspace_name.replace("/", "%2F")
         mode = "default"
         rddms_surface = None
+        status = False
 
         grid_geometry = self.get_grid2d_metadata(dataspace, uuid, mode)
 
         if grid_geometry:
-            z_values = self.get_grid2_values(dataspace, uuid, uuid_url)
+            z_values, dimensions = self.get_grid2_values(dataspace, uuid, uuid_url)
 
-            ncol = grid_geometry.get("nrow")
-            nrow = grid_geometry.get("ncol")
+            if dimensions:
+                ncol = dimensions[0]
+                nrow = dimensions[1]
+            else:
+                ncol = None
+                nrow = None
+
+            ni = grid_geometry.get("ni")
+            nj = grid_geometry.get("nj")
             xinc = grid_geometry.get("xinc")
             yinc = grid_geometry.get("yinc")
             xori = grid_geometry.get("origin")[0]
             yori = grid_geometry.get("origin")[1]
             rotation = grid_geometry.get("rotation")
+            right_handed = grid_geometry.get("right_handed")
+            yflip = 1
 
-            if "swat" in horizon_name:
-                rotation = rotation + 220
+            print("DEBUG", ni, nj, ni * nj, len(z_values))
 
-            print("DEBUG grid rotation", rotation)
+            if ncol:
+                print("DEBUG", ncol, nrow, ncol * nrow)
+
+            if ni * nj != len(z_values):
+                ni = ni + 1
+                nj = nj + 1
+                print("Increased ni and nj", ni * nj, len(z_values))
+
+            if ni * nj == len(z_values):
+                ncol = ni
+                nrow = nj
+
+            if not right_handed:
+                yflip = -1
 
             try:
                 rddms_surface = xtgeo.RegularSurface(
@@ -104,13 +128,15 @@ class DefaultRddmsService:
                     nrow=nrow,
                     xinc=xinc,
                     yinc=yinc,
-                    yflip=-1,
+                    yflip=yflip,
                     xori=xori,
                     yori=yori,
                     values=z_values,
                     name=horizon_name,
                     rotation=rotation,
                 )
+
+                status = True
             except Exception as e:
                 print("ERROR cannot create RegularSurface object:")
                 if hasattr(e, "message"):
@@ -123,9 +149,13 @@ class DefaultRddmsService:
         else:
             print("ERROR: grid geometry not found")
 
+        if status:
+            print("Status:", status)
+
         return rddms_surface
 
     def get_grid2ds(self, dataspace, object_type):
+        dataspace = dataspace.replace("/", "%2F")
         params = {
             "$skip": "0",
             "$top": "100",
@@ -259,23 +289,6 @@ class DefaultRddmsService:
 
         return metadata
 
-    def calculate_rotation_angle(self, x1, y1, x2, y2):
-        # Calculate the differences in coordinates
-        delta_x = x2 - x1
-        delta_y = y2 - y1
-
-        # Calculate the angle of rotation using arctan
-        # math.atan2 is used to handle the correct quadrant of the angle
-        theta_radians = math.atan2(delta_y, delta_x)
-
-        # Convert the angle from radians to degrees
-        theta_degrees = math.degrees(theta_radians)
-
-        # Normalize the angle to be between 0 and 360 degrees
-        theta_degrees = theta_degrees % 360
-
-        return theta_degrees
-
     def get_grid2d_metadata(self, dataspace_name, uuid, mode):
         geometry_dict = {}
         params = {
@@ -328,64 +341,32 @@ class DefaultRddmsService:
 
                 # print(XOffset + origin_1, YOffset + origin_2)
 
-                arealRotation = (
-                    grid2d[0]
-                    .get("Grid2dPatch")
-                    .get("Geometry")
-                    .get("LocalCrs")
-                    .get("_data")
-                    .get("ArealRotation")
+                points = grid2d[0]["Grid2dPatch"]["Geometry"]["Points"][
+                    "SupportingGeometry"
+                ]
+
+                iinfo = points.get("Offset")[0]
+                jinfo = points.get("Offset")[1]
+                ni = points.get("Offset")[0].get("Spacing").get("Count")
+                nj = points.get("Offset")[1].get("Spacing").get("Count")
+
+                originx = origin_1
+                originy = origin_2
+
+                iinc, jinc, angle, originx, originy, right_handed = get_incs_and_angle(
+                    iinfo, jinfo, originx, originy, nj
                 )
-                # print("arealRotation", arealRotation)
 
                 surf_ori = [XOffset + origin_1, YOffset + origin_2]
 
-                increments = []
-                counts = []
-                x_values = []
-                y_values = []
-
-                for item in offset:
-                    inc = item["Spacing"]["Value"]
-                    increments.append(inc)
-
-                    count = item["Spacing"]["Count"]
-                    counts.append(count)
-
-                    x = item["Offset"]["Coordinate1"]
-                    x_values.append(x)
-
-                    y = item["Offset"]["Coordinate2"]
-                    y_values.append(y)
-
-                calc_rotation = self.calculate_rotation_angle(
-                    x_values[0],
-                    y_values[0],
-                    x_values[1],
-                    y_values[1],
-                )
-
-                print("DEBUG calculated rotation:", calc_rotation)
-
-                nrow = counts[0]
-                ncol = counts[1]
-                dx = increments[1]
-                dy = increments[0]
-
-                rotation = 90
-                yflip = -1
-
-                if mode == "calculated":
-                    rotation = calc_rotation
-
                 geometry_dict = {
-                    "nrow": nrow,
-                    "ncol": ncol,
+                    "ni": ni,
+                    "nj": nj,
                     "origin": surf_ori,
-                    "xinc": dx,
-                    "yinc": dy,
-                    "rotation": rotation,
-                    "yflip": yflip,
+                    "xinc": iinc,
+                    "yinc": jinc,
+                    "rotation": angle,
+                    "right_handed": right_handed,
                 }
 
                 response = requests.get(
@@ -426,8 +407,9 @@ class DefaultRddmsService:
 
         for grid2_object in grid2d_objects:
             uuid = grid2_object.get("uuid")
+            name = grid2_object.get("name")
             rddms_horizon = self.get_extra_metadata(dataspace, uuid, field_name)
-            uuid_url = self.get_grid2_url(dataspace, uuid)
+            uuid_url = self.get_grid2_url(dataspace, uuid, name)
 
             attribute_horizon = None
 
@@ -444,6 +426,7 @@ class DefaultRddmsService:
     def get_grid2_values(self, dataspace_name, uuid, uuid_url):
         dataspace = dataspace_name.replace("/", "%2F")
         z_values = []
+        dimensions = None
 
         params = {
             "$format": "json",
@@ -462,13 +445,17 @@ class DefaultRddmsService:
         data = response.json().get("data")
 
         if data:
-            z_values = np.array(data["data"], dtype=np.float32)
+            try:
+                z_values = np.array(data["data"], dtype=np.float32)
+                dimensions = data.get("dimensions")
+            except Exception as e:
+                print(f" - Error: {e}")
         else:
             print("ERROR: data field not found")
 
-        return z_values
+        return z_values, dimensions
 
-    def get_grid2_url(self, dataspace, uuid):
+    def get_grid2_url(self, dataspace, uuid, name):
         uuid_url = None
 
         params = {
@@ -486,15 +473,43 @@ class DefaultRddmsService:
         )
 
         if len(response.json()) > 0:
-            uuid_url = urllib.parse.quote(
-                response.json()[0]["uid"]["pathInResource"], safe=""
-            )
+            try:
+                uuid_url = urllib.parse.quote(
+                    response.json()[0]["uid"]["pathInResource"], safe=""
+                )
+            except Exception as e:
+                print(name, uuid)
+                print(f" - Error: {e}")
+                print()
+                uuid_url = None
 
         return uuid_url
+
+    def extract_metadata(self, rddms_object, item):
+        value = rddms_object.get(item)
+
+        if type(value) == list:
+            value = value[0]
+
+        return value
 
     def parse_seismic_attribute_horizon(
         self, rddms_object: dict, uuid: str, uuid_url: str
     ) -> osdu.SeismicAttributeHorizon_042:
+
+        name = self.extract_metadata(rddms_object, "Name")
+
+        trace_names = rddms_object.get("SeismicTraceDataSourceNames")
+        correct_trace_names = get_correct_list(name, trace_names)
+
+        osdu_trace_names = rddms_object.get("OsduSeismicTraceNames")
+        correct_osdu_trace_names = get_correct_list(name, osdu_trace_names)
+
+        horizon_names = rddms_object.get("HorizonSourceNames")
+        correct_horizon_names = get_correct_list(name, horizon_names)
+
+        horizon_offsets = rddms_object.get("HorizonOffsets")
+        correct_horizon_offsets = get_correct_list(name, horizon_offsets)
 
         try:
             attribute_horizon = osdu.SeismicAttributeHorizon_042(
@@ -508,20 +523,18 @@ class DefaultRddmsService:
                 ApplicationName=rddms_object.get("ApplicationName")[0],
                 MapTypeDimension=rddms_object.get("MapTypeDimension")[0],
                 SeismicTraceDataSource=rddms_object.get("SeismicTraceDataSource")[0],
-                SeismicTraceDataSourceNames=rddms_object.get(
-                    "SeismicTraceDataSourceNames"
-                ),
+                SeismicTraceDataSourceNames=correct_trace_names,
                 SeismicTraceDataSourceIDs=rddms_object.get("SeismicTraceDataSourceIDs"),
                 SeismicTraceDomain=rddms_object.get("SeismicTraceDomain")[0],
                 SeismicTraceAttribute=rddms_object.get("SeismicTraceAttribute")[0],
-                OsduSeismicTraceNames=rddms_object.get("OsduSeismicTraceNames"),
+                OsduSeismicTraceNames=correct_osdu_trace_names,
                 SeismicDifferenceType=rddms_object.get("SeismicDifferenceType")[0],
                 SeismicCoverage=rddms_object.get("SeismicCoverage")[0],
                 AttributeWindowMode=rddms_object.get("AttributeWindowMode")[0],
                 HorizonDataSource=rddms_object.get("HorizonDataSource")[0],
-                HorizonSourceNames=rddms_object.get("HorizonSourceNames"),
+                HorizonSourceNames=correct_horizon_names,
                 HorizonSourceIDs=rddms_object.get("HorizonSourceIDs"),
-                HorizonOffsets=rddms_object.get("HorizonOffsets"),
+                HorizonOffsets=correct_horizon_offsets,
                 FixedWindowValues=rddms_object.get("FixedWindowValues"),
                 StratigraphicZone=rddms_object.get("StratigraphicZone")[0],
                 AttributeExtractionType=rddms_object.get("AttributeExtractionType")[0],
