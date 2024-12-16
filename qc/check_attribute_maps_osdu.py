@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore")
 osdu_service = DefaultOsduService()
 
 
-def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type):
+def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, coverage):
     selected_interval = data["date"]
     name = data["name"]
     attribute = data["attr"]
@@ -38,27 +38,33 @@ def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type):
         time2 = selected_interval[11:]
 
     surface_metadata.replace(np.nan, "", inplace=True)
+    metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
 
-    items = [
-        "difference",
-        "seismic",
-        "map_type",
-        "time1",
-        "time2",
-        "name",
+    headers = [
         "attribute",
+        "seismic",
+        "difference",
+        "time2",
+        "time1",
+        "map_name",
     ]
 
+    print("Coverage", coverage)
+    pd.set_option("display.max_columns", None)
+    pd.set_option("display.max_rows", None)
+    print(metadata_coverage[headers].sort_values(by="attribute"))
+
     map_name = None
+
     try:
-        selected_metadata = surface_metadata[
-            (surface_metadata["difference"] == real)
-            & (surface_metadata["seismic"] == ensemble)
-            & (surface_metadata["map_type"] == map_type)
-            & (surface_metadata["time1"] == time1)
-            & (surface_metadata["time2"] == time2)
-            & (surface_metadata["name"] == name)
-            & (surface_metadata["attribute"] == attribute)
+        selected_metadata = metadata_coverage[
+            (metadata_coverage["difference"] == real)
+            & (metadata_coverage["seismic"] == ensemble)
+            & (metadata_coverage["map_type"] == map_type)
+            & (metadata_coverage["time1"] == time1)
+            & (metadata_coverage["time2"] == time2)
+            & (metadata_coverage["name"] == name)
+            & (metadata_coverage["attribute"] == attribute)
         ]
 
         print("Selected dataset info:")
@@ -79,7 +85,7 @@ def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type):
         print("WARNING: Selected map not found in OSDU. Selection criteria are:")
         print(map_type, real, ensemble, name, attribute, time1, time2)
 
-    if type(dataset_id) == str:
+    if dataset_id:
         dataset_id = literal_eval(dataset_id)
 
     return dataset_id, map_name
@@ -102,6 +108,8 @@ def main():
     settings = shared_settings.get("osdu")
     metadata_version = settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
+    osdu = shared_settings.get("osdu")
+    coverage = osdu.get("coverage")
 
     cache_file = "metadata_cache_" + metadata_version + ".csv"
     metadata_file_cache = os.path.join(config_folder, cache_file)
@@ -138,36 +146,6 @@ def main():
 
         print("Updated metadata stored to:", metadata_file_cache)
 
-    # print(updated_metadata)
-
-    # data_viewer_columns = {
-    #     "FieldName": "FieldName",
-    #     "Name": "Name",
-    #     "Zone": "StratigraphicZone",
-    #     "MapDim": "MapTypeDimension",
-    #     "SeismicAttribute": "SeismicTraceAttribute",
-    #     "AttributeType": "AttributeExtractionType",
-    #     "Coverage": "SeismicCoverage",
-    #     "DifferenceType": "SeismicDifferenceType",
-    #     "AttributeDiff": "AttributeDifferenceType",
-    #     "Dates": "AcquisitionDates",
-    #     "Version": "MetadataVersion",
-    # }
-
-    # standard_metadata = pd.DataFrame()
-    # for key, value in data_viewer_columns.items():
-    #     standard_metadata[key] = updated_metadata[value]
-
-    # pd.set_option("display.max_rows", None)
-    # print(standard_metadata)
-
-    # output_file = os.path.join(
-    #     config_folder, "standard_metadata_" + os.path.basename(config_file)
-    # )
-    # output_file = output_file.replace("yaml", "csv")
-    # standard_metadata.to_csv(output_file)
-    # print("Standard metadata written to", output_file)
-
     field_names = updated_metadata["FieldName"].unique()
 
     for field_name in field_names:
@@ -189,25 +167,25 @@ def main():
     # Extract a selected map
     field_name = "JOHAN SVERDRUP"
     data_source = "OSDU"
-    attribute = "Value"
-    name = "3D+IUTU+JS+Z22+Merge_EQ20231_PH2DG3"
+    attribute = "MaxPositive"
+    name = "3D+TAasgard+JS+Z22+Merge_EQ20231_PH2DG3"
     map_type = "observed"
-    seismic = "Timeshift"
-    difference = "---"
-    interval = "2022-08-28-2022-05-15"
+    seismic = "AMPLITUDE"
+    difference = "NotTimeshifted"
+    interval = "2021-05-17-2020-09-30"
 
     ensemble = seismic
     real = difference
 
     data = {"attr": attribute, "name": name, "date": interval}
 
-    dataset_id, original_name = get_osdu_dataset_id(
-        converted_metadata, data, ensemble, real, map_type
+    dataset_id, map_name = get_osdu_dataset_id(
+        converted_metadata, data, ensemble, real, map_type, coverage
     )
 
     if dataset_id is not None:
         print()
-        print("Loading surface from", data_source)
+        print("Loading surface from", data_source, map_name)
         start_time = time.time()
         dataset = osdu_service.get_horizon_map(file_id=dataset_id)
         blob = io.BytesIO(dataset.content)

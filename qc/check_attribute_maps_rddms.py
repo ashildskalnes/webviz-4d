@@ -33,7 +33,7 @@ def main():
     shared_settings = config.get("shared_settings")
     settings = shared_settings.get("rddms")
     selected_dataspace = settings.get("dataspace")
-    # selected_dataspace = "auto4d/test-cloud2"
+    selected_dataspace = "demo/yuh"
     # selected_dataspace = "JS/Soumik_2"
     metadata_version = settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
@@ -120,21 +120,21 @@ def main():
     # difference = "Timeshifted"
     # interval = "2023-09-20-2019-09-12"
 
-    data_source = "RDDMS"
-    attribute = "Average"
-    name = "Total"
-    map_type = "simulated"
-    seismic = "SWAT"
-    difference = "NotTimeshifted"
-    interval = "2021-05-17-2020-09-30"
-
     # data_source = "RDDMS"
-    # attribute = "Max"
+    # attribute = "Average"
     # name = "Total"
-    # map_type = "observed"
-    # seismic = "Amplitude"
+    # map_type = "simulated"
+    # seismic = "SWAT"
     # difference = "NotTimeshifted"
     # interval = "2021-05-17-2020-09-30"
+
+    data_source = "RDDMS"
+    attribute = "Max"
+    name = "Total"
+    map_type = "observed"
+    seismic = "Amplitude"
+    difference = "NotTimeshifted"
+    interval = "2021-05-17-2020-09-30"
 
     ensemble = seismic
     real = difference
@@ -169,6 +169,14 @@ def main():
             uuid=uuid,
             uuid_url=uuid_url,
         )
+
+        if uuid == "4a236105-16ba-4f91-8a0d-5cc4a9508143":
+            surface = rddms_service.get_auto4d_rddms_map(
+                dataspace_name=selected_dataspace,
+                horizon_name=horizon_name,
+                uuid=uuid,
+                uuid_url=uuid_url,
+            )
 
         if surface:
             print(" --- %s seconds ---" % (time.time() - start_time))

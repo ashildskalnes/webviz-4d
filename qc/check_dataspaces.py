@@ -44,25 +44,36 @@ def main():
         table = pt.PrettyTable()
         table.field_names = table_names
 
-        for grid2_object in grid2d_objects:
+        for idx, grid2_object in enumerate(grid2d_objects):
             uuid = grid2_object.get("uuid")
             name = grid2_object.get("name")
-            uuid_url = rddms_service.get_grid2_url(selected_dataspace, uuid, name)
-            grid2_object.update({"uuid_url": uuid_url})
 
-            if (
-                uuid_url
-                and grid2_object.get("name") != ""
-                and grid2_object.get("name") != ""
-            ):
-                table.add_row([name, uuid, uuid_url])
-                rddms_surface = rddms_service.get_rddms_map(
-                    selected_dataspace, grid2_object.get("name"), uuid, uuid_url
-                )
+            print(idx, name, uuid)
 
-                if rddms_surface:
-                    print(rddms_surface)
-                    print()
+            if name == "4D_JS_FulRes_23sp-22auP_TS_0535_IUTU-10":
+                uuid_url = rddms_service.get_grid2_url(selected_dataspace, uuid, name)
+                grid2_object.update({"uuid_url": uuid_url})
+
+                if (
+                    uuid_url
+                    and grid2_object.get("name") != ""
+                    and grid2_object.get("name") != ""
+                ):
+                    table.add_row([name, uuid, uuid_url])
+
+                    # rddms_surface = rddms_service.get_rddms_map(
+                    #     selected_dataspace, grid2_object.get("name"), uuid, uuid_url
+                    # )
+
+                    if name == "4D_JS_FulRes_23sp-22auP_TS_0535_IUTU-10":
+                        rddms_surface = rddms_service.get_auto4d_rddms_map(
+                            selected_dataspace, grid2_object.get("name"), uuid, uuid_url
+                        )
+
+                    if rddms_surface:
+                        print(idx, name, uuid, uuid_url)
+                        print(rddms_surface)
+                        print()
 
         print(table)
 
@@ -88,12 +99,10 @@ def main():
 
     for attribute_horizon in attribute_horizons:
         if attribute_horizon:
-            print(attribute_horizon.Name)
-
             uuid = attribute_horizon.id
             uuid_url = attribute_horizon.DatasetIDs[0]
-            print(uuid_url)
-            print()
+
+            print(attribute_horizon.Name, uuid, uuid_url)
 
             rddms_surface = rddms_service.get_rddms_map(
                 selected_dataspace, attribute_horizon.Name, uuid, uuid_url

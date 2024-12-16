@@ -17,7 +17,7 @@ from webviz_4d._datainput._auto4d import (
 warnings.filterwarnings("ignore")
 
 
-def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type):
+def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, coverage):
     selected_interval = data["date"]
     name = data["name"]
     attribute = data["attr"]
@@ -31,16 +31,31 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type):
         time2 = selected_interval[11:]
 
     surface_metadata.replace(np.nan, "", inplace=True)
+    metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
+
+    headers = [
+        "attribute",
+        "seismic",
+        "difference",
+        "time2",
+        "time1",
+        "map_name",
+    ]
+
+    print("Coverage", coverage)
+    pd.set_option("display.max_columns", None)
+    pd.set_option("display.max_rows", None)
+    print(metadata_coverage[headers].sort_values(by="attribute"))
 
     try:
-        selected_metadata = surface_metadata[
-            (surface_metadata["difference"] == real)
-            & (surface_metadata["seismic"] == ensemble)
-            & (surface_metadata["map_type"] == map_type)
-            & (surface_metadata["time1"] == time1)
-            & (surface_metadata["time2"] == time2)
-            & (surface_metadata["strat_zone"] == name)
-            & (surface_metadata["attribute"] == attribute)
+        selected_metadata = metadata_coverage[
+            (metadata_coverage["difference"] == real)
+            & (metadata_coverage["seismic"] == ensemble)
+            & (metadata_coverage["map_type"] == map_type)
+            & (metadata_coverage["time1"] == time1)
+            & (metadata_coverage["time2"] == time2)
+            & (metadata_coverage["strat_zone"] == name)
+            & (metadata_coverage["attribute"] == attribute)
         ]
 
         filepath = selected_metadata["filename"].values[0]
@@ -72,7 +87,8 @@ def main():
     metadata_format = auto4d_settings.get("metadata_format")
     acquisition_dates = auto4d_settings.get("acquisition_dates")
     interval_mode = shared_settings.get("interval_mode")
-    selections = None
+    selections = auto4d_settings.get("selections")
+    coverage = selections.get("SeismicCoverage")
 
     print("Searching for seismic 4D attribute maps on disk:", directory, " ...")
 
@@ -89,19 +105,21 @@ def main():
 
     # Extract a selected map
     data_source = "Auto4d"
-    attribute = "Value"
-    name = "3D+IUTU+JS+Z22+Merge_EQ20231_PH2DG3"
+    attribute = "MaxPositive"
+    name = "FullReservoirEnvelope"
     map_type = "observed"
-    seismic = "Timeshift"
-    difference = "---"
-    interval = "2021-05-17-2020-09-30"
+    seismic = "Amplitude"
+    difference = "NotTimeshifted"
+    interval = "2023-05-16-2022-05-15"
 
     ensemble = seismic
     real = difference
 
     data = {"attr": attribute, "name": name, "date": interval}
 
-    path = get_auto4d_filename(attribute_metadata, data, ensemble, real, map_type)
+    path = get_auto4d_filename(
+        attribute_metadata, data, ensemble, real, map_type, coverage
+    )
 
     if os.path.isfile(path):
         print()

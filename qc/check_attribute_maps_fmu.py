@@ -1,10 +1,44 @@
 import os
+import numpy as np
 import time
 import argparse
 from pprint import pprint
+import xtgeo
 
 from webviz_4d._datainput.common import read_config, print_metadata
 from webviz_4d._datainput._fmu import load_fmu_metadata, create_fmu_lists
+
+
+def get_fmu_filename(data, ensemble, real, map_type, surface_metadata):
+    selected_interval = data["date"]
+    name = data["name"]
+    attribute = data["attr"]
+
+    time2 = selected_interval[0:10]
+    time1 = selected_interval[11:]
+
+    surface_metadata.replace(np.nan, "", inplace=True)
+
+    try:
+        selected_metadata = surface_metadata[
+            (surface_metadata["difference"] == real)
+            & (surface_metadata["seismic"] == ensemble)
+            & (surface_metadata["map_type"] == map_type)
+            & (surface_metadata["time1"] == time1)
+            & (surface_metadata["time2"] == time2)
+            & (surface_metadata["name"] == name)
+            & (surface_metadata["attribute"] == attribute)
+        ]
+
+        path = selected_metadata["filename"].values[0]
+
+    except:
+        path = ""
+        print("WARNING: selected map not found. Selection criteria are:")
+        print(map_type, real, ensemble, name, attribute, time1, time2)
+        print(selected_metadata)
+
+    return path
 
 
 def main():
@@ -39,6 +73,27 @@ def main():
         print("Create auto4d selection lists ...")
         selectors = create_fmu_lists(metadata, interval_mode)
         pprint(selectors)
+
+        data_source = "FMU"
+        attribute = "max"
+        name = "total"
+        map_type = "observed"
+        seismic = "amplitude"
+        difference = "NotTimeshifted"
+        interval = "2021-05-15-2020-10-01"
+
+        ensemble = seismic
+        real = difference
+        data = {"attr": attribute, "name": name, "date": interval}
+
+        data_source = "FMU"
+        surface_file = get_fmu_filename(data, ensemble, real, map_type, metadata)
+        # print("DEBUG surface_file", surface_file)
+
+        if os.path.isfile(surface_file):
+            surface = xtgeo.surface_from_file(surface_file)
+            print(surface)
+            surface.quickplot(title=surface_file)
 
     else:
         print("ERROR fmu not found in configuration file")
