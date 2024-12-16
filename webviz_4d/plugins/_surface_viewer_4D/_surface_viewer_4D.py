@@ -287,6 +287,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.surface_metadata, interval_mode
             )
 
+            print("DEBUG selection_list")
+            print(self.selection_list)
+
             if self.selection_list is None:
                 sys.exit("ERROR: No timelapse surfaces found in OSDU")
 
@@ -538,13 +541,11 @@ class SurfaceViewer4D(WebvizPluginABC):
                 + self.selected_realizations[map_ind]
             )
 
-        heading = (
-            txt
-            + self.selected_attributes[map_ind]
-            + " ("
-            + self.selected_names[map_ind]
-            + ")"
-        )
+        zone_name = self.selected_names[map_ind]
+        if zone_name == "3D+TAasgard+JS+Z22+Merge_EQ20231_PH2DG3":
+            zone_name = "FullReservoirEnvelope"
+
+        heading = txt + self.selected_attributes[map_ind] + " (" + zone_name + ")"
 
         sim_info = info
         label = get_plot_label(self.date_labels, self.selected_intervals[map_ind])
@@ -875,7 +876,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                     self.surface_metadata["dataset_id"] == uuid_url
                 ]
                 uuid = selected_metadata["id"].values[0]
-                horizon_name = selected_metadata["original_name"].values[0]
+                horizon_name = selected_metadata["map_name"].values[0]
 
                 print("Loading surface from", data_source)
                 print(" - uuid", uuid)

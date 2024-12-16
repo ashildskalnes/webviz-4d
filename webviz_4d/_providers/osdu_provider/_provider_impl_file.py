@@ -825,6 +825,11 @@ class DefaultOsduService:
             "19": "EQ19231DZC23A-KPSDM-RAW-FULL-0535-TIME",
         }
 
+        acquisition_dates = {
+            "EQ24200DZC24A-KPSDM-RAW-FULL-0535-TIME": "2024-05-15",
+            "EQ24200DZC24A-KPSDM-RAW-FULL-0535-TIME": "2024-09-15",
+        }
+
         metadata = metadata_input.copy(deep=True)
         dates = []
         statuses = []
@@ -929,6 +934,12 @@ class DefaultOsduService:
 
                 dateA = acquisition_surveyA.ProjectReferenceDate
                 dateB = acquisition_surveyB.ProjectReferenceDate
+
+                if dateB == "":
+                    for key, value in SeismicDiffVolumes.items():
+                        if value == seismic_nameB:
+                            dateB = acquisition_dates.get(value)
+                            pass
 
                 acquisition_table.add_row([name, dateA, dateB])
 

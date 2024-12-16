@@ -105,6 +105,7 @@ def convert_metadata(osdu_metadata):
     field_names = []
     map_types = []
     map_names = []
+    zone_names = []
 
     headers = [
         "id",
@@ -129,7 +130,7 @@ def convert_metadata(osdu_metadata):
             seismic_content = row["SeismicTraceAttribute"]
             coverage = row["SeismicCoverage"]
             difference = row["SeismicDifferenceType"]
-            horizon_names = row["StratigraphicZone"]
+            zone = row["StratigraphicZone"]
             dataset_ids = row["DatasetIDs"]
 
             if type(dataset_ids) == str:
@@ -140,7 +141,7 @@ def convert_metadata(osdu_metadata):
             elif dataset_ids and len(dataset_ids) == 2:
                 dataset_id = dataset_ids[1]
             else:
-                dataset_id = ""
+                dataset_id = "FullReservoirEnvelope"
         else:
             id = row["id"]
             field_name = row["AttributeMap.FieldName"]
@@ -160,11 +161,7 @@ def convert_metadata(osdu_metadata):
             elif window_mode == "BetweenHorizons":
                 seismic_horizon = row["CalculationWindow.TopHorizonName"]
                 seismic_horizon = seismic_horizon.replace("+", "_")
-                horizon_names.append(seismic_horizon)
-
-                # seismic_horizon = row["CalculationWindow.BaseHorizonName"]
-                # seismic_horizon = seismic_horizon.replace("+", "_")
-                # horizon_names.append(seismic_horizon)
+                horizon_names.append(horizon_names)
 
         name = row["Name"]
 
@@ -199,7 +196,7 @@ def convert_metadata(osdu_metadata):
             seismic_contents.append(seismic_content)
             coverages.append(coverage)
             differences.append(difference)
-            surface_names.append(horizon_names)
+            surface_names.append(zone)
             map_names.append(name)
         else:
             print("WARNING: No time interval information found:", name)

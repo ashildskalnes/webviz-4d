@@ -167,7 +167,7 @@ def create_rddms_lists(metadata, interval_mode):
         map_type_metadata = metadata[metadata["map_type"] == map_type]
         map_type_metadata = map_type_metadata.where(~map_type_metadata.isna(), "")
 
-        intervals_df = map_type_metadata[["time.t1", "time.t2"]]
+        intervals_df = map_type_metadata[["time1", "time2"]]
         intervals = []
 
         for key, value in selectors.items():
@@ -177,8 +177,8 @@ def create_rddms_lists(metadata, interval_mode):
 
             if selector == "interval":
                 for _index, row in intervals_df.iterrows():
-                    t1 = row["time.t1"]
-                    t2 = row["time.t2"]
+                    t1 = row["time1"]
+                    t2 = row["time2"]
 
                     if type(t1) == str and type(t2) is str:
                         if interval_mode == "normal":

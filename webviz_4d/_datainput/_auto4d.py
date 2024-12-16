@@ -113,7 +113,7 @@ def load_auto4d_metadata(
                     diff_type = metadata.get("AttributeDifferenceType")
 
                     names.append(map_name)
-                    surface_names.append(seismic_horizon)
+                    surface_names.append(strat_zone)
                     attributes.append(attribute_type)
                     dates.append([time1, time2])
                     times1.append(time1)
