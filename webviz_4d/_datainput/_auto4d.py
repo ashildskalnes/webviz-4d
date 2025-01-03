@@ -165,6 +165,106 @@ def load_auto4d_metadata(
     return all_metadata
 
 
+def load_auto4d_metadata_new(auto4d_dir, file_ext, mdata_version, acquisition_dates):
+
+    all_metadata = pd.DataFrame()
+
+    metadata_headers = {
+        "map_name": "Name",
+        "name": "StratigraphicZone",
+        "attribute": "AttributeExtractionType",
+        "dates": "dates",
+        "time1": "time1",
+        "time2": "time2",
+        "seismic": "SeismicTraceAttribute",
+        "coverage": "SeismicCoverage",
+        "difference": "SeismicDifferenceType",
+        "filename": "filename",
+        "field_name": "FieldName",
+        "bin_grid_name": "SeismicBinGridName",
+        "strat_zone": "StratigraphicColumn",
+        "diff_type": "AttributeDifferenceType",
+    }
+
+    # Search for all metadata files
+    start_time = time.time()
+    metadata_files = glob.glob(auto4d_dir + "/*" + file_ext)
+
+    if file_ext == ".a4dmeta":
+        metadata_list = []
+        for metadata_file in metadata_files:
+            # Opening metadata file
+            try:
+                f = open(metadata_file)
+                metadata = json.load(f)
+            except:
+                metadata = None
+
+            if metadata:
+                # Check metadata version
+                metadata_version = metadata.get("MetadataVersion")
+
+                if metadata_version is None:
+                    print("ERROR: Metadata version not found", metadata_file)
+                elif metadata_version != mdata_version:
+                    print("ERROR: Wrong metadata version", metadata_file)
+                    print(
+                        "       Expected version, Actual version",
+                        mdata_version,
+                        metadata_version,
+                    )
+                else:
+                    map_name = metadata.get("Name")
+                    difference = metadata.get("SeismicDifferenceType")
+
+                    if type(difference) is float:
+                        difference = "---"
+
+                    seismic_traces = metadata.get("SeismicTraceDataSourceNames")
+                    time1 = str(acquisition_dates.get(seismic_traces[1]))
+                    time2 = str(acquisition_dates.get(seismic_traces[0]))
+
+                    filename = os.path.join(auto4d_dir, map_name + ".gri")
+
+                    map_dict = {
+                        "map_name": map_name,
+                        "name": metadata.get("StratigraphicZone"),
+                        "field_name": metadata.get("FieldName"),
+                        "attribute": metadata.get("AttributeExtractionType"),
+                        "dates": [time1, time2],
+                        "time1": time1,
+                        "time2": time2,
+                        "seismic": metadata.get("SeismicTraceAttribute"),
+                        "coverage": metadata.get("SeismicCoverage"),
+                        "difference": difference,
+                        "filename": filename,
+                        "field_name": metadata.get("FieldName"),
+                        "bin_grid_name": metadata.get("SeismicBinGridName"),
+                        "strat_zone": metadata.get("StratigraphicZone"),
+                        "map_dim": metadata.get("MapTypeDimension"),
+                        "diff_type": metadata.get("AttributeDifferenceType"),
+                    }
+
+                    metadata_list.append(map_dict)
+    else:
+        print("ERROR: Unsupported file extension", file_ext)
+        return all_metadata
+
+    print("Metadata loaded:")
+    print(" --- %s seconds ---" % (time.time() - start_time))
+    print(" --- ", len(metadata_list), "files")
+
+    all_metadata = pd.DataFrame(metadata_list)
+
+    all_metadata.fillna(value=np.nan, inplace=True)
+    all_metadata["map_type"] = "observed"
+    all_metadata["metadata_version"] = mdata_version
+    all_metadata["source_id"] = ""
+    all_metadata["map_dim"] = "4D"
+
+    return all_metadata
+
+
 def create_auto4d_lists(metadata, interval_mode):
     # Metadata 0.4.2
     selectors = {
@@ -216,3 +316,76 @@ def create_auto4d_lists(metadata, interval_mode):
         map_dict[map_type] = map_type_dict
 
     return map_dict
+
+
+def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, coverage):
+    selected_interval = data["date"]
+    name = data["name"]
+    attribute = data["attr"]
+    interval_mode = "normal"
+
+    if interval_mode == "normal":
+        time2 = selected_interval[0:10]
+        time1 = selected_interval[11:]
+    else:
+        time1 = selected_interval[0:10]
+        time2 = selected_interval[11:]
+
+    surface_metadata.replace(np.nan, "", inplace=True)
+    metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
+
+    headers = [
+        "attribute",
+        "seismic",
+        "difference",
+        "time2",
+        "time1",
+        "map_name",
+    ]
+
+    print("Coverage", coverage)
+    pd.set_option("display.max_columns", None)
+    pd.set_option("display.max_rows", None)
+    pd.set_option("display.width", None)
+    # print(metadata_coverage[headers].sort_values(by="attribute"))
+
+    try:
+        selected_metadata = metadata_coverage[
+            (metadata_coverage["difference"] == real)
+            & (metadata_coverage["seismic"] == ensemble)
+            & (metadata_coverage["map_type"] == map_type)
+            & (metadata_coverage["time1"] == time1)
+            & (metadata_coverage["time2"] == time2)
+            & (metadata_coverage["strat_zone"] == name)
+            & (metadata_coverage["attribute"] == attribute)
+        ]
+
+        filepath = selected_metadata["filename"].values[0]
+        path = filepath
+
+    except:
+        path = ""
+        print("WARNING: Selected file not found in Auto4d directory")
+        print("  Selection criteria are:")
+        print("  -  ", map_type, name, attribute, time1, time2, ensemble, real)
+
+    return path
+
+
+def get_auto4d_metadata(config):
+    shared_settings = config.get("shared_settings")
+    metadata_version = shared_settings.get("metadata_version")
+    interval_mode = shared_settings.get("interval_mode")
+
+    auto4d_settings = shared_settings.get("auto4d_file")
+    directory = auto4d_settings.get("directory")
+
+    metadata_format = auto4d_settings.get("metadata_format")
+    acquisition_dates = auto4d_settings.get("acquisition_dates")
+
+    metadata = load_auto4d_metadata_new(
+        directory, metadata_format, metadata_version, acquisition_dates
+    )
+    selection_list = create_auto4d_lists(metadata, interval_mode)
+
+    return metadata, selection_list

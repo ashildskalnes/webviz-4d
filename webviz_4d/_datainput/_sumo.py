@@ -183,7 +183,7 @@ def load_sumo_observed_metadata(my_case):
         coverages.append(coverage)
         differences.append(difference)
         field_names.append(field_name)
-        map_names.append(map_names)
+        map_names.append(name)
 
     zipped_list = list(
         zip(
@@ -841,3 +841,27 @@ def create_sumo_lists(metadata, interval_mode):
         map_dict[map_type] = map_type_dict
 
     return map_dict
+
+
+def get_sumo_tagname(metadata, name, seismic, attribute, difference, interval_list):
+    time1 = interval_list[0]
+    time2 = interval_list[1]
+
+    try:
+        selected_row = metadata[
+            (metadata["name"] == name)
+            & (metadata["seismic"] == seismic)
+            & (metadata["attribute"] == attribute)
+            & (metadata["difference"] == difference)
+            & (metadata["time1"] == time1)
+            & (metadata["time2"] == time2)
+        ]
+
+        tagname = selected_row["tagname"].values[0]
+    except:
+        print("ERROR: sumo surface not found")
+        print(name, seismic, attribute, difference, interval_list)
+
+        tagname = None
+
+    return tagname

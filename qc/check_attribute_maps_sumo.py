@@ -11,6 +11,7 @@ from webviz_4d._datainput._sumo import (
     load_sumo_observed_metadata,
     get_sumo_interval_list,
     get_selected_surface,
+    get_sumo_tagname,
 )
 
 
@@ -58,28 +59,17 @@ def main():
     selection_list = create_sumo_lists(metadata, interval_mode)
     pprint(selection_list)
 
-    attribute = "min"
+    attribute = "max"
     name = "draupne_fm_1"
     map_type = "observed"
     seismic = "amplitude"
     difference = "NotTimeshifted"
-    interval = "2023-09-15-2020-10-01"
+    interval = "2023-05-15-2022-05-15"
 
     interval_list = get_sumo_interval_list(interval)
-    time1 = interval_list[0]
-    time2 = interval_list[1]
-
-    selected_row = metadata[
-        (metadata["name"] == name)
-        & (metadata["seismic"] == seismic)
-        & (metadata["attribute"] == attribute)
-        & (metadata["difference"] == difference)
-        & (metadata["time1"] == time1)
-        & (metadata["time2"] == time2)
-    ]
-
-    tagname = selected_row["tagname"].values[0]
-    # print("tagname", tagname)
+    tagname = get_sumo_tagname(
+        metadata, name, seismic, attribute, difference, interval_list
+    )
 
     ensemble = None
     real = None

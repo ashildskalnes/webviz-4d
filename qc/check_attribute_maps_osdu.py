@@ -18,6 +18,7 @@ from webviz_4d._datainput._osdu import (
     get_osdu_metadata_attributes,
     convert_metadata,
     create_osdu_lists,
+    get_osdu_dataset_id,
 )
 
 warnings.filterwarnings("ignore")
@@ -25,70 +26,70 @@ warnings.filterwarnings("ignore")
 osdu_service = DefaultOsduService()
 
 
-def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, coverage):
-    selected_interval = data["date"]
-    name = data["name"]
-    attribute = data["attr"]
+# def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, coverage):
+#     selected_interval = data["date"]
+#     name = data["name"]
+#     attribute = data["attr"]
 
-    if selected_interval[0:10] > selected_interval[11:]:
-        time2 = selected_interval[0:10]
-        time1 = selected_interval[11:]
-    else:
-        time1 = selected_interval[0:10]
-        time2 = selected_interval[11:]
+#     if selected_interval[0:10] > selected_interval[11:]:
+#         time2 = selected_interval[0:10]
+#         time1 = selected_interval[11:]
+#     else:
+#         time1 = selected_interval[0:10]
+#         time2 = selected_interval[11:]
 
-    surface_metadata.replace(np.nan, "", inplace=True)
-    metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
+#     surface_metadata.replace(np.nan, "", inplace=True)
+#     metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
 
-    headers = [
-        "attribute",
-        "seismic",
-        "difference",
-        "time2",
-        "time1",
-        "map_name",
-    ]
+#     headers = [
+#         "attribute",
+#         "seismic",
+#         "difference",
+#         "time2",
+#         "time1",
+#         "map_name",
+#     ]
 
-    print("Coverage", coverage)
-    pd.set_option("display.max_columns", None)
-    pd.set_option("display.max_rows", None)
-    print(metadata_coverage[headers].sort_values(by="attribute"))
+#     print("Coverage", coverage)
+#     pd.set_option("display.max_columns", None)
+#     pd.set_option("display.max_rows", None)
+#     print(metadata_coverage[headers].sort_values(by="attribute"))
 
-    map_name = None
+#     map_name = None
 
-    try:
-        selected_metadata = metadata_coverage[
-            (metadata_coverage["difference"] == real)
-            & (metadata_coverage["seismic"] == ensemble)
-            & (metadata_coverage["map_type"] == map_type)
-            & (metadata_coverage["time1"] == time1)
-            & (metadata_coverage["time2"] == time2)
-            & (metadata_coverage["name"] == name)
-            & (metadata_coverage["attribute"] == attribute)
-        ]
+#     try:
+#         selected_metadata = metadata_coverage[
+#             (metadata_coverage["difference"] == real)
+#             & (metadata_coverage["seismic"] == ensemble)
+#             & (metadata_coverage["map_type"] == map_type)
+#             & (metadata_coverage["time1"] == time1)
+#             & (metadata_coverage["time2"] == time2)
+#             & (metadata_coverage["name"] == name)
+#             & (metadata_coverage["attribute"] == attribute)
+#         ]
 
-        print("Selected dataset info:")
-        print(map_type, real, ensemble, name, attribute, time1, time2)
+#         print("Selected dataset info:")
+#         print(map_type, real, ensemble, name, attribute, time1, time2)
 
-        if len(selected_metadata) != 1:
-            print("WARNING number of datasets =", len(selected_metadata))
-            print(selected_metadata)
+#         if len(selected_metadata) != 1:
+#             print("WARNING number of datasets =", len(selected_metadata))
+#             print(selected_metadata)
 
-        dataset_id = selected_metadata["dataset_id"].values[0]
-        map_name = selected_metadata["map_name"].values[0]
+#         dataset_id = selected_metadata["dataset_id"].values[0]
+#         map_name = selected_metadata["map_name"].values[0]
 
-        print(map_name, dataset_id)
+#         print(map_name, dataset_id)
 
-        return dataset_id, map_name
-    except:
-        dataset_id = None
-        print("WARNING: Selected map not found in OSDU. Selection criteria are:")
-        print(map_type, real, ensemble, name, attribute, time1, time2)
+#         return dataset_id, map_name
+#     except:
+#         dataset_id = None
+#         print("WARNING: Selected map not found in OSDU. Selection criteria are:")
+#         print(map_type, real, ensemble, name, attribute, time1, time2)
 
-    if dataset_id:
-        dataset_id = literal_eval(dataset_id)
+#     if dataset_id:
+#         dataset_id = literal_eval(dataset_id)
 
-    return dataset_id, map_name
+#     return dataset_id, map_name
 
 
 def main():

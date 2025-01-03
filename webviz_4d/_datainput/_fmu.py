@@ -165,37 +165,48 @@ def create_fmu_lists(metadata, interval_mode):
     return map_dict
 
 
-def get_fmu_filename(self, data, ensemble, real, map_type):
+def get_fmu_filename(data, ensemble, real, map_type, metadata):
     selected_interval = data["date"]
     name = data["name"]
     attribute = data["attr"]
 
-    if self.interval_mode == "normal":
-        time2 = selected_interval[0:10]
-        time1 = selected_interval[11:]
-    else:
-        time1 = selected_interval[0:10]
-        time2 = selected_interval[11:]
+    time2 = selected_interval[0:10]
+    time1 = selected_interval[11:]
 
-    self.surface_metadata.replace(np.nan, "", inplace=True)
+    metadata.replace(np.nan, "", inplace=True)
 
     try:
-        selected_metadata = self.surface_metadata[
-            (self.surface_metadata["difference"] == real)
-            & (self.surface_metadata["seismic"] == ensemble)
-            & (self.surface_metadata["map_type"] == map_type)
-            & (self.surface_metadata["time.t1"] == time1)
-            & (self.surface_metadata["time.t2"] == time2)
-            & (self.surface_metadata["name"] == name)
-            & (self.surface_metadata["attribute"] == attribute)
+        selected_metadata = metadata[
+            (metadata["difference"] == real)
+            & (metadata["seismic"] == ensemble)
+            & (metadata["map_type"] == map_type)
+            & (metadata["time1"] == time1)
+            & (metadata["time2"] == time2)
+            & (metadata["name"] == name)
+            & (metadata["attribute"] == attribute)
         ]
 
         path = selected_metadata["filename"].values[0]
-
     except:
         path = ""
         print("WARNING: selected map not found. Selection criteria are:")
         print(map_type, real, ensemble, name, attribute, time1, time2)
-        print(selected_metadata)
+        # print(metadata)
 
     return path
+
+
+def get_fmu_metadata(config, field_name):
+    shared_settings = config.get("shared_settings")
+    interval_mode = shared_settings.get("interval_mode")
+
+    fmu_settings = shared_settings.get("fmu")
+
+    directory = fmu_settings.get("directory")
+    observed_maps = fmu_settings.get("observed_maps")
+    map_dir = observed_maps.get("map_directories")[0]
+
+    metadata = load_fmu_metadata(directory, map_dir, field_name)
+    selection_list = create_fmu_lists(metadata, interval_mode)
+
+    return metadata, selection_list

@@ -25,7 +25,8 @@ pip install webviz-config-equinor
 pip install black
 pip install pylint
 pip install pytest
-pip install ../../common-python-sdk-master/common-python-sdk-master
+pip install PrettyTable
+pip install /private/ashska/dev_311/common-python-sdk-master/common-python-sdk-master
 pip install -e .
 
 echo "WebViz-4D installation completed"
