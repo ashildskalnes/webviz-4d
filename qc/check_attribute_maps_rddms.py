@@ -12,7 +12,7 @@ from webviz_4d._datainput._osdu import (
     convert_metadata,
 )
 
-from webviz_4d._datainput._rddms import get_rddms_dataset_id, create_rddms_lists
+from webviz_4d._datainput._rddms import get_rddms_dataset_id, get_rddms_metadata
 
 rddms_service = DefaultRddmsService()
 osdu_service = DefaultOsduService()
@@ -31,12 +31,9 @@ def main():
     config_folder = os.path.dirname(config_file)
 
     shared_settings = config.get("shared_settings")
+    metadata_version = shared_settings.get("metadata_version")
     settings = shared_settings.get("rddms")
     selected_dataspace = settings.get("dataspace")
-    selected_dataspace = "demo/yuh"
-    # selected_dataspace = "JS/Soumik_2"
-    metadata_version = settings.get("metadata_version")
-    interval_mode = shared_settings.get("interval_mode")
     field_name = shared_settings.get("field_name")
 
     # print("Searching for Dataspaces in RDDMS:")
@@ -128,11 +125,13 @@ def main():
     # difference = "NotTimeshifted"
     # interval = "2021-05-17-2020-09-30"
 
-    data_source = "RDDMS"
-    attribute = "Max"
-    name = "Total"
-    map_type = "observed"
-    seismic = "Amplitude"
+    data_source = "rddms"
+    difference_type = "AttributeOfDifference"
+    coverage = "Full"
+    attribute = "Max"  # Customize
+    name = "Total"  # Customize
+    map_type = "observed"  # Customize
+    seismic = "Amplitude"  # Customize
     difference = "NotTimeshifted"
     interval = "2021-05-17-2020-09-30"
 

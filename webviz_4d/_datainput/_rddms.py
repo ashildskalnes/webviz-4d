@@ -1,10 +1,12 @@
 import numpy as np
-import pandas as pd
-from ast import literal_eval
-
-
 import math
-import numpy as np
+
+from webviz_4d._datainput.common import print_metadata
+
+from webviz_4d._datainput._osdu import (
+    get_osdu_metadata_attributes,
+    convert_metadata,
+)
 
 
 # get angle to a vector. Returns an angle in [-180, +180]
@@ -205,3 +207,30 @@ def create_rddms_lists(metadata, interval_mode):
         map_dict[map_type] = map_type_dict
 
     return map_dict
+
+
+def get_rddms_metadata(config, osdu_service, rddms_service, dataspace, field_name):
+    shared_settings = config.get("shared_settings")
+    metadata_version = shared_settings.get("metadata_version")
+    interval_mode = shared_settings.get("interval_mode")
+
+    attribute_horizons = rddms_service.get_attribute_horizons(
+        dataspace_name=dataspace, field_name=field_name
+    )
+
+    # print("Number of attribute maps:", len(attribute_horizons))
+    print("Checking the extracted metadata ...")
+
+    metadata = get_osdu_metadata_attributes(attribute_horizons)
+    updated_metadata = osdu_service.update_reference_dates(metadata)
+    selected_field_metadata = updated_metadata[
+        updated_metadata["FieldName"] == field_name
+    ]
+    selected_field_metadata["map_type"] = "observed"
+    converted_metadata = convert_metadata(selected_field_metadata)
+    selection_list = create_rddms_lists(converted_metadata, interval_mode)
+
+    print("DEBUG rddms metadata")
+    print_metadata(converted_metadata)
+
+    return converted_metadata, selection_list

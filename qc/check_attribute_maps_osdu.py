@@ -107,7 +107,7 @@ def main():
     shared_settings = config.get("shared_settings")
     field_name = shared_settings.get("field_name")
     settings = shared_settings.get("osdu")
-    metadata_version = settings.get("metadata_version")
+    metadata_version = shared_settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
     osdu = shared_settings.get("osdu")
     coverage = osdu.get("coverage")
@@ -167,13 +167,14 @@ def main():
 
     # Extract a selected map
     field_name = "JOHAN SVERDRUP"
-    data_source = "OSDU"
+    data_source = "osdu"
     attribute = "MaxPositive"
-    name = "3D+TAasgard+JS+Z22+Merge_EQ20231_PH2DG3"
+    name = "FullReservoirEnvelope"
     map_type = "observed"
-    seismic = "AMPLITUDE"
+    seismic = "Amplitude"
     difference = "NotTimeshifted"
     interval = "2021-05-17-2020-09-30"
+    coverage = "Full"
 
     ensemble = seismic
     real = difference
