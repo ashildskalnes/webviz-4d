@@ -322,14 +322,9 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, covera
     selected_interval = data["date"]
     name = data["name"]
     attribute = data["attr"]
-    interval_mode = "normal"
 
-    if interval_mode == "normal":
-        time2 = selected_interval[0:10]
-        time1 = selected_interval[11:]
-    else:
-        time1 = selected_interval[0:10]
-        time2 = selected_interval[11:]
+    time2 = selected_interval[0:10]
+    time1 = selected_interval[11:]
 
     surface_metadata.replace(np.nan, "", inplace=True)
     metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
@@ -343,11 +338,8 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, covera
         "map_name",
     ]
 
+    print()
     print("Coverage", coverage)
-    pd.set_option("display.max_columns", None)
-    pd.set_option("display.max_rows", None)
-    pd.set_option("display.width", None)
-    # print(metadata_coverage[headers].sort_values(by="attribute"))
 
     try:
         selected_metadata = metadata_coverage[
@@ -382,6 +374,9 @@ def get_auto4d_metadata(config):
 
     metadata_format = auto4d_settings.get("metadata_format")
     acquisition_dates = auto4d_settings.get("acquisition_dates")
+
+    print()
+    print("Searching for seismic 4D attribute maps on disk:", directory, " ...")
 
     metadata = load_auto4d_metadata_new(
         directory, metadata_format, metadata_version, acquisition_dates

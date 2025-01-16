@@ -1,74 +1,14 @@
 import os
-import numpy as np
-import pandas as pd
 import argparse
-import xtgeo
-import time
-
 import warnings
 from pprint import pprint
 
 from webviz_4d._datainput.common import read_config, print_metadata
-from webviz_4d._datainput._auto4d import (
-    load_auto4d_metadata_new,
-    create_auto4d_lists,
-)
+from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
+from webviz_4d._datainput._auto4d import get_auto4d_metadata
+from webviz_4d._datainput._maps import load_selected_surface
 
 warnings.filterwarnings("ignore")
-
-
-def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, coverage):
-    selected_interval = data["date"]
-    name = data["name"]
-    attribute = data["attr"]
-    interval_mode = "normal"
-
-    if interval_mode == "normal":
-        time2 = selected_interval[0:10]
-        time1 = selected_interval[11:]
-    else:
-        time1 = selected_interval[0:10]
-        time2 = selected_interval[11:]
-
-    surface_metadata.replace(np.nan, "", inplace=True)
-    metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
-
-    headers = [
-        "attribute",
-        "seismic",
-        "difference",
-        "time2",
-        "time1",
-        "map_name",
-    ]
-
-    print("Coverage", coverage)
-    pd.set_option("display.max_columns", None)
-    pd.set_option("display.max_rows", None)
-    pd.set_option("display.width", None)
-    print(metadata_coverage[headers].sort_values(by="attribute"))
-
-    try:
-        selected_metadata = metadata_coverage[
-            (metadata_coverage["difference"] == real)
-            & (metadata_coverage["seismic"] == ensemble)
-            & (metadata_coverage["map_type"] == map_type)
-            & (metadata_coverage["time1"] == time1)
-            & (metadata_coverage["time2"] == time2)
-            & (metadata_coverage["strat_zone"] == name)
-            & (metadata_coverage["attribute"] == attribute)
-        ]
-
-        filepath = selected_metadata["filename"].values[0]
-        path = filepath
-
-    except:
-        path = ""
-        print("WARNING: Selected file not found in Auto4d directory")
-        print("  Selection criteria are:")
-        print("  -  ", map_type, name, attribute, time1, time2, ensemble, real)
-
-    return path
 
 
 def main():
@@ -92,65 +32,55 @@ def main():
 
     directory = auto4d_settings.get("directory")
 
-    metadata_format = auto4d_settings.get("metadata_format")
-    acquisition_dates = auto4d_settings.get("acquisition_dates")
-    interval_mode = shared_settings.get("interval_mode")
-    # selections = auto4d_settings.get("selections")
-    # coverage = selections.get("SeismicCoverage")
-
     print("Searching for seismic 4D attribute maps on disk:", directory, " ...")
 
-    # attribute_metadata = load_auto4d_metadata(
-    #     directory, metadata_format, metadata_version, selections, acquisition_dates
-    # )
+    metadata, selection_list = get_auto4d_metadata(config)
 
-    attribute_metadata = load_auto4d_metadata_new(
-        directory, metadata_format, metadata_version, acquisition_dates
-    )
-
-    print_metadata(attribute_metadata)
+    print_metadata(metadata)
 
     print()
-    print("Create auto4d selection lists ...")
-    selection_list = create_auto4d_lists(attribute_metadata, interval_mode)
+    print("auto4d selection list ...")
     pprint(selection_list)
 
     # Extract a selected map
-    selection = {
-        "data_source": "auto4d_file",
-        "attribute": "MaxPositive",
-        "name": "FullReservoirEnvelope",
-        "map_type": "observed",
-        "seismic": "Amplitude",
-        "difference": "NotTimeshifted",
-        "interval": "2023-05-16-2022-05-15",
-        "difference_type": "AttributeOfDifference",
-        "coverage": "Full",
-    }
+    field_name = "JOHAN SVERDRUP"
 
-    ensemble = selection.get("seismic")
-    real = selection.get("difference")
-    attribute = selection.get("attribute")
-    name = selection.get("name")
-    interval = selection.get("interval")
-    map_type = selection.get("map_type")
-    coverage = selection.get("coverage")
+    surface_viewer = (
+        config.get("layout")[0]
+        .get("content")[1]
+        .get("content")[0]
+        .get("content")[0]
+        .get("SurfaceViewer4D")
+    )
+    map_defaults = surface_viewer.get("map1_defaults")
+
+    print("Map defaults")
+    pprint(map_defaults)
+
+    attribute = map_defaults.get("attribute")
+    name = map_defaults.get("name")
+    interval = map_defaults.get("interval")
+    seismic = map_defaults.get("seismic")
+    difference = map_defaults.get("difference")
+    coverage = map_defaults.get("coverage")
+
+    ensemble = seismic
+    real = difference
 
     data = {"attr": attribute, "name": name, "date": interval}
 
-    path = get_auto4d_filename(
-        attribute_metadata, data, ensemble, real, map_type, coverage
+    data_source = map_defaults.get("data_source")
+    surface = None
+
+    print()
+    print("Loading surface from", data_source)
+
+    surface = load_selected_surface(
+        data_source, metadata, map_defaults, data, ensemble, real, coverage
     )
 
-    if os.path.isfile(path):
-        print()
-        print("Loading surface from disk")
-        start_time = time.time()
-        surface = xtgeo.surface_from_file(path)
-        print(" --- %s seconds ---" % (time.time() - start_time))
-
-        print(surface)
-        print()
+    print(surface)
+    print()
 
 
 if __name__ == "__main__":

@@ -850,7 +850,7 @@ class DefaultOsduService:
 
             seismic_names = row["SeismicTraceDataSourceNames"]
 
-            if len(seismic_names) == 2:
+            if seismic_names and len(seismic_names) == 2:
                 status = True
                 seismic_nameA = seismic_names[1]
                 seismic_nameB = seismic_names[0]
@@ -863,18 +863,21 @@ class DefaultOsduService:
                         status = True
                         seismic_nameA = seismic_names[1]
                         seismic_nameB = seismic_names[0]
+            else:
+                print("WARNING: Seismic names are not correct:", seismic_names)
+                status = False
 
-            if not status:
-                seismic_cubeA = self.extract_value(SeismicDiffVolumes, seismic_nameA)
+            # if not status:
+            #     seismic_cubeA = extract_value(SeismicDiffVolumes, seismic_nameA)
 
-                # Find index of the first "-" character
-                idx = seismic_nameB.find("-")
-                seismic_cubeB = self.extract_value(
-                    SeismicDiffVolumes, seismic_nameB[idx:]
-                )
+            #     # Find index of the first "-" character
+            #     idx = seismic_nameB.find("-")
+            #     seismic_cubeB = extract_value(
+            #         SeismicDiffVolumes, seismic_nameB[idx:]
+            #     )
 
-                if seismic_cubeA != "" and seismic_cubeB != "":
-                    status = True
+            #     if seismic_cubeA != "" and seismic_cubeB != "":
+            #         status = True
 
             if status:
                 seismic_nameA_data = self.get_seismic_trace_data(seismic_nameA)

@@ -201,6 +201,10 @@ def get_fmu_metadata(config, field_name):
     interval_mode = shared_settings.get("interval_mode")
 
     fmu_settings = shared_settings.get("fmu")
+    directory = fmu_settings.get("directory")
+
+    print()
+    print("Searching for seismic 4D attribute maps on disk:", directory, " ...")
 
     directory = fmu_settings.get("directory")
     observed_maps = fmu_settings.get("observed_maps")

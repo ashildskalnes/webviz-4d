@@ -1,8 +1,14 @@
+import io
 import pandas as pd
 import time
 import numpy as np
 from ast import literal_eval
 from pprint import pprint
+import xtgeo
+
+from webviz_4d._datainput.common import read_config, print_metadata
+from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
+from webviz_4d._datainput._maps import print_surface_info
 
 
 def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, coverage):
@@ -28,11 +34,6 @@ def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, covera
         "time1",
         "map_name",
     ]
-
-    print("Coverage", coverage)
-    pd.set_option("display.max_columns", None)
-    pd.set_option("display.max_rows", None)
-    print(metadata_coverage[headers].sort_values(by="attribute"))
 
     map_name = None
 
@@ -359,29 +360,102 @@ def get_osdu_metadata(config, osdu_service, field_name):
     metadata_version = shared_settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
 
-    metadata = attribute_horizons = osdu_service.get_attribute_horizons(
+    attribute_horizons = osdu_service.get_attribute_horizons(
         metadata_version=metadata_version, field_name=field_name
     )
 
     # print("Number of attribute maps:", len(attribute_horizons))
-    print("Checking the extracted metadata ...")
+    print()
+    print("Extracting all metadata ...")
 
     metadata = get_osdu_metadata_attributes(attribute_horizons)
     updated_metadata = osdu_service.update_reference_dates(metadata)
-    selected_field_metadata = updated_metadata[
-        updated_metadata["FieldName"] == field_name
-    ]
-    selected_field_metadata["map_type"] = "observed"
-    converted_metadata = convert_metadata(selected_field_metadata)
+
+    if field_name:
+        field_metadata = updated_metadata[updated_metadata["FieldName"] == field_name]
+        metadata = field_metadata.copy()
+    else:
+        metadata = updated_metadata
+
+    metadata["map_type"] = "observed"
+    converted_metadata = convert_metadata(metadata)
     selection_list = create_osdu_lists(converted_metadata, interval_mode)
 
     return converted_metadata, selection_list
 
 
+def load_surface_from_osdu(
+    map_idx, data_source, metadata, map_defaults, data, ensemble, real, coverage
+):
+    # Load surface from one of the data sources based on the selected metadata
+
+    name = data["name"]
+    attribute = data["attr"]
+    map_type = map_defaults["map_type"]
+
+    selected_interval = data["date"]
+    time1 = selected_interval[0:10]
+    time2 = selected_interval[11:]
+
+    metadata_keys = [
+        "map_index",
+        "map_type",
+        "surface_name",
+        "attribute",
+        "time_interval",
+        "seismic",
+        "difference",
+    ]
+
+    surface = None
+
+    if data_source == "osdu":
+        osdu_service = DefaultOsduService()
+        dataset_id, map_name = get_osdu_dataset_id(
+            metadata, data, ensemble, real, map_type, coverage
+        )
+
+        if dataset_id:
+            tic = time.perf_counter()
+            dataset = osdu_service.get_horizon_map(file_id=dataset_id)
+            blob = io.BytesIO(dataset.content)
+            surface = xtgeo.surface_from_file(blob)
+            toc = time.perf_counter()
+        else:
+            surface = None
+
+    if surface is not None:
+        print_surface_info(map_idx, tic, toc, surface)
+    else:
+        metadata_values = [
+            map_type,
+            name,
+            attribute,
+            [time1, time2],
+            ensemble,
+            real,
+        ]
+        print("Selected map not found in", data_source)
+        print("  Selection criteria:")
+
+        for index, metadata in enumerate(metadata_keys):
+            print("  - ", metadata, ":", metadata_values[index])
+
+    return surface
+
+
 def main():
-    metadata = pd.read_csv("metadata.csv")
-    selection_list = create_osdu_lists(metadata, "normal")
-    print(selection_list)
+    config_file = "/private/ashska/dev_311/my_forks/fields/johan_sverdrup/osdu_config/osdu_config_new.yaml"
+    config = read_config(config_file)
+    osdu_service = DefaultOsduService()
+    field_name = ""
+
+    print("Searching for attribute maps in OSDU Core ...")
+    metadata, selection_list = get_osdu_metadata(config, osdu_service, field_name)
+
+    print_metadata(metadata)
+    print()
+    pprint(selection_list)
 
 
 if __name__ == "__main__":

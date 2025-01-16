@@ -8,6 +8,7 @@ from typing import Optional
 from io import BytesIO
 import pandas as pd
 import prettytable as pt
+import xtgeo
 
 
 defaults = {
@@ -236,6 +237,9 @@ def read_csv(
 
 
 def print_metadata(metadata):
+    sorted_metadata = metadata.sort_values(by=["attribute", "time1", "time2"])
+    sorted_metadata = sorted_metadata.reset_index(drop=True)
+
     table = pt.PrettyTable()
     field_names = [
         "attribute",
@@ -247,12 +251,14 @@ def print_metadata(metadata):
         "time1",
         "coverage",
         "map_name",
+        "field_name",
     ]
 
-    table.field_names = field_names
+    table.field_names = ["idx"] + field_names
 
-    for idx, row in metadata.iterrows():
-        table.add_row(row[field_names])
+    for idx, row in sorted_metadata.iterrows():
+        items = [idx] + row[field_names].to_list()
+        table.add_row(items)
 
     print()
-    print(table.get_string(sortby="attribute"))
+    print(table)

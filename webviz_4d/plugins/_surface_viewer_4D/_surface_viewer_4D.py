@@ -1,16 +1,11 @@
-import io
-import sys
 from pathlib import Path
 import datetime
 import json
 import os
 import numpy as np
 import pandas as pd
-import xtgeo
 import logging
 import time
-from pprint import pprint
-import prettytable as pt
 
 from fmu.sumo.explorer import Explorer
 
@@ -27,7 +22,6 @@ from webviz_4d._datainput.common import (
     get_well_colors,
     get_plot_label,
     get_dates,
-    print_metadata,
 )
 
 from webviz_4d._datainput.well import (
@@ -55,11 +49,6 @@ from webviz_4d._datainput._sumo import (
     get_sumo_zone_polygons,
     load_sumo_observed_metadata,
     get_sumo_tagname,
-)
-
-from webviz_4d._datainput._osdu import (
-    get_osdu_metadata_attributes,
-    convert_metadata,
 )
 
 from webviz_4d._datainput._rddms import (
@@ -143,12 +132,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         field_name = self.shared_settings.get("field_name")
 
-        self.sumo_status = False
-        self.fmu_status = False
-        self.osdu_status = False
-        self.auto4d_status = False
-        self.rddms_status = False
-
         # Include custom colormaps if wanted
         self.get_additional_colormaps()
 
@@ -200,9 +183,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.selected_dataspace = rddms.get("dataspace")
                 self.osdu_service = DefaultOsduService()
                 self.rddms_service = DefaultRddmsService()  # type: ignore
-                # attribute_horizons = self.rddms_service.get_attribute_horizons(
-                #     dataspace_name=self.selected_dataspace, field_name=field_name
-                # )
+
                 metadata, selection_list = get_rddms_metadata(
                     self.config,
                     self.osdu_service,
@@ -215,10 +196,8 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             self.metadata_lists.append(metadata)
             self.selection_lists.append(selection_list)
-            # print("Selection list")
-            # pprint(selection_list)
-            # print()
 
+            # Get Sumo information (for depth surface and polygons)
             sumo = self.shared_settings.get("sumo")
 
             if self.field_name.upper() != self.my_case.field.upper():
@@ -238,87 +217,6 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.selection_list = create_sumo_lists(
                     self.surface_metadata, self.interval_mode
                 )
-
-        # fmu = self.shared_settings.get("fmu")
-        # if fmu and fmu.get("directory"):
-        #     self.fmu_status = True
-        #     self.surface_metadata, self.selection_list = get_fmu_metadata(
-        #         self.config, field_name
-        #     )
-
-        # auto4d = self.shared_settings.get("auto4d_file")
-        # if auto4d and auto4d.get("directory"):
-        #     self.auto4d_status = True
-        #     self.surface_metadata, self.selection_list = get_auto4d_metadata(
-        #         self.config
-        #     )
-
-        #     if self.selection_list is None:
-        #         sys.exit(
-        #             "ERROR: No timelapse surfaces found in", auto4d.get("directory")
-        #         )
-
-        # osdu = self.shared_settings.get("osdu")
-        # if osdu and osdu.get("instance"):
-        #     # self.osdu_status = True
-
-        #     self.surface_metadata, self.selection_list = get_osdu_metadata(
-        #         self.config, self.osdu_service, field_name
-        #     )
-
-        #     if self.selection_list is None:
-        #         sys.exit("ERROR: No timelapse surfaces found in OSDU")
-
-        # rddms = self.shared_settings.get("rddms")
-        # if rddms and rddms.get("metadata_version"):
-        #     self.rddms_status = True
-        #     self.metadata_version = rddms.get("metadata_version")
-        #     self.coverage = rddms.get("coverage")
-
-        #     self.label = "RDDMS - " + self.dataspace + ": " + self.field_name
-
-        #     print("Surfaces from RDDMS: ")
-        #     print(
-        #         "  Searching for seismic 4D attribute maps in RDDMS",
-        #         self.dataspace,
-        #         self.metadata_version,
-        #         self.field_name,
-        #         " ...",
-        #     )
-
-        #     cache_file = "rddms_metadata_cache.csv"
-        #     metadata_file_cache = os.path.join(settings_folder, cache_file)
-
-        #     if os.path.isfile(metadata_file_cache):
-        #         print("  Reading cached metadata from", metadata_file_cache)
-        #         metadata = pd.read_csv(metadata_file_cache)
-        #     else:
-        #         print("  Reading metadata from RDDMS ...")
-        #         attribute_horizons = self.rddms_service.get_attribute_horizons(
-        #             self.dataspace, self.field_name
-        #         )
-        #         metadata = get_osdu_metadata_attributes(attribute_horizons)
-        #         selected_attribute_maps = metadata.loc[
-        #             (
-        #                 (metadata["MetadataVersion"] == self.metadata_version)
-        #                 & (metadata["FieldName"] == self.field_name)
-        #                 & (metadata["SeismicCoverage"] == self.coverage)
-        #             )
-        #         ]
-
-        #         updated_metadata = self.osdu_service.update_reference_dates(
-        #             selected_attribute_maps
-        #         )
-        #         # updated_metadata.to_csv(metadata_file_cache)
-
-        #     self.surface_metadata = convert_metadata(updated_metadata)
-
-        #     self.selection_list = create_rddms_lists(
-        #         self.surface_metadata, interval_mode
-        #     )
-
-        #     if self.selection_list is None:
-        #         sys.exit("ERROR: No timelapse surfaces found in RDDMS")
 
         self.top_res_surface = get_top_res_surface(
             self.top_res_surface_settings, self.my_case
@@ -1109,69 +1007,69 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return surface
 
-    def load_selected_surface_osdu(self, data, ensemble, real, coverage, map_idx):
-        # Load surface from one of the data sources based on the selected metadata
+    # def load_selected_surface_osdu(self, data, ensemble, real, coverage, map_idx):
+    #     # Load surface from one of the data sources based on the selected metadata
 
-        name = data["name"]
-        attribute = data["attr"]
-        map_type = self.map_defaults[map_idx]["map_type"]
-        surface_metadata = self.metadata_lists[map_idx]
+    #     name = data["name"]
+    #     attribute = data["attr"]
+    #     map_type = self.map_defaults[map_idx]["map_type"]
+    #     surface_metadata = self.metadata_lists[map_idx]
 
-        selected_interval = data["date"]
-        time1 = selected_interval[0:10]
-        time2 = selected_interval[11:]
+    #     selected_interval = data["date"]
+    #     time1 = selected_interval[0:10]
+    #     time2 = selected_interval[11:]
 
-        data_source = self.data_sources[map_idx]
+    #     data_source = self.data_sources[map_idx]
 
-        outfile = str(map_idx) + "_" + data_source + ".csv"
-        surface_metadata.to_csv(outfile)
-        print("metadata written to file", outfile)
+    #     outfile = str(map_idx) + "_" + data_source + ".csv"
+    #     surface_metadata.to_csv(outfile)
+    #     print("metadata written to file", outfile)
 
-        metadata_keys = [
-            "map_index",
-            "map_type",
-            "surface_name",
-            "attribute",
-            "time_interval",
-            "seismic",
-            "difference",
-        ]
+    #     metadata_keys = [
+    #         "map_index",
+    #         "map_type",
+    #         "surface_name",
+    #         "attribute",
+    #         "time_interval",
+    #         "seismic",
+    #         "difference",
+    #     ]
 
-        surface = None
+    #     surface = None
 
-        if data_source == "osdu":
-            tic = time.perf_counter()
-            dataset_id, map_name = get_osdu_dataset_id(
-                surface_metadata, data, ensemble, real, map_type, coverage
-            )
+    #     if data_source == "osdu":
+    #         tic = time.perf_counter()
+    #         dataset_id, map_name = get_osdu_dataset_id(
+    #             surface_metadata, data, ensemble, real, map_type, coverage
+    #         )
 
-            if dataset_id:
-                dataset = self.osdu_service.get_horizon_map(file_id=dataset_id)
-                blob = io.BytesIO(dataset.content)
-                surface = xtgeo.surface_from_file(blob)
-                toc = time.perf_counter()
-            else:
-                surface = None
+    #         if dataset_id:
+    #             dataset = self.osdu_service.get_horizon_map(file_id=dataset_id)
+    #             blob = io.BytesIO(dataset.content)
+    #             surface = xtgeo.surface_from_file(blob)
+    #             toc = time.perf_counter()
+    #         else:
+    #             surface = None
 
-        if surface is not None:
-            self.print_surface_info(map_idx, tic, toc, surface)
-        else:
-            metadata_values = [
-                map_idx,
-                map_type,
-                name,
-                attribute,
-                [time1, time2],
-                ensemble,
-                real,
-            ]
-            print("Selected map not found in", data_source)
-            print("  Selection criteria:")
+    #     if surface is not None:
+    #         self.print_surface_info(map_idx, tic, toc, surface)
+    #     else:
+    #         metadata_values = [
+    #             map_idx,
+    #             map_type,
+    #             name,
+    #             attribute,
+    #             [time1, time2],
+    #             ensemble,
+    #             real,
+    #         ]
+    #         print("Selected map not found in", data_source)
+    #         print("  Selection criteria:")
 
-            for index, metadata in enumerate(metadata_keys):
-                print("  - ", metadata, ":", metadata_values[index])
+    #         for index, metadata in enumerate(metadata_keys):
+    #             print("  - ", metadata, ":", metadata_values[index])
 
-        return surface
+    #     return surface
 
     def load_selected_surface_rddms(self, data, ensemble, real, coverage, map_idx):
         # Load surface from one of the data sources based on the selected metadata
