@@ -33,6 +33,14 @@ map_settings:
             color: seismic_rms
             type:  diverging
             auto_scaling:   10 
+        Max:
+            color: seismic_rms
+            type:  diverging
+            auto_scaling:   10   
+        Average:
+            color: seismic_rms
+            type:  diverging
+            auto_scaling:   10
             
 well_colors:
     default: black

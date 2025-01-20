@@ -33,6 +33,14 @@ map_settings:
             color: seismic_rms
             type:  diverging
             auto_scaling:   10 
+        Max:
+            color: seismic_rms
+            type:  diverging
+            auto_scaling:   10   
+        Average:
+            color: seismic_rms
+            type:  diverging
+            auto_scaling:   10   
             
 well_colors:
     default: black
@@ -51,7 +59,7 @@ polygon_colors:
     owc_outline: lightslategray
     goc_outline: red
     field_outline: lightslategray
-    faults: gray  
+    faults: black  
         
 date_labels:
     20190912: PRM19aut

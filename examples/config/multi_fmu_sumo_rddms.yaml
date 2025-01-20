@@ -58,7 +58,7 @@ shared_settings:
     production_data: &production_data PDM   
     polygons_folder: &polygons_folder SUMO         
     colormaps_folder: &colormaps_folder ../colormaps/                   
-    settings_file: &settings ./settings.yaml 
+    settings_file: &settings ../settings.yaml 
     interval_mode: &interval_mode normal
     default_interval: 2020-10-01-2019-10-01         
         
@@ -99,36 +99,34 @@ layout:
                   default_interval: 2022-05-15-2020-09-30                    
                   
                   map1_defaults:
-                    data_source: auto4d_file
-                    difference_type: AttributeOfDifference
-                    coverage: Full
-                    attribute:  MaxPositive             # Customize
-                    name: FullReservoirEnvelope                     # Customize
-                    map_type: observed                          # Customize 
-                    seismic: Amplitude                          # Customize
-                    difference: NotTimeshifted
-                    interval: 2021-05-17-2020-09-30
-                  
-                  map2_defaults:
-                    data_source: osdu
-                    difference_type: AttributeOfDifference
-                    coverage: Full
-                    attribute:  MaxPositive             # Customize
-                    name: FullReservoirEnvelope                     # Customize
-                    map_type: observed                          # Customize 
-                    seismic: Amplitude                          # Customize
-                    difference: NotTimeshifted
-                    interval: 2021-05-17-2020-09-30
-                    
-                  map3_defaults:
                     data_source: fmu
                     difference_type: AttributeOfDifference
-                    coverage: Full 
-                    attribute: max      # Customize
-                    name: total                          # Customize 
+                    coverage: Full
+                    attribute:  max              # Customize 
+                    name: total                     # Customize  
                     map_type: observed                          # Customize
-                    seismic:  amplitude                       # Customize 
-                    difference: NotTimeshifted                  # Customize      
-                    interval: 2021-05-15-2020-10-01         
+                    seismic: amplitude                            # Customize 
+                    difference:  NotTimeshifted                # Customize     
+                    interval: 2021-05-15-2020-10-01 
+                  map2_defaults:
+                    data_source: sumo
+                    difference_type: AttributeOfDifference
+                    coverage: Full  
+                    attribute:  max              # Customize 
+                    name: total                     # Customize  
+                    map_type: observed                          # Customize
+                    seismic: amplitude                            # Customize 
+                    difference:  NotTimeshifted                # Customize     
+                    interval: 2021-05-15-2020-10-01    
+                  map3_defaults:
+                    data_source: rddms
+                    difference_type: AttributeOfDifference
+                    coverage: Full
+                    attribute:  Max             # Customize
+                    name: Total                     # Customize
+                    map_type: observed                          # Customize 
+                    seismic: amplitude                          # Customize
+                    difference: NotTimeshifted
+                    interval: 2021-05-17-2020-09-30  
  
       

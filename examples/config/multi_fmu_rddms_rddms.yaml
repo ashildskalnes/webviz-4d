@@ -1,28 +1,51 @@
-title: Webviz-4D RDDMS                            # Customize
+title: Webviz-4D OSDU                            # Customize
 
 shared_settings:
     field_name: JOHAN SVERDRUP 
     metadata_version: 0.4.2
+    map_type: 4D                                # 3D/4D/Horizon
     sumo:
         env_name: prod
         case_name: 24p12p4_histandpred_ff_20240922  
+    osdu:
+        instance: npequinor | npequinor-dev                             
     rddms:
-        dataspace: JS/Soumik_2
-        difference_type: AttributeOfDifference
-        coverage: Full
-        
-    label: RDDMS maps      # Customize             
+        instance: npequinor | npequinor-dev
+        dataspace: JS/Soumik_2   
+    fmu:
+        directory: /scratch/johan_sverdrup2/share/24p12p4/24p12p4_histandpred_ff_20240922   
+        observed_maps: 
+            realization_names: ["*"]                  
+            iteration_names: [pred]                                   
+            map_directories: [share/observations/maps/]   
+            attributes: ["*"]
+            surface_names: ["*"]
+            time_intervals: ["*"]       
+    auto4d_file: 
+        directory: /scratch/auto4d/userhorizons/ashska 
+        metadata_format: .a4dmeta
+        acquisition_dates:
+            EQ19231DZC23A-KPSDM-RAW-FULL-0535-TIME: 2019-09-12
+            EQ20231DZC23A-KPSDM-RAW-FULL-0535-TIME: 2020-09-30
+            EQ21200DZC23A-KPSDM-RAW-FULL-0535-TIME: 2021-05-17
+            EQ22200DZC23A-KPSDM-RAW-FULL-0535-TIME: 2022-05-15
+            EQ22205DZC23A-KPSDM-RAW-FULL-0535-TIME: 2022-08-28
+            EQ23200DZC23A-KPSDM-RAW-FULL-0535-TIME: 2023-05-16
+            EQ23205DZC23B-KPSDM-RAW-FULL-0535-TIME: 2023-09-20
+            EQ24200DZC24A-KPSDM-RAW-FULL-0535-TIME: 2024-05-15
+            
+    label: Multi source test      # Customize             
                 
     basic_well_layers:
         planned: Planned wells 
         drilled_wells: Drilled wells                        
-        reservoir_sections: Reservoir sections   
+        reservoir_section: Reservoir sections   
           
     additional_well_layers:      
         production: Producers                                     
         injection: Injectors                                              
                 
-    well_folder: &wellfolder SMDA   
+    well_folder: &wellfolder SMDA  
     top_reservoir: 
         name: Draupne Fm. 1 JS Top
         tag_name: depth_structural_model
@@ -32,8 +55,9 @@ shared_settings:
             zones: True
             observed: True
             aggregated: True
-    production_data: &production_data PDM          
-    colormaps_folder: &colormaps_folder ../colormaps/     
+    production_data: &production_data PDM   
+    polygons_folder: &polygons_folder SUMO         
+    colormaps_folder: &colormaps_folder ../colormaps/                   
     settings_file: &settings ../settings.yaml 
     interval_mode: &interval_mode normal
     default_interval: 2020-10-01-2019-10-01         
@@ -65,19 +89,21 @@ layout:
           - page: Observed maps  
             content: 
               - SurfaceViewer4D: 
-                  well_folder: *wellfolder               
-                  production_data: *production_data      
+                  well_folder: *wellfolder                
+                  production_data: *production_data     
                   colormaps_folder: *colormaps_folder       
+                  #selector_file: *selector_file 
+                  #attribute_maps_file: *attribute_maps_file
                   settings_file:  *settings 
                   interval_mode: *interval_mode  
                   default_interval: 2022-05-15-2020-09-30                    
                   
-                  map1_defaults: 
-                    data_source: rddms
+                  map1_defaults:
+                    data_source: fmu
                     difference_type: AttributeOfDifference
                     coverage: Full
-                    attribute:  Max             # Customize
-                    name: Total                     # Customize
+                    attribute:  MaxPositive             # Customize
+                    name: FullReservoirEnvelope                     # Customize
                     map_type: observed                          # Customize 
                     seismic: Amplitude                          # Customize
                     difference: NotTimeshifted
@@ -101,6 +127,6 @@ layout:
                     map_type: simulated                          # Customize 
                     seismic: SWAT                          # Customize
                     difference: NotTimeshifted
-                    interval: 2021-05-17-2020-09-30
+                    interval: 2021-05-17-2020-09-30  
  
       

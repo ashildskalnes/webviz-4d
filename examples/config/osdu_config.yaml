@@ -99,7 +99,7 @@ layout:
                     attribute:  MaxNegative           # Customize
                     name: FullReservoirEnvelope                     # Customize
                     map_type: observed                          # Customize 
-                    seismic: AMPLITUDE                          # Customize
+                    seismic: Amplitude                          # Customize
                     difference: NotTimeshifted
                     interval: 2021-05-17-2020-09-30
  

@@ -44,11 +44,8 @@ from webviz_4d._datainput._maps import load_surface_from_file, load_surface_from
 from webviz_4d._datainput._metadata import get_all_map_defaults
 
 from webviz_4d._datainput._sumo import (
-    create_sumo_lists,
-    get_sumo_interval_list,
+    get_sumo_metadata,
     get_sumo_zone_polygons,
-    load_sumo_observed_metadata,
-    get_sumo_tagname,
 )
 
 from webviz_4d._datainput._rddms import (
@@ -107,7 +104,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         logging.getLogger("").setLevel(level=logging.WARNING)
         self.config = app.webviz_settings
         self.shared_settings = self.config["shared_settings"]
-        self.shared_settings = app.webviz_settings["shared_settings"]
         md_version = self.shared_settings.get("metadata_version")
         self.field_name = self.shared_settings.get("field_name")
         self.label = self.shared_settings.get("label")
@@ -165,9 +161,9 @@ class SurfaceViewer4D(WebvizPluginABC):
             print("Data source:", data_source)
 
             if data_source == "sumo":
-                metadata = load_sumo_observed_metadata(self.my_case)
-                selection_list = create_sumo_lists(metadata, interval_mode)
-
+                metadata, selection_list, self.sumo_case = get_sumo_metadata(
+                    self.config, field_name
+                )
             elif data_source == "auto4d_file":
                 metadata, selection_list = get_auto4d_metadata(self.config)
             elif data_source == "fmu":
@@ -206,16 +202,16 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             self.sumo_surfaces = sumo.get("sumo_surfaces")
 
-            if self.sumo_surfaces:
-                self.sumo_status = True
+            # if self.sumo_surfaces:
+            #     self.sumo_status = True
 
-                print("Attribute maps from SUMO: ")
-                print("  Loading metadata ...")
+            #     print("Attribute maps from SUMO: ")
+            #     print("  Loading metadata ...")
 
-                self.surface_metadata = load_sumo_observed_metadata(self.my_case)
-                self.selection_list = create_sumo_lists(
-                    self.surface_metadata, self.interval_mode
-                )
+            #     self.surface_metadata = load_sumo_observed_metadata(self.my_case)
+            #     self.selection_list = create_sumo_lists(
+            #         self.surface_metadata, self.interval_mode
+            #     )
 
         self.top_res_surface = get_top_res_surface(
             self.top_res_surface_settings, self.my_case
@@ -407,11 +403,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             info = self.data_sources[map_ind]
         else:
             txt = "Simulated map: "
-            info = (
-                self.selected_ensembles[map_ind]
-                + " "
-                + self.selected_realizations[map_ind]
-            )
+            info = self.data_sources[map_ind]
 
         zone_name = self.selected_names[map_ind]
         if zone_name == "3D+TAasgard+JS+Z22+Merge_EQ20231_PH2DG3":
@@ -695,7 +687,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         surface = None
 
         if data_source == "auto4d_file" or data_source == "fmu":
-            surface = load_surface_from_file(
+            surface, map_name = load_surface_from_file(
                 map_idx,
                 self.data_sources[map_idx],
                 metadata,
@@ -706,7 +698,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 coverage,
             )
         elif data_source == "sumo":
-            surface = load_surface_from_sumo(
+            surface, map_name = load_surface_from_sumo(
                 map_idx,
                 data_source,
                 self.my_case,
@@ -717,7 +709,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 real,
             )
         elif data_source == "osdu":
-            surface = load_surface_from_osdu(
+            surface, map_name = load_surface_from_osdu(
                 map_idx,
                 data_source,
                 metadata,
@@ -729,23 +721,19 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
         elif data_source == "rddms":
             map_type = map_defaults.get("map_type")
-            uuid_url = get_rddms_dataset_id(metadata, data, ensemble, real, map_type)
-            uuid = metadata["id"].values[0]
-            horizon_name = metadata["map_name"].values[0]
-
-            rddms_service = DefaultRddmsService()
-            dataspace = self.shared_settings.get("rddms").get("dataspace")
+            uuid, uuid_url, map_name = get_rddms_dataset_id(
+                metadata, data, ensemble, real, map_type
+            )
 
             print("Loading surface from:", data_source)
             print()
 
-            surface = rddms_service.load_surface_from_rddms(
-                dataspace_name=dataspace,
-                horizon_name=horizon_name,
+            surface = self.rddms_service.load_surface_from_rddms(
+                dataspace_name=self.selected_dataspace,
+                horizon_name=map_name,
                 uuid=uuid,
                 uuid_url=uuid_url,
             )
-
         if surface:
             # metadata = self.get_map_scaling(data, map_type, real)
             min_max = self.get_auto_scaling(surface, attribute)
