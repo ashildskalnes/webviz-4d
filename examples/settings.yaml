@@ -1,0 +1,73 @@
+map_settings:
+    colormaps_folder: ../colormaps/
+    surface_metadata_file: ./surface_metadata.csv
+    colormaps_settings: ./attribute_maps.csv
+    default_colormap: magic 
+    
+    attribute_settings: 
+        MaxPositive:
+            color: seismic_rms
+            type:  diverging
+            auto_scaling:   10 
+        MaxNegative:
+            color:   seismic_rms
+            type:  diverging
+            auto_scaling:   10 
+        SumPositive:
+            color: seismic_rms
+            type:  diverging
+            auto_scaling:   10 
+        SumNegative:
+            color:   seismic_rms
+            type:  diverging
+            auto_scaling:   10
+        RMS:
+            color:   Purples
+            type:  positive
+            auto_scaling:   8 
+        Value:
+            color:   seismic_rms
+            type:  diverging
+            auto_scaling:   10 
+        max:
+            color: seismic_rms
+            type:  diverging
+            auto_scaling:   10 
+            
+well_colors:
+    default: black
+    oil_open: lime
+    oil_production: green
+    production: green
+    gas_open: salmon
+    gas_production: red
+    gas_injection:  red
+    water_injection: cyan
+    injection: cyan
+    wag_injection: cyan   
+    planned: purple   
+    
+polygon_colors:
+    owc_outline: lightslategray
+    goc_outline: red
+    field_outline: lightslategray
+    faults: gray  
+        
+date_labels:
+    20190912: PRM19aut
+    20191001: PRM19aut
+    20201001: PRM20aut
+    20200930: PRM20aut
+    20210515: PRM21spr
+    20210517: PRM21spr
+    20220515: PRM22spr
+    20220828: PRM22aut
+    20230515: PRM23spr
+    20230516: PRM23spr
+    20230920: PRM24aut
+    
+prod_data_intervals: 
+
+
+    
+ 

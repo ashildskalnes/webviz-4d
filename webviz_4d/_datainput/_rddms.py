@@ -1,12 +1,9 @@
 import numpy as np
+import pandas as pd
+import time
 import math
-
-from webviz_4d._datainput.common import print_metadata
-
-from webviz_4d._datainput._osdu import (
-    get_osdu_metadata_attributes,
-    convert_metadata,
-)
+import numpy as np
+from ast import literal_eval
 
 
 # get angle to a vector. Returns an angle in [-180, +180]
@@ -107,19 +104,9 @@ def get_rddms_dataset_id(surface_metadata, data, ensemble, real, map_type):
 
     surface_metadata.replace(np.nan, "", inplace=True)
 
-    items = [
-        "difference",
-        "seismic",
-        "map_type",
-        "time1",
-        "time2",
-        "name",
-        "attribute",
-        "map_type",
-    ]
-    print()
-    print("Webviz-4D metadata")
-    print(surface_metadata[items])
+    uuid = None
+    uuid_url = None
+    map_name = None
 
     try:
         selected_metadata = surface_metadata[
@@ -132,22 +119,18 @@ def get_rddms_dataset_id(surface_metadata, data, ensemble, real, map_type):
             & (surface_metadata["attribute"] == attribute)
         ]
 
-        print()
-        print("Selected dataset info:")
-        print(map_type, real, ensemble, name, attribute, time1, time2)
-
         if len(selected_metadata) > 1:
             print("WARNING number of datasets", len(selected_metadata))
             print(selected_metadata)
 
-        dataset_id = selected_metadata["dataset_id"].values[0]
-        return dataset_id
+        uuid = selected_metadata["id"].values[0]
+        uuid_url = selected_metadata["dataset_id"].values[0]
+        map_name = selected_metadata["map_name"].values[0]
     except:
-        dataset_id = None
         print("WARNING: Selected map not found in RDDMS. Selection criteria are:")
         print(map_type, real, ensemble, name, attribute, time1, time2)
 
-    return dataset_id
+    return uuid, uuid_url, map_name
 
 
 def create_rddms_lists(metadata, interval_mode):
@@ -209,16 +192,169 @@ def create_rddms_lists(metadata, interval_mode):
     return map_dict
 
 
+def get_osdu_metadata_attributes(horizons):
+    metadata_dicts = []
+
+    # print("Compiling all attribute data ...")
+    start_time = time.time()
+
+    for horizon in horizons:
+        if horizon:
+            metadata_dicts.append(horizon.__dict__)
+
+    maps_df = pd.DataFrame(metadata_dicts)
+    columns = maps_df.columns
+    new_columns = [col.replace("_", ".") for col in columns]
+    maps_df.columns = new_columns
+
+    # print(" --- %s seconds ---" % (time.time() - start_time))
+    # print()
+
+    maps_updated_df = maps_df.replace("", "---")
+
+    return maps_updated_df
+
+
+def convert_metadata(osdu_metadata):
+    ids = []
+    surface_names = []
+    attributes = []
+    times1 = []
+    times2 = []
+    seismic_contents = []
+    coverages = []
+    differences = []
+    datasets = []
+    field_names = []
+    map_types = []
+    map_names = []
+    zone_names = []
+
+    headers = [
+        "id",
+        "name",
+        "attribute",
+        "time1",
+        "time2",
+        "seismic",
+        "coverage",
+        "difference",
+        "dataset_id",
+        "field_name",
+        "map_type",
+        "map_name",
+    ]
+
+    for _index, row in osdu_metadata.iterrows():
+        if "0.4.2" in row["MetadataVersion"]:
+            id = row["id"]
+            field_name = row["FieldName"]
+            attribute_type = row["AttributeExtractionType"]
+            seismic_content = row["SeismicTraceAttribute"]
+            coverage = row["SeismicCoverage"]
+            difference = row["SeismicDifferenceType"]
+            zone = row["StratigraphicZone"]
+            dataset_ids = row["DatasetIDs"]
+
+            if type(dataset_ids) == str:
+                dataset_ids = literal_eval(dataset_ids)
+
+            if dataset_ids and len(dataset_ids) == 1:
+                dataset_id = dataset_ids[0]
+            elif dataset_ids and len(dataset_ids) == 2:
+                dataset_id = dataset_ids[1]
+            else:
+                dataset_id = "FullReservoirEnvelope"
+        else:
+            id = row["id"]
+            field_name = row["AttributeMap.FieldName"]
+            dataset_id = row["IrapBinaryID"]
+            attribute_type = row["AttributeMap.AttributeType"]
+            seismic_content = row["AttributeMap.SeismicTraceContent"]
+            coverage = row["AttributeMap.Coverage"]
+            difference = row["AttributeMap.SeismicDifference"]
+
+            window_mode = row["CalculationWindow.WindowMode"]
+            horizon_names = []
+
+            if window_mode == "AroundHorizon":
+                seismic_horizon = row["CalculationWindow.HorizonName"]
+                seismic_horizon = seismic_horizon.replace("+", "_")
+                horizon_names.append(seismic_horizon)
+            elif window_mode == "BetweenHorizons":
+                seismic_horizon = row["CalculationWindow.TopHorizonName"]
+                seismic_horizon = seismic_horizon.replace("+", "_")
+                horizon_names.append(horizon_names)
+
+        name = row["Name"]
+
+        if difference == "RawDifference" or difference == "NotTimeshifted":
+            difference = "NotTimeshifted"
+        elif difference == "TimeshiftedDifference" or difference == "Timeshifted":
+            difference = "Timeshifted"
+        elif difference == "":
+            difference = "seismic_content"
+        else:
+            difference = "---"
+
+        if "simulated" in name:
+            map_type = "simulated"
+        else:
+            map_type = "observed"
+
+        times = row["AcquisitionDates"]
+
+        if type(times) == str:
+            times = literal_eval(times)
+
+        if times[0] != "" and times[0] != "":
+            times1.append(times[0])
+            times2.append(times[1])
+
+            map_types.append(map_type)
+            field_names.append(field_name)
+            ids.append(id)
+            datasets.append(dataset_id)
+            attributes.append(attribute_type)
+            seismic_contents.append(seismic_content)
+            coverages.append(coverage)
+            differences.append(difference)
+            surface_names.append(zone)
+            map_names.append(name)
+        else:
+            print("WARNING: No time interval information found:", name)
+
+    zipped_list = list(
+        zip(
+            ids,
+            surface_names,
+            attributes,
+            times1,
+            times2,
+            seismic_contents,
+            coverages,
+            differences,
+            datasets,
+            field_names,
+            map_types,
+            map_names,
+        )
+    )
+
+    metadata = pd.DataFrame(zipped_list, columns=headers)
+    metadata.fillna(value=np.nan, inplace=True)
+
+    return metadata
+
+
 def get_rddms_metadata(config, osdu_service, rddms_service, dataspace, field_name):
     shared_settings = config.get("shared_settings")
-    metadata_version = shared_settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
 
     attribute_horizons = rddms_service.get_attribute_horizons(
         dataspace_name=dataspace, field_name=field_name
     )
 
-    # print("Number of attribute maps:", len(attribute_horizons))
     print("Checking the extracted metadata ...")
 
     metadata = get_osdu_metadata_attributes(attribute_horizons)
@@ -229,8 +365,5 @@ def get_rddms_metadata(config, osdu_service, rddms_service, dataspace, field_nam
     selected_field_metadata["map_type"] = "observed"
     converted_metadata = convert_metadata(selected_field_metadata)
     selection_list = create_rddms_lists(converted_metadata, interval_mode)
-
-    print("DEBUG rddms metadata")
-    print_metadata(converted_metadata)
 
     return converted_metadata, selection_list

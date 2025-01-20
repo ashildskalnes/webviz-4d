@@ -354,6 +354,7 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, covera
 
         filepath = selected_metadata["filename"].values[0]
         path = filepath
+        map_name = path.split("/")[-1]
 
     except:
         path = ""
@@ -361,7 +362,7 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, covera
         print("  Selection criteria are:")
         print("  -  ", map_type, name, attribute, time1, time2, ensemble, real)
 
-    return path
+    return path, map_name
 
 
 def get_auto4d_metadata(config):

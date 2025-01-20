@@ -51,8 +51,8 @@ def main():
         " ...",
     )
 
-    cache_file = "metadata_cache_" + metadata_version + ".csv"
-    metadata_file_cache = os.path.join(config_folder, cache_file)
+    # cache_file = "metadata_cache_" + metadata_version + ".csv"
+    # metadata_file_cache = os.path.join(config_folder, cache_file)
 
     # if os.path.isfile(metadata_file_cache):
     #     print("Reading cached metadata from", metadata_file_cache)
@@ -84,9 +84,8 @@ def main():
             )
 
     metadata = get_osdu_metadata_attributes(attribute_horizons)
-    metadata.to_csv(metadata_file_cache)
-
-    print("Updated metadata stored to:", metadata_file_cache)
+    # metadata.to_csv(metadata_file_cache)
+    # print("Updated metadata stored to:", metadata_file_cache)
 
     updated_metadata = osdu_service.update_reference_dates(metadata)
 
@@ -117,23 +116,23 @@ def main():
     # difference = "Timeshifted"
     # interval = "2023-09-20-2019-09-12"
 
-    # data_source = "RDDMS"
-    # attribute = "Average"
-    # name = "Total"
-    # map_type = "simulated"
-    # seismic = "SWAT"
-    # difference = "NotTimeshifted"
-    # interval = "2021-05-17-2020-09-30"
-
-    data_source = "rddms"
-    difference_type = "AttributeOfDifference"
-    coverage = "Full"
-    attribute = "Max"  # Customize
-    name = "Total"  # Customize
-    map_type = "observed"  # Customize
-    seismic = "Amplitude"  # Customize
+    data_source = "RDDMS"
+    attribute = "Average"
+    name = "Total"
+    map_type = "simulated"
+    seismic = "SWAT"
     difference = "NotTimeshifted"
     interval = "2021-05-17-2020-09-30"
+
+    # data_source = "rddms"
+    # difference_type = "AttributeOfDifference"
+    # coverage = "Full"
+    # attribute = "Max"  # Customize
+    # name = "Total"  # Customize
+    # map_type = "observed"  # Customize
+    # seismic = "Amplitude"  # Customize
+    # difference = "NotTimeshifted"
+    # interval = "2021-05-17-2020-09-30"
 
     ensemble = seismic
     real = difference
@@ -162,7 +161,7 @@ def main():
 
         start_time = time.time()
 
-        surface = rddms_service.get_rddms_map(
+        surface = rddms_service.load_surface_from_rddms(
             dataspace_name=selected_dataspace,
             horizon_name=horizon_name,
             uuid=uuid,

@@ -39,24 +39,23 @@ from webviz_4d._datainput._production import (
 from webviz_4d._private_plugins.surface_selector import SurfaceSelector
 from webviz_4d._datainput._colormaps import load_custom_colormaps
 from webviz_4d._datainput._polygons import load_sumo_polygons
+from webviz_4d._datainput._maps import load_surface_from_file, load_surface_from_sumo
 
 from webviz_4d._datainput._metadata import get_all_map_defaults
 
 from webviz_4d._datainput._sumo import (
     create_sumo_lists,
     get_sumo_interval_list,
-    get_selected_surface,
     get_sumo_zone_polygons,
     load_sumo_observed_metadata,
     get_sumo_tagname,
 )
 
 from webviz_4d._datainput._rddms import (
-    create_rddms_lists,
     get_rddms_dataset_id,
     get_rddms_metadata,
 )
-from webviz_4d._datainput._fmu import get_fmu_metadata, get_fmu_filename
+from webviz_4d._datainput._fmu import get_fmu_metadata
 
 import webviz_4d._providers.wellbore_provider.wellbore_provider as wb
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
@@ -71,7 +70,7 @@ from webviz_4d._datainput._auto4d import (
 )
 from webviz_4d._datainput._osdu import (
     get_osdu_metadata,
-    get_osdu_dataset_id,
+    load_surface_from_osdu,
 )
 
 from ._callbacks import (
@@ -672,70 +671,13 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return min_max
 
-    def print_surface_info(self, map_idx, tic, toc, surface):
-        print()
-        print(
-            f"Map number {map_idx+1}: downloaded the surface in {toc - tic:0.2f} seconds"
-        )
-        number_cells = surface.nrow * surface.ncol
-        print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
-
-    def load_selected_surface_fmu(self, data, ensemble, real, coverage, map_idx):
-        # Load surface from one of the data sources based on the selected metadata
-
-        name = data["name"]
-        attribute = data["attr"]
-        map_type = self.map_defaults[map_idx]["map_type"]
-        surface_metadata = self.metadata_lists[map_idx]
-
-        selected_interval = data["date"]
-        time1 = selected_interval[0:10]
-        time2 = selected_interval[11:]
-
-        data_source = self.data_sources[map_idx]
-
-        metadata_keys = [
-            "map_index",
-            "map_type",
-            "surface_name",
-            "attribute",
-            "time_interval",
-            "seismic",
-            "difference",
-        ]
-
-        surface = None
-
-        if data_source == "fmu":
-            surface_file = get_fmu_filename(
-                data, ensemble, real, map_type, surface_metadata
-            )
-
-            if os.path.isfile(surface_file):
-                print("Loading surface from", data_source)
-                tic = time.perf_counter()
-                surface = load_surface(surface_file)
-                toc = time.perf_counter()
-
-        if surface is not None:
-            self.print_surface_info(map_idx, tic, toc, surface)
-        else:
-            metadata_values = [
-                map_idx,
-                map_type,
-                name,
-                attribute,
-                [time1, time2],
-                ensemble,
-                real,
-            ]
-            print("Selected map not found in", data_source)
-            print("  Selection criteria:")
-
-            for index, metadata in enumerate(metadata_keys):
-                print("  - ", metadata, ":", metadata_values[index])
-
-        return surface
+    # def print_surface_info(self, map_idx, tic, toc, surface):
+    #     print()
+    #     print(
+    #         f"Map number {map_idx+1}: downloaded the surface in {toc - tic:0.2f} seconds"
+    #     )
+    #     number_cells = surface.nrow * surface.ncol
+    #     print(f"Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
 
     def make_map(self, data, ensemble, real, attribute_settings, map_idx):
         data = json.loads(data)
@@ -743,30 +685,65 @@ class SurfaceViewer4D(WebvizPluginABC):
         attribute = data["attr"]
 
         attribute_settings = json.loads(attribute_settings)
-        map_type = self.map_defaults[map_idx]["map_type"]
-        coverage = self.map_defaults[map_idx]["coverage"]
+
+        data_source = self.data_sources[map_idx]
+        metadata = self.metadata_lists[map_idx]
+        map_defaults = self.map_defaults[map_idx]
+        map_type = map_defaults["map_type"]
+        coverage = map_defaults["coverage"]
 
         surface = None
 
-        if self.data_sources[map_idx] == "fmu":
-            surface = self.load_selected_surface_fmu(
-                data, ensemble, real, coverage, map_idx
+        if data_source == "auto4d_file" or data_source == "fmu":
+            surface = load_surface_from_file(
+                map_idx,
+                self.data_sources[map_idx],
+                metadata,
+                map_defaults,
+                data,
+                ensemble,
+                real,
+                coverage,
             )
-        elif self.data_sources[map_idx] == "auto4d_file":
-            surface = self.load_selected_surface_auto4d(
-                data, ensemble, real, coverage, map_idx
+        elif data_source == "sumo":
+            surface = load_surface_from_sumo(
+                map_idx,
+                data_source,
+                self.my_case,
+                metadata,
+                map_defaults,
+                data,
+                ensemble,
+                real,
             )
-        if self.data_sources[map_idx] == "sumo":
-            surface = self.load_selected_surface_sumo(
-                data, ensemble, real, coverage, map_idx
+        elif data_source == "osdu":
+            surface = load_surface_from_osdu(
+                map_idx,
+                data_source,
+                metadata,
+                map_defaults,
+                data,
+                ensemble,
+                real,
+                coverage,
             )
-        if self.data_sources[map_idx] == "osdu":
-            surface = self.load_selected_surface_osdu(
-                data, ensemble, real, coverage, map_idx
-            )
-        if self.data_sources[map_idx] == "rddms":
-            surface = self.load_selected_surface_rddms(
-                data, ensemble, real, coverage, map_idx
+        elif data_source == "rddms":
+            map_type = map_defaults.get("map_type")
+            uuid_url = get_rddms_dataset_id(metadata, data, ensemble, real, map_type)
+            uuid = metadata["id"].values[0]
+            horizon_name = metadata["map_name"].values[0]
+
+            rddms_service = DefaultRddmsService()
+            dataspace = self.shared_settings.get("rddms").get("dataspace")
+
+            print("Loading surface from:", data_source)
+            print()
+
+            surface = rddms_service.load_surface_from_rddms(
+                dataspace_name=dataspace,
+                horizon_name=horizon_name,
+                uuid=uuid,
+                uuid_url=uuid_url,
             )
 
         if surface:
@@ -938,74 +915,74 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         return surface
 
-    def load_selected_surface_sumo(self, data, ensemble, real, coverage, map_idx):
-        # Load surface from one of the data sources based on the selected metadata
+    # def load_selected_surface_sumo(self, data, ensemble, real, coverage, map_idx):
+    #     # Load surface from one of the data sources based on the selected metadata
 
-        name = data["name"]
-        attribute = data["attr"]
-        map_type = self.map_defaults[map_idx]["map_type"]
-        surface_metadata = self.metadata_lists[map_idx]
+    #     name = data["name"]
+    #     attribute = data["attr"]
+    #     map_type = self.map_defaults[map_idx]["map_type"]
+    #     surface_metadata = self.metadata_lists[map_idx]
 
-        selected_interval = data["date"]
-        time1 = selected_interval[0:10]
-        time2 = selected_interval[11:]
+    #     selected_interval = data["date"]
+    #     time1 = selected_interval[0:10]
+    #     time2 = selected_interval[11:]
 
-        data_source = self.data_sources[map_idx]
+    #     data_source = self.data_sources[map_idx]
 
-        outfile = str(map_idx) + "_" + data_source + ".csv"
-        surface_metadata.to_csv(outfile)
-        print("metadata written to file", outfile)
+    #     outfile = str(map_idx) + "_" + data_source + ".csv"
+    #     surface_metadata.to_csv(outfile)
+    #     print("metadata written to file", outfile)
 
-        metadata_keys = [
-            "map_index",
-            "map_type",
-            "surface_name",
-            "attribute",
-            "time_interval",
-            "seismic",
-            "difference",
-        ]
+    #     metadata_keys = [
+    #         "map_index",
+    #         "map_type",
+    #         "surface_name",
+    #         "attribute",
+    #         "time_interval",
+    #         "seismic",
+    #         "difference",
+    #     ]
 
-        surface = None
+    #     surface = None
 
-        if data_source == "sumo":
-            interval_list = get_sumo_interval_list(selected_interval)
+    #     if data_source == "sumo":
+    #         interval_list = get_sumo_interval_list(selected_interval)
 
-            tagname = get_sumo_tagname(
-                surface_metadata, name, ensemble, attribute, real, interval_list
-            )
+    #         tagname = get_sumo_tagname(
+    #             surface_metadata, name, ensemble, attribute, real, interval_list
+    #         )
 
-            tic = time.perf_counter()
-            surface = get_selected_surface(
-                case=self.my_case,
-                map_type=map_type,
-                surface_name=name,
-                attribute=tagname,
-                time_interval=interval_list,
-                iteration_name=None,
-                realization=None,
-            )
-            toc = time.perf_counter()
+    #         tic = time.perf_counter()
+    #         surface = get_selected_surface(
+    #             case=self.my_case,
+    #             map_type=map_type,
+    #             surface_name=name,
+    #             attribute=tagname,
+    #             time_interval=interval_list,
+    #             iteration_name=None,
+    #             realization=None,
+    #         )
+    #         toc = time.perf_counter()
 
-        if surface is not None:
-            self.print_surface_info(map_idx, tic, toc, surface)
-        else:
-            metadata_values = [
-                map_idx,
-                map_type,
-                name,
-                attribute,
-                [time1, time2],
-                ensemble,
-                real,
-            ]
-            print("Selected map not found in", data_source)
-            print("  Selection criteria:")
+    #     if surface is not None:
+    #         self.print_surface_info(map_idx, tic, toc, surface)
+    #     else:
+    #         metadata_values = [
+    #             map_idx,
+    #             map_type,
+    #             name,
+    #             attribute,
+    #             [time1, time2],
+    #             ensemble,
+    #             real,
+    #         ]
+    #         print("Selected map not found in", data_source)
+    #         print("  Selection criteria:")
 
-            for index, metadata in enumerate(metadata_keys):
-                print("  - ", metadata, ":", metadata_values[index])
+    #         for index, metadata in enumerate(metadata_keys):
+    #             print("  - ", metadata, ":", metadata_values[index])
 
-        return surface
+    #     return surface
 
     # def load_selected_surface_osdu(self, data, ensemble, real, coverage, map_idx):
     #     # Load surface from one of the data sources based on the selected metadata

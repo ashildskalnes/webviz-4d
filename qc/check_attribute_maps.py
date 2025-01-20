@@ -5,11 +5,15 @@ from pprint import pprint
 
 from webviz_4d._datainput.common import read_config, print_metadata
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
+from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddmsService
+
 from webviz_4d._datainput._auto4d import get_auto4d_metadata
 from webviz_4d._datainput._sumo import get_sumo_metadata
 from webviz_4d._datainput._fmu import get_fmu_metadata
 from webviz_4d._datainput._maps import load_surface_from_file, load_surface_from_sumo
+
 from webviz_4d._datainput._osdu import get_osdu_metadata, load_surface_from_osdu
+from webviz_4d._datainput._rddms import get_rddms_metadata, get_rddms_dataset_id
 
 warnings.filterwarnings("ignore")
 
@@ -50,6 +54,13 @@ def main():
     elif data_source == "osdu":
         osdu_service = DefaultOsduService()
         metadata, selection_list = get_osdu_metadata(config, osdu_service, field_name)
+    elif data_source == "rddms":
+        osdu_service = DefaultOsduService()
+        rddms_service = DefaultRddmsService()
+        dataspace = shared_settings.get("rddms").get("dataspace")
+        metadata, selection_list = get_rddms_metadata(
+            config, osdu_service, rddms_service, dataspace, field_name
+        )
     else:
         print("ERROR Data source not supported:", data_source)
         exit
@@ -76,11 +87,11 @@ def main():
     data = {"attr": attribute, "name": name, "date": interval}
 
     if data_source == "auto4d_file" or data_source == "fmu":
-        surface = load_surface_from_file(
+        surface, map_name = load_surface_from_file(
             map_idx, data_source, metadata, map_defaults, data, ensemble, real, coverage
         )
     elif data_source == "sumo":
-        surface = load_surface_from_sumo(
+        surface, map_name = load_surface_from_sumo(
             map_idx,
             data_source,
             sumo_case,
@@ -91,12 +102,34 @@ def main():
             real,
         )
     elif data_source == "osdu":
-        surface = load_surface_from_osdu(
+        surface, map_name = load_surface_from_osdu(
             map_idx, data_source, metadata, map_defaults, data, ensemble, real, coverage
         )
+    elif data_source == "rddms":
+        map_type = map_defaults.get("map_type")
+        uuid, uuid_url, map_name = get_rddms_dataset_id(
+            metadata, data, ensemble, real, map_type
+        )
 
-    print(surface)
-    print()
+        print("Loading surface from:", data_source)
+        print()
+
+        surface = rddms_service.load_surface_from_rddms(
+            dataspace_name=dataspace,
+            horizon_name=map_name,
+            uuid=uuid,
+            uuid_url=uuid_url,
+        )
+
+    else:
+        print("ERROR Data source not supported:", data_source)
+
+    if surface:
+        print(surface)
+        print()
+        surface.quickplot(title=map_name)
+    else:
+        print("ERROR Surface not found")
 
 
 if __name__ == "__main__":

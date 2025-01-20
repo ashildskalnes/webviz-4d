@@ -59,6 +59,7 @@ def load_surface_from_sumo(
     ]
 
     surface = None
+    map_name = None
 
     if data_source == "sumo":
         seismic = map_defaults.get("seismic")
@@ -71,7 +72,7 @@ def load_surface_from_sumo(
             metadata, name, seismic, attribute, difference, interval_list
         )
         tic = time.perf_counter()
-        surface = get_selected_surface(
+        surface, map_name = get_selected_surface(
             case=sumo_case,
             map_type=map_type,
             surface_name=name,
@@ -100,7 +101,7 @@ def load_surface_from_sumo(
         for index, metadata in enumerate(metadata_keys):
             print("  - ", metadata, ":", metadata_values[index])
 
-    return surface
+    return surface, map_name
 
 
 def load_surface_from_file(
@@ -125,15 +126,20 @@ def load_surface_from_file(
     ]
 
     surface = None
+    map_name = None
 
     if data_source == "auto4d_file":
-        surface_file = get_auto4d_filename(
+        surface_file, map_name = get_auto4d_filename(
             metadata, data, ensemble, real, map_type, coverage
         )
         surface, tic, toc = read_surface_file(surface_file, data_source)
+        map_name = surface_file.split("/")[-1]
     elif data_source == "fmu":
-        surface_file = get_fmu_filename(data, ensemble, real, map_type, metadata)
+        surface_file, map_name = get_fmu_filename(
+            data, ensemble, real, map_type, metadata
+        )
         surface, tic, toc = read_surface_file(surface_file, data_source)
+        map_name = surface_file.split("/")[-1]
     else:
         print("ERROR load_surface_from_file")
         print("  - Data source not supported:", data_source)
@@ -156,7 +162,7 @@ def load_surface_from_file(
         for index, metadata in enumerate(metadata_keys):
             print("  - ", metadata, ":", metadata_values[index])
 
-    return surface
+    return surface, map_name
 
 
 def read_surface_file(surface_file, data_source):

@@ -1,20 +1,17 @@
 import os
 import numpy as np
 import pandas as pd
-import math
 import json
 import requests
 import urllib.parse
-from pprint import pprint
 from dotenv import load_dotenv
 from typing import Optional
-from typing import List
 import xtgeo
 import warnings
 
 import webviz_4d._providers.osdu_provider.osdu_provider as osdu
 from webviz_4d._datainput._osdu import get_correct_list
-from webviz_4d._datainput._rddms import get_angle, get_incs_and_angle
+import webviz_4d._datainput._resqml as resqml
 
 warnings.filterwarnings("ignore")
 
@@ -75,9 +72,10 @@ class DefaultRddmsService:
 
         return dataspaces
 
-    def load_surface_from_rddms(
+    def get_rddms_map(
         self, dataspace_name, horizon_name, uuid, uuid_url
     ) -> xtgeo.RegularSurface:
+
         dataspace = dataspace_name.replace("/", "%2F")
         mode = "default"
         rddms_surface = None
@@ -104,6 +102,11 @@ class DefaultRddmsService:
             rotation = grid_geometry.get("rotation")
             right_handed = grid_geometry.get("right_handed")
             yflip = 1
+
+            if ni * nj != len(z_values):
+                ni = ni + 1
+                nj = nj + 1
+                # print("Increased ni and nj", ni * nj, len(z_values))
 
             if ni * nj == len(z_values):
                 ncol = ni
@@ -136,11 +139,85 @@ class DefaultRddmsService:
 
                 rddms_surface = None
 
-        else:
-            print("ERROR: grid geometry not found")
+        return rddms_surface
 
-        if status:
-            print("Status:", status)
+    def get_auto4d_rddms_map(
+        self, dataspace_name, horizon_name, uuid, uuid_url
+    ) -> xtgeo.RegularSurface:
+        dataspace = dataspace_name.replace("/", "%2F")
+        mode = "default"
+        rddms_surface = None
+        status = False
+
+        grid_geometry = self.get_grid2d_metadata(dataspace, uuid, mode)
+
+        if grid_geometry:
+            z_values, dimensions = self.get_grid2_values(dataspace, uuid, uuid_url)
+
+            if dimensions:
+                ncol = dimensions[0]
+                nrow = dimensions[1]
+            else:
+                ncol = None
+                nrow = None
+
+            ni = grid_geometry.get("ni")
+            nj = grid_geometry.get("nj")
+            xinc = grid_geometry.get("xinc")
+            yinc = grid_geometry.get("yinc")
+            xori = grid_geometry.get("origin")[0]
+            yori = grid_geometry.get("origin")[1]
+            rotation = grid_geometry.get("rotation")
+            right_handed = grid_geometry.get("right_handed")
+            yflip = -1
+            rotation = rotation + 90
+
+            # print("DEBUG", ni, nj, ni * nj, len(z_values))
+
+            # if ncol:
+            #     print("DEBUG", ncol, nrow, ncol * nrow)
+
+            if ni * nj != len(z_values):
+                ni = ni + 1
+                nj = nj + 1
+                # print("Increased ni and nj", ni * nj, len(z_values))
+
+            if ni * nj == len(z_values):
+                ncol = ni
+                nrow = nj
+
+            if not right_handed:
+                yflip = -1
+
+            try:
+                rddms_surface = xtgeo.RegularSurface(
+                    ncol=ncol,
+                    nrow=nrow,
+                    xinc=xinc,
+                    yinc=yinc,
+                    yflip=yflip,
+                    xori=xori,
+                    yori=yori,
+                    values=z_values,
+                    name=horizon_name,
+                    rotation=rotation,
+                )
+
+                status = True
+            except Exception as e:
+                print("ERROR cannot create RegularSurface object:")
+                if hasattr(e, "message"):
+                    print("  ", e.message)
+                else:
+                    print("  ", e)
+
+                rddms_surface = None
+
+        # else:
+        #     print("ERROR: grid geometry not found")
+
+        # if status:
+        #     print("Status:", status)
 
         return rddms_surface
 
@@ -343,8 +420,8 @@ class DefaultRddmsService:
                 originx = origin_1
                 originy = origin_2
 
-                iinc, jinc, angle, originx, originy, right_handed = get_incs_and_angle(
-                    iinfo, jinfo, originx, originy, nj
+                iinc, jinc, angle, originx, originy, right_handed = (
+                    resqml.get_incs_and_angle(iinfo, jinfo, originx, originy, nj)
                 )
 
                 surf_ori = [XOffset + origin_1, YOffset + origin_2]
@@ -372,11 +449,12 @@ class DefaultRddmsService:
 
                 geometry_dict.update({"uuid_url": uuid_url})
             except Exception as e:
-                print("ERROR during extraction of grid geometry")
-                if hasattr(e, "message"):
-                    print(e.message)
-                else:
-                    print(e)
+                pass
+                # print("ERROR during extraction of grid geometry")
+                # if hasattr(e, "message"):
+                #     print(e.message)
+                # else:
+                #     print(e)
 
         return geometry_dict
 
@@ -395,15 +473,17 @@ class DefaultRddmsService:
         grid2d_objects = self.get_grid2ds(dataspace, object_type)
         print(" - ", object_type, ":", len(grid2d_objects))
 
-        for grid2_object in grid2d_objects:
+        for idx, grid2_object in enumerate(grid2d_objects):
             uuid = grid2_object.get("uuid")
             name = grid2_object.get("name")
+
             rddms_horizon = self.get_extra_metadata(dataspace, uuid, field_name)
             uuid_url = self.get_grid2_url(dataspace, uuid, name)
 
             attribute_horizon = None
 
             if rddms_horizon and uuid_url:
+                print(idx, name, uuid)
                 attribute_horizon = self.parse_seismic_attribute_horizon(
                     rddms_horizon, uuid, uuid_url
                 )
@@ -468,9 +548,9 @@ class DefaultRddmsService:
                     response.json()[0]["uid"]["pathInResource"], safe=""
                 )
             except Exception as e:
-                print(name, uuid)
-                print(f" - Error: {e}")
-                print()
+                # print(name, uuid)
+                # print(f" - Error: {e}")
+                # print()
                 uuid_url = None
 
         return uuid_url

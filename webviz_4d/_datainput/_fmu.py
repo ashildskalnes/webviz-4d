@@ -187,13 +187,15 @@ def get_fmu_filename(data, ensemble, real, map_type, metadata):
         ]
 
         path = selected_metadata["filename"].values[0]
+        map_name = path.split("/")[-1]
     except:
         path = ""
+        map_name = None
         print("WARNING: selected map not found. Selection criteria are:")
         print(map_type, real, ensemble, name, attribute, time1, time2)
         # print(metadata)
 
-    return path
+    return path, map_name
 
 
 def get_fmu_metadata(config, field_name):

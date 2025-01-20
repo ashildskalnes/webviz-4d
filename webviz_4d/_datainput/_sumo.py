@@ -355,11 +355,15 @@ def get_observed_surface(
 
     if len(surfaces) == 1:
         selected_surface = surfaces[0]
+        file_path = selected_surface.metadata.get("file").get("relative_path")
+        map_name = file_path.split("/")[-1]
+
     else:
         # print("WARNING: Number of SUMO surfaces found =", str(len(surfaces)))
         selected_surface = None
+        map_name = None
 
-    return selected_surface
+    return selected_surface, map_name
 
 
 def get_realization_surface(
@@ -656,7 +660,7 @@ def get_selected_surface(
     realization: str = "",
 ):
     if map_type == "observed":
-        surface = get_observed_surface(
+        surface, map_name = get_observed_surface(
             case=case,
             surface_name=surface_name,
             attribute=attribute,
@@ -690,7 +694,7 @@ def get_selected_surface(
     if surface is not None:
         surface = surface.to_regular_surface()
 
-    return surface
+    return surface, map_name
 
 
 def get_sumo_zone_polygons(

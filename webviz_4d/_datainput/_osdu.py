@@ -26,15 +26,6 @@ def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, covera
     surface_metadata.replace(np.nan, "", inplace=True)
     metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
 
-    headers = [
-        "attribute",
-        "seismic",
-        "difference",
-        "time2",
-        "time1",
-        "map_name",
-    ]
-
     map_name = None
 
     try:
@@ -47,9 +38,6 @@ def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, covera
             & (metadata_coverage["name"] == name)
             & (metadata_coverage["attribute"] == attribute)
         ]
-
-        print("Selected dataset info:")
-        print(map_type, real, ensemble, name, attribute, time1, time2)
 
         if len(selected_metadata) != 1:
             print("WARNING number of datasets =", len(selected_metadata))
@@ -408,6 +396,7 @@ def load_surface_from_osdu(
     ]
 
     surface = None
+    map_name = None
 
     if data_source == "osdu":
         osdu_service = DefaultOsduService()
@@ -421,8 +410,6 @@ def load_surface_from_osdu(
             blob = io.BytesIO(dataset.content)
             surface = xtgeo.surface_from_file(blob)
             toc = time.perf_counter()
-        else:
-            surface = None
 
     if surface is not None:
         print_surface_info(map_idx, tic, toc, surface)
@@ -441,7 +428,7 @@ def load_surface_from_osdu(
         for index, metadata in enumerate(metadata_keys):
             print("  - ", metadata, ":", metadata_values[index])
 
-    return surface
+    return surface, map_name
 
 
 def main():
