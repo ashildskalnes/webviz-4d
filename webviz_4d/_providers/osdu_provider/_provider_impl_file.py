@@ -535,12 +535,6 @@ class DefaultOsduService:
 
             if result.status_code == 200:
                 osdu_objects = result.json().get("results")
-                print(
-                    "Number of",
-                    versions.get(metadata_version),
-                    "objects found:",
-                    len(osdu_objects),
-                )
 
                 for osdu_object in osdu_objects:
                     data = osdu_object.get("data")
@@ -561,7 +555,6 @@ class DefaultOsduService:
                                     "MetadataVersion"
                                 )
                                 name = data.get("Name")
-                                print("DEBUG", name)
                             else:
                                 metadata_version = None
 
@@ -596,9 +589,6 @@ class DefaultOsduService:
 
                     if seismic_attribute_horizon:
                         attribute_horizons.append(seismic_attribute_horizon)
-
-        # print(table.get_string(sortby="Name"))
-        # print()
 
         return attribute_horizons
 

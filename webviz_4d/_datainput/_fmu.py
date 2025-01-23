@@ -3,18 +3,9 @@ import glob
 import time
 import numpy as np
 import pandas as pd
-import yaml
+from pprint import pprint
 
-
-def read_yaml_file(yaml_file):
-    """Return the content of a yaml file as a dict"""
-
-    content = {}
-
-    with open(yaml_file, "r") as stream:
-        content = yaml.safe_load(stream)
-
-    return content
+from webviz_4d._datainput.common import read_config
 
 
 def load_fmu_metadata(fmu_dir, map_directory, field_name):
@@ -50,7 +41,7 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
     metadata_files = glob.glob(fmu_dir + "/" + map_directory + ".*" + file_ext)
 
     for metadata_file in metadata_files:
-        metadata = read_yaml_file(metadata_file)
+        metadata = read_config(metadata_file)
         file = metadata.get("file")
         data = metadata.get("data")
 
@@ -83,10 +74,6 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
         filenames.append(filename)
         field_names.append(field_name)
         map_names.append(name)
-
-    print("Metadata loaded:")
-    print(" --- %s seconds ---" % (time.time() - start_time))
-    print(" --- ", len(surface_names), "files")
 
     zipped_list = list(
         zip(
@@ -204,9 +191,6 @@ def get_fmu_metadata(config, field_name):
 
     fmu_settings = shared_settings.get("fmu")
     directory = fmu_settings.get("directory")
-
-    print()
-    print("Searching for seismic 4D attribute maps on disk:", directory, " ...")
 
     directory = fmu_settings.get("directory")
     observed_maps = fmu_settings.get("observed_maps")

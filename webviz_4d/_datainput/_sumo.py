@@ -152,11 +152,9 @@ def load_sumo_observed_metadata(my_case):
         "map_name",
     ]
 
-    map_type = "observed"
     surfaces = my_case.surfaces.filter(stage="case")
     timelapse_surfaces = surfaces.filter(time=time)
     surfaces = timelapse_surfaces
-    print("  ", map_type, "- timelapse surfaces:", len(timelapse_surfaces))
 
     for surface in surfaces:
         name = surface.name
@@ -872,16 +870,13 @@ def get_sumo_tagname(metadata, name, seismic, attribute, difference, interval_li
     return tagname
 
 
-def get_sumo_metadata(config, field_name):
+def get_sumo_metadata(config):
     shared_settings = config.get("shared_settings")
     interval_mode = shared_settings.get("interval_mode")
 
     sumo_settings = shared_settings.get("sumo")
     env_name = sumo_settings.get("env_name")
     case_name = sumo_settings.get("case_name")
-
-    print()
-    print("Searching for seismic 4D attribute in sumo case:", case_name, " ...")
 
     sumo = Explorer(env=env_name, keep_alive="20m")
     cases = sumo.cases.filter(name=case_name)

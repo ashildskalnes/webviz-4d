@@ -166,7 +166,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if data_source == "sumo":
                 metadata, selection_list, self.sumo_case = get_sumo_metadata(
-                    self.config, field_name
+                    self.config
                 )
             elif data_source == "auto4d_file":
                 metadata, selection_list = get_auto4d_metadata(self.config)
@@ -180,8 +180,11 @@ class SurfaceViewer4D(WebvizPluginABC):
             elif data_source == "rddms":
                 rddms = self.shared_settings.get("rddms")
                 self.selected_dataspace = rddms.get("dataspace")
+                config_dir = os.path.dirname(settings_file)
+                schema_file = rddms.get("schema_file")
+                schema_file = os.path.join(config_dir, schema_file)
                 self.osdu_service = DefaultOsduService()
-                self.rddms_service = DefaultRddmsService()  # type: ignore
+                self.rddms_service = DefaultRddmsService(schema_file)  # type: ignore
 
                 metadata, selection_list = get_rddms_metadata(
                     self.config,
@@ -439,6 +442,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         data_source = self.data_sources[map_idx]
         metadata = self.metadata_lists[map_idx]
+
         map_defaults = self.map_defaults[map_idx]
         map_type = map_defaults["map_type"]
         coverage = map_defaults["coverage"]
@@ -488,6 +492,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             print()
 
             surface = self.rddms_service.load_surface_from_rddms(
+                map_idx=map_idx,
                 dataspace_name=self.selected_dataspace,
                 horizon_name=map_name,
                 uuid=uuid,

@@ -1,11 +1,10 @@
 import os
 import numpy as np
 import pandas as pd
-import math
 import json
 import requests
+import time
 import urllib.parse
-from pprint import pprint
 from dotenv import load_dotenv
 from typing import Optional
 from typing import List
@@ -14,15 +13,14 @@ import warnings
 
 import webviz_4d._providers.osdu_provider.osdu_provider as osdu
 from webviz_4d._datainput._osdu import get_correct_list
-from webviz_4d._datainput._rddms import get_angle, get_incs_and_angle
+from webviz_4d._datainput._rddms import get_incs_and_angle
+from webviz_4d._datainput._maps import print_surface_info
 
 warnings.filterwarnings("ignore")
 
-SEISMIC_ATTRIBUTE_SCHEMA_FILE = "/private/ashska/dev_311/my_forks/webviz-4d/webviz_4d/_providers/rddms_provider/seismic_attribute_interpretation_042_schema.json"
-
 
 class DefaultRddmsService:
-    def __init__(self):
+    def __init__(self, schema_definition_file):
         env_path = os.path.join(os.path.expanduser("~"), ".env")
         load_dotenv(dotenv_path=env_path, override=True)
 
@@ -43,7 +41,7 @@ class DefaultRddmsService:
         )
 
         # Load the attribute schema and extract the relevant 4D metadata definitions
-        with open(SEISMIC_ATTRIBUTE_SCHEMA_FILE) as schema_file:
+        with open(schema_definition_file) as schema_file:
             schema = json.load(schema_file)
 
         schema_data = schema.get("properties").get("data").get("allOf")[0]
@@ -76,12 +74,13 @@ class DefaultRddmsService:
         return dataspaces
 
     def load_surface_from_rddms(
-        self, dataspace_name, horizon_name, uuid, uuid_url
+        self, map_idx, dataspace_name, horizon_name, uuid, uuid_url
     ) -> xtgeo.RegularSurface:
         dataspace = dataspace_name.replace("/", "%2F")
         mode = "default"
         rddms_surface = None
-        status = False
+
+        tic = time.perf_counter()
 
         grid_geometry = self.get_grid2d_metadata(dataspace, uuid, mode)
 
@@ -125,8 +124,10 @@ class DefaultRddmsService:
                     name=horizon_name,
                     rotation=rotation,
                 )
+                toc = time.perf_counter()
 
-                status = True
+                print_surface_info(map_idx, tic, toc, rddms_surface)
+
             except Exception as e:
                 print("ERROR cannot create RegularSurface object:")
                 if hasattr(e, "message"):
@@ -138,9 +139,6 @@ class DefaultRddmsService:
 
         else:
             print("ERROR: grid geometry not found")
-
-        if status:
-            print("Status:", status)
 
         return rddms_surface
 

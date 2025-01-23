@@ -1,4 +1,4 @@
-title: Webviz-4D OSDU                            # Customize 
+title: Webviz-4D OSDU                            # Customize
 
 shared_settings:
     field_name: JOHAN SVERDRUP 
@@ -8,11 +8,10 @@ shared_settings:
         env_name: prod
         case_name: 24p12p4_histandpred_ff_20240922  
     osdu:
-        instance: npequinor | npequinor-dev                            
+        instance: npequinor | npequinor-dev                             
     rddms:
         instance: npequinor | npequinor-dev
-        dataspace: JS/Soumik_2  
-        schema_file: seismic_attribute_interpretation_042_schema.json
+        dataspace: JS/Soumik_2   
     fmu:
         directory: /scratch/johan_sverdrup2/share/24p12p4/24p12p4_histandpred_ff_20240922   
         observed_maps: 
@@ -100,16 +99,6 @@ layout:
                   default_interval: 2022-05-15-2020-09-30                    
                   
                   map1_defaults:
-                    data_source: fmu
-                    difference_type: AttributeOfDifference
-                    coverage: Full
-                    attribute:  max              # Customize 
-                    name: total                     # Customize  
-                    map_type: observed                          # Customize
-                    seismic: amplitude                            # Customize 
-                    difference:  NotTimeshifted                # Customize     
-                    interval: 2021-05-15-2020-10-01 
-                  map2_defaults:
                     data_source: sumo
                     difference_type: AttributeOfDifference
                     coverage: Full  
@@ -118,16 +107,26 @@ layout:
                     map_type: observed                          # Customize
                     seismic: amplitude                            # Customize 
                     difference:  NotTimeshifted                # Customize     
-                    interval: 2021-05-15-2020-10-01    
-                  map3_defaults:
+                    interval: 2021-05-15-2020-10-01
+                  map2_defaults:
                     data_source: rddms
                     difference_type: AttributeOfDifference
                     coverage: Full
                     attribute:  Max             # Customize
                     name: Total                     # Customize
+                    map_type: simulated                          # Customize 
+                    seismic: Amplitude                          # Customize
+                    difference: NotTimeshifted
+                    interval: 2021-05-17-2020-09-30
+                  map3_defaults:
+                    data_source: osdu
+                    difference_type: AttributeOfDifference
+                    coverage: Full
+                    attribute:  MaxPositive             # Customize
+                    name: FullReservoirEnvelope                     # Customize
                     map_type: observed                          # Customize 
                     seismic: Amplitude                          # Customize
                     difference: NotTimeshifted
-                    interval: 2021-05-17-2020-09-30 
+                    interval: 2021-05-17-2020-09-30  
  
       

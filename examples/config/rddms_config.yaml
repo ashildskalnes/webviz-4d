@@ -7,6 +7,7 @@ shared_settings:
         env_name: prod
         case_name: 24p12p4_histandpred_ff_20240922  
     rddms:
+        schema_file: seismic_attribute_interpretation_042_schema.json
         dataspace: JS/Soumik_2
         difference_type: AttributeOfDifference
         coverage: Full

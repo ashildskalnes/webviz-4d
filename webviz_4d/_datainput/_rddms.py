@@ -322,7 +322,7 @@ def convert_metadata(osdu_metadata):
             surface_names.append(zone)
             map_names.append(name)
         else:
-            print("WARNING: No time interval information found:", name)
+            print(" - WARNING: No time interval information found:", name)
 
     zipped_list = list(
         zip(
@@ -354,8 +354,6 @@ def get_rddms_metadata(config, osdu_service, rddms_service, dataspace, field_nam
     attribute_horizons = rddms_service.get_attribute_horizons(
         dataspace_name=dataspace, field_name=field_name
     )
-
-    print("Checking the extracted metadata ...")
 
     metadata = get_osdu_metadata_attributes(attribute_horizons)
     updated_metadata = osdu_service.update_reference_dates(metadata)
