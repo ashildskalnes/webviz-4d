@@ -1,4 +1,4 @@
-title: Webviz-4D OSDU                            # Customize
+title: Webviz-4D QC                            # Customize
 
 shared_settings:
     field_name: JOHAN SVERDRUP 
@@ -103,4 +103,12 @@ layout:
                     difference: NotTimeshifted
                     interval: 2021-05-17-2020-09-30
  
+       - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./osdu_config.yaml 
       

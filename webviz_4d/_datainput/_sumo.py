@@ -760,7 +760,10 @@ def get_sumo_top_res_surface(sumo_case, surface_info):
         real = surface_info.get("real")
         time_interval = [False, False]
 
-        print("Load top reservoir surface from SUMO:", name, tagname, iter_name, real)
+        print()
+        print(
+            "Loading top reservoir surface from SUMO:", name, tagname, iter_name, real
+        )
 
         if "realization" in real:
             real_id = real.split("-")[1]

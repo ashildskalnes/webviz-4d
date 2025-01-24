@@ -1,11 +1,11 @@
-title: Webviz-4D Auto4d                             # Customize
+title: Webviz-4D QC                            # Customize
 
 shared_settings:
     field_name: JOHAN SVERDRUP
     metadata_version: 0.4.2
     sumo:
         env_name: prod
-        case_name: 24p3p0_histandpred_ff_20240227
+        case_name: 24p12p4_histandpred_ff_20240922
     auto4d_file:
         directory: /scratch/auto4d/userhorizons/ashska
         metadata_format: .a4dmeta
@@ -25,9 +25,9 @@ shared_settings:
     label: auto4d maps      # Customize
 
     basic_well_layers:
-        planned: Planned wells
+        planned: Planned wells 
         drilled_wells: Drilled wells
-        reservoir_section: Reservoir sections
+        reservoir_sections: Reservoir sections
 
     additional_well_layers:
         production: Producers
@@ -38,8 +38,8 @@ shared_settings:
         name: Draupne Fm. 1 JS Top
         tag_name: depth_structural_model
         iter: pred
-        real: realization-0
-        polygon_usage:
+        real: realization-0 
+        polygon_usage: 
             zones: True
             observed: True
             aggregated: True
@@ -114,4 +114,13 @@ layout:
                     seismic: Amplitude                          # Customize
                     difference: NotTimeshifted                               # Customize
                     interval: 2023-05-16-2021-05-17
+                    
+      - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./auto4d_config.yaml
                     

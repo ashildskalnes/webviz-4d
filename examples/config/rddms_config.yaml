@@ -1,4 +1,4 @@
-title: Webviz-4D RDDMS                            # Customize
+title: Webviz-4D QC                            # Customize
 
 shared_settings:
     field_name: JOHAN SVERDRUP 
@@ -103,5 +103,14 @@ layout:
                     seismic: SWAT                          # Customize
                     difference: NotTimeshifted
                     interval: 2021-05-17-2020-09-30
+                    
+      - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./rddms_config.yaml 
  
       

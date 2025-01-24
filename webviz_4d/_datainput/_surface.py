@@ -4,13 +4,10 @@ import numpy as np
 import numpy.ma as ma
 import xtgeo
 
-from webviz_config.common_cache import CACHE
-
 from webviz_4d._datainput.image_processing import array_to_png, get_colormap
 from webviz_4d._datainput._sumo import get_sumo_top_res_surface
 
 
-@CACHE.memoize(timeout=CACHE.TIMEOUT)
 def load_surface(surface_path):
     if ".map" in str(surface_path):
         fformat = "ijxyz"
@@ -20,7 +17,6 @@ def load_surface(surface_path):
     return xtgeo.surface_from_file(surface_path, fformat=fformat)
 
 
-@CACHE.memoize(timeout=CACHE.TIMEOUT)
 def get_surface_arr(surface, unrotate=True, flip=True):
     if unrotate:
         surface.unrotate()
@@ -33,12 +29,10 @@ def get_surface_arr(surface, unrotate=True, flip=True):
     return [x_coord, y_coord, z_coord]
 
 
-@CACHE.memoize(timeout=CACHE.TIMEOUT)
 def get_surface_fence(fence, surface):
     return surface.get_fence(fence)
 
 
-@CACHE.memoize(timeout=CACHE.TIMEOUT)
 def make_surface_layer(
     surface,
     name="surface",

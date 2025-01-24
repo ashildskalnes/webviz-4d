@@ -119,4 +119,11 @@ layout:
                     difference: NotTimeshifted                  # Customize     
                     interval: 2023-05-15-2022-05-15                        
  
-      
+      - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./fmu_config.yaml       

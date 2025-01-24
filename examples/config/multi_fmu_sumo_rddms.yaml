@@ -1,5 +1,5 @@
-title: Webviz-4D OSDU                            # Customize 
-
+title: Webviz-4D QC                           # Customize 
+ 
 shared_settings:
     field_name: JOHAN SVERDRUP 
     metadata_version: 0.4.2
@@ -40,7 +40,7 @@ shared_settings:
     basic_well_layers:
         planned: Planned wells 
         drilled_wells: Drilled wells                        
-        reservoir_section: Reservoir sections   
+        reservoir_sections: Reservoir sections   
           
     additional_well_layers:      
         production: Producers                                     
@@ -128,6 +128,17 @@ layout:
                     map_type: observed                          # Customize 
                     seismic: Amplitude                          # Customize
                     difference: NotTimeshifted
-                    interval: 2021-05-17-2020-09-30 
+                    interval: 2021-05-17-2020-09-30
+                    
+      - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./multi_fmu_sumo_rddms.yaml
+                     
+    
  
       

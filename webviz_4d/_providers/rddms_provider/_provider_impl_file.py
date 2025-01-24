@@ -389,9 +389,8 @@ class DefaultRddmsService:
         dataspace = dataspace_name.replace("/", "%2F")
 
         # Search for all attribute horizons for a given field name in a selected dataspace
-
         grid2d_objects = self.get_grid2ds(dataspace, object_type)
-        print(" - ", object_type, ":", len(grid2d_objects))
+        # print(" - ", object_type, ":", len(grid2d_objects))
 
         for grid2_object in grid2d_objects:
             uuid = grid2_object.get("uuid")

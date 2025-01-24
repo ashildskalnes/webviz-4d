@@ -2,10 +2,8 @@ from pathlib import Path
 import datetime
 import json
 import os
-import numpy as np
 import pandas as pd
 import logging
-import time
 
 from fmu.sumo.explorer import Explorer
 
@@ -13,7 +11,6 @@ from webviz_config import WebvizPluginABC
 
 from webviz_4d._datainput._surface import (
     make_surface_layer,
-    load_surface,
     get_top_res_surface,
 )
 
@@ -65,10 +62,7 @@ from webviz_4d._providers.wellbore_provider._provider_impl_file import (
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddmsService
 from webviz_4d._datainput.common import find_files, get_path
-from webviz_4d._datainput._auto4d import (
-    get_auto4d_metadata,
-    get_auto4d_filename,
-)
+from webviz_4d._datainput._auto4d import get_auto4d_metadata
 from webviz_4d._datainput._osdu import (
     get_osdu_metadata,
     load_surface_from_osdu,
@@ -199,6 +193,8 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.metadata_lists.append(metadata)
             self.selection_lists.append(selection_list)
 
+            print(" - Metadata loaded:", len(metadata))
+
             # Get Sumo information (for depth surface and polygons)
             sumo = self.shared_settings.get("sumo")
 
@@ -226,8 +222,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         # Load polygons
         if self.my_case.name:
-            print()
-            print("Polygons from SUMO ...")
             iter_name = self.top_res_surface_settings.get("iter")
             top_res_name = self.top_res_surface_settings.get("name")
             real = self.top_res_surface_settings.get("real")
@@ -235,6 +229,8 @@ class SurfaceViewer4D(WebvizPluginABC):
             items = real.split("-")
             real_id = items[1]
 
+            print()
+            print("Loading polygons from SUMO")
             self.sumo_polygons = self.my_case.polygons.filter(
                 iteration=iter_name, realization=real_id, name=top_res_name
             )
@@ -596,6 +592,15 @@ class SurfaceViewer4D(WebvizPluginABC):
             surface_layers,
             label,
         )
+
+    def get_custom_colormaps(colormaps_folder):
+        if colormaps_folder is not None:
+            colormap_files = [
+                get_path(Path(fn))
+                for fn in json.load(find_files(colormaps_folder, ".csv"))
+            ]
+            print("Loading custom colormaps from:", colormaps_folder)
+            load_custom_colormaps(colormap_files)
 
     def set_callbacks(self, app):
         set_first_map(parent=self, app=app)
