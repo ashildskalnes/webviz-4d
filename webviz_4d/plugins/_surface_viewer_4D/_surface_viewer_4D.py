@@ -26,6 +26,7 @@ from webviz_4d._datainput._polygons import (
     get_polygon_name,
     get_polygon_files,
     get_default_polygon_files,
+    pol2csv,
 )
 from webviz_4d._datainput._metadata import define_map_defaults
 from ._webvizstore import read_csv, read_csvs, find_files, get_path
@@ -36,6 +37,10 @@ from ._callbacks import (
     change_maps_from_button,
 )
 from ._layout import set_layout
+
+import warnings
+
+warnings.filterwarnings("ignore")
 
 
 class SurfaceViewer4D(WebvizPluginABC):
@@ -110,24 +115,31 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.last_observed_date = last_observed_date
 
         # Get a list with filenames to all possible polygons
+
         if polygon_mapping_file:
             self.polygon_mapping_file = polygon_mapping_file
             self.polygon_mapping = self.load_polygon_mapping(self.polygon_mapping_file)
 
             directory = self.top_reservoir.get("directory")
             self.polygon_paths = get_polygon_files(
-                self.polygon_mapping, self.selection_dict, directory, self.fmu_directory
+                self.polygon_mapping,
+                self.selection_dict,
+                directory,
+                self.fmu_directory,
+                self.shared_settings,
             )
         else:
             print("WARNING: Polygon mapping not supplied")
             self.polygon_mapping = pd.DataFrame()
+            self.polygon_paths = None
 
         # Get path to default polygon files
         default_polygon_files = get_default_polygon_files(
             self.fmu_directory, self.top_reservoir
         )
 
-        self.polygon_paths = self.polygon_paths + default_polygon_files
+        # self.polygon_paths = self.polygon_paths + default_polygon_files
+        self.polygon_paths = None
 
         # Read production data
         self.prod_names = ["BORE_OIL_VOL.csv", "BORE_GI_VOL.csv", "BORE_WI_VOL.csv"]
@@ -637,7 +649,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         if os.path.exists(get_path(surface_scaling_file)):
             surface_scaling = pd.read_csv(get_path(surface_scaling_file))
         else:
-            surface_scaling = pd.DataFrame()
+            surface_scaling = None
             print("WARNING: Surface scaling file not found", self.surface_scaling_file)
 
         return surface_scaling
@@ -666,9 +678,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 tagname + "." + format,
             )
 
-            print("Reading polygon file:", polygon_file)
-
             self.polygon_paths.append(polygon_file)
+
+            print("Reading polygon file:", polygon_file)
             polygon_df = pd.read_csv(get_path(Path(polygon_file)))
 
             layer = make_polyline_layer(
@@ -699,6 +711,15 @@ class SurfaceViewer4D(WebvizPluginABC):
                     self.top_reservoir.get("polygons_directory"),
                 )
 
+                if not os.path.isdir(polygons_folder):
+                    polygons_folder = os.path.join(
+                        self.fmu_directory,
+                        self.top_reservoir.get("realization"),
+                        self.top_reservoir.get("iteration"),
+                        self.top_reservoir.get("directory"),
+                        self.top_reservoir.get("polygons_directory"),
+                    )
+
             if polygons_folder is not None:
                 if not self.polygon_mapping.empty:
                     name = get_polygon_name(self.polygon_mapping, zone_name, tagname)
@@ -711,7 +732,10 @@ class SurfaceViewer4D(WebvizPluginABC):
                 polygon_file = os.path.join(polygons_folder, polygon_file)
 
                 if os.path.exists(get_path(Path(polygon_file))):
-                    polygon_df = pd.read_csv(get_path(Path(polygon_file)))
+                    if "pol" in polygon_file:  # Tordis hack
+                        polygon_df = pol2csv(polygon_file)
+                    else:
+                        polygon_df = pd.read_csv(get_path(Path(polygon_file)))
 
                     if "REAL" in polygon_df.columns:
                         selected_df = polygon_df[polygon_df["REAL"] == 0]

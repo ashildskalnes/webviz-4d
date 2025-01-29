@@ -125,7 +125,7 @@ def make_polyline_layer(
             print("WARNING: empty dataframe as input to make_polyline_layer")
             return None
 
-        if format == "csv":
+        if format == "csv" or format == "pol":
             for _index, row in dataframe.iterrows():
                 if "tooltip" in dataframe.columns:
                     tooltip = row["tooltip"]
@@ -191,7 +191,9 @@ def get_polyline(layer, tooltip, color):
         return {}
 
 
-def get_polygon_files(polygon_mapping, selection_list, directory, fmu_dir):
+def get_polygon_files(
+    polygon_mapping, selection_list, directory, fmu_dir, shared_settings
+):
     # Create a list with filenames to all possible polygons
     polygon_overview = {}
     paths = []
@@ -204,43 +206,69 @@ def get_polygon_files(polygon_mapping, selection_list, directory, fmu_dir):
         unique_names = list(set(surface_names))
         polygon_overview.update({polygon_type: unique_names})
 
-    realizations = selection_list.get("simulated").get("realization")
-    iterations = selection_list.get("simulated").get("iteration")
+    simulations = selection_list.get("simulated")
+    realizations = []
 
-    # realization polygones
+    if simulations:
+        realizations = simulations.get("realization")
+        iterations = simulations.get("iteration")
 
-    for realization in realizations:
-        if "realization" in realization:
-            for iteration in iterations:
-                for polygon_type in polygon_overview.keys():
-                    surfaces = polygon_overview.get(polygon_type)
+        # realization polygones
+        for realization in realizations:
+            if "realization" in realization:
+                for iteration in iterations:
+                    for polygon_type in polygon_overview.keys():
+                        surfaces = polygon_overview.get(polygon_type)
 
-                    for surface in surfaces:
-                        file_name = surface + "--" + polygon_type + ".csv"
-                        path = os.path.join(
-                            fmu_dir,
-                            realization,
-                            iteration,
-                            directory,
-                            "polygons",
-                            file_name,
-                        )
+                        for surface in surfaces:
+                            file_name = surface + "--" + polygon_type + ".csv"
+                            path = os.path.join(
+                                fmu_dir,
+                                realization,
+                                iteration,
+                                directory,
+                                "polygons",
+                                file_name,
+                            )
 
-                        paths.append(path)
+                            paths.append(path)
 
-    # aggregation polygons
+        # aggregation polygons
+        for iteration in iterations:
+            for polygon_type in polygon_overview.keys():
+                surfaces = polygon_overview.get(polygon_type)
 
-    for iteration in iterations:
+                for surface in surfaces:
+                    file_name = surface + "--" + polygon_type + ".csv"
+                    path = os.path.join(
+                        fmu_dir,
+                        iteration,
+                        directory,
+                        "polygons",
+                        file_name,
+                    )
+
+                    paths.append(path)
+    else:
+        top_res_info = shared_settings.get("top_reservoir")
+        realization = top_res_info.get("realization")
+        iteration = top_res_info.get("iteration")
+        polygons_directory = top_res_info.get("polygons_directory")
+
+        zone_polygon_layers = shared_settings.get("zone_polygon_layers")
+        faults = zone_polygon_layers.get("faults")
+        polygon_format = "." + faults.get("format")
+
         for polygon_type in polygon_overview.keys():
             surfaces = polygon_overview.get(polygon_type)
 
             for surface in surfaces:
-                file_name = surface + "--" + polygon_type + ".csv"
+                file_name = surface + "--" + polygon_type + polygon_format
                 path = os.path.join(
                     fmu_dir,
+                    realization,
                     iteration,
-                    directory,
-                    "polygons",
+                    polygons_directory,
                     file_name,
                 )
 
@@ -278,3 +306,42 @@ def get_default_polygon_files(fmu_dir, top_reservoir):
     default_polygon_files = default_polygon_files + polygon_files
 
     return default_polygon_files
+
+
+def pol2csv(polygon_file):
+    names = ["X", "Y", "Z", "ID"]
+    polygon_df = pd.read_csv(polygon_file, sep=" ", names=names[:3])
+
+    xs = []
+    ys = []
+    zs = []
+    ids = []
+    id = 0
+
+    for index, row in polygon_df.iterrows():
+        x = row["X"]
+
+        if x > 998 and x < 1000:
+            id = id + 1
+        else:
+            xs.append(row["X"])
+            ys.append(row["Y"])
+            zs.append(row["Z"])
+            ids.append(id)
+
+    new_df = pd.DataFrame(list(zip(xs, ys, zs, ids)), columns=names)
+
+    return new_df
+
+
+# def main():
+#     polygon_dir = "/scratch/scratch_tordis/tordis/abec/20250121_webviz_obs_seismic/realization-0/observed/share/results/polygons"
+#     polygon_file = "TopStatfjord--TimeExtractedFaultLines.pol"
+#     polygon_file = os.path.join(polygon_dir, polygon_file)
+#     polygon = pol2csv(polygon_file)
+
+#     print(polygon)
+
+
+# if __name__ == "__main__":
+#     main()

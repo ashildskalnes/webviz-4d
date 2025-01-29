@@ -80,6 +80,9 @@ def resample_well(well_df, md_start, md_end, delta):
 
     dfr = well_df[(well_df["MD"] >= md_start) & (well_df["MD"] <= md_end)]
 
+    if (len(dfr)) == 0:
+        dfr = well_df
+
     x = dfr["X_UTME"].values
     y = dfr["Y_UTMN"].values
     tvd = dfr["Z_TVDSS"].values
@@ -124,6 +127,18 @@ def get_well_polyline(
     tooltip,
 ):
     """Create polyline data - contains well trajectory, color and tooltip"""
+
+    if md_end and md_start > md_end:
+        true_name = well_dataframe["wellbore.true_name"][0]
+        print(
+            "WARNING: MD start > MD end for wellbore",
+            true_name,
+            md_start,
+            md_end,
+        )
+
+        md_start = 0
+        print(" - MD start =", md_start)
 
     positions = get_position_data(well_dataframe, md_start, md_end)
 
