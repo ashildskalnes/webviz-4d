@@ -40,10 +40,15 @@ class SurfaceSelector:
             - somedate
             - somedate"""
 
-    def __init__(self, app, selections, map_defaults):
-        self.selections = selections
+    def __init__(self, app, surface_metadata, selections, map_defaults):
         self.map_defaults = map_defaults
-        # self.intervals = intervals
+        self.map_type = map_defaults.get("map_type")
+        self.selections = selections.get(self.map_type)
+
+        self.surface_metadata = surface_metadata[
+            surface_metadata["map_type"] == self.map_type
+        ]
+
         self.current_selections = map_defaults
         self._storage_id = f"{str(uuid4())}-surface-selector"
         self.set_ids()
@@ -70,16 +75,65 @@ class SurfaceSelector:
 
     @property
     def attrs(self):
-        map_type = self.map_defaults["map_type"]
-        return unique_values(self.selections[map_type]["attribute"])
+        return unique_values(self.selections["attribute"])
+
+    def _update_attrs(self, current_value):
+        print(
+            "DEBUG _update_attrs self.current_selections",
+            self.current_selections,
+            current_value,
+        )
+        self.current_selections["attribute"] = current_value
+
+        selection_metadata = self.surface_metadata[
+            self.surface_metadata["data.attribute"] == current_value
+        ]
+
+        name_options = selection_metadata["data.name"].unique().tolist()
+        sorted_names = sorted(name_options)
+        self.selections.update({"name": sorted_names})
+        current_name = self.current_selections["name"]
+
+        print(
+            "DEBUG _update_attrs: self.selections, current_name",
+            self.selections,
+            current_name,
+        )
+
+        interval_options = selection_metadata["interval"].unique().tolist()
+        sorted_intervals = sorted(interval_options)
+        self.selections.update({"interval": sorted_intervals})
+
+        print()
+        # print("DEBUG _update_attrs", self.selections)
 
     def _names_in_attr(self):
-        map_type = self.map_defaults["map_type"]
-        return unique_values(self.selections[map_type]["name"])
+        attr_value = self.current_selections.get("attribute")
+
+        selection_metadata = self.surface_metadata[
+            self.surface_metadata["data.attribute"] == attr_value
+        ]
+
+        names = selection_metadata["data.name"].unique().tolist()
+        sorted_names = sorted(names)
+        # print("DEBUG sorted_names", sorted_names)
+
+        return sorted_names
 
     def _interval_in_attr(self):
-        map_type = self.map_defaults["map_type"]
-        return unique_values(self.selections[map_type]["interval"])
+        attr_value = self.current_selections.get("attribute")
+        name_value = self.current_selections.get("name")
+
+        selection_metadata = self.surface_metadata[
+            (self.surface_metadata["data.attribute"] == attr_value)
+            & (self.surface_metadata["data.name"] == name_value)
+        ]
+
+        intervals = selection_metadata["interval"].unique().tolist()
+        sorted_intervals = sorted(intervals)
+        # print("DEBUG sorted_intervals", sorted_intervals)
+
+        return sorted_intervals
 
     @property
     def attribute_selector(self):
@@ -209,12 +263,15 @@ class SurfaceSelector:
             if ctx is None or not current_value:
                 raise PreventUpdate
             if not ctx[0]["value"]:
+                self._update_attrs(current_value)
                 return current_value
             callback = ctx[0]["prop_id"]
             if callback == f"{self.attr_id_btn_prev}.n_clicks":
-                return prev_value(current_value, self.attrs)
+                new_value = prev_value(current_value, self.attrs)
+                return new_value
             if callback == f"{self.attr_id_btn_next}.n_clicks":
-                return next_value(current_value, self.attrs)
+                new_value = next_value(current_value, self.attrs)
+                return new_value
 
         @app.callback(
             [
@@ -303,6 +360,8 @@ class SurfaceSelector:
                 raise PreventUpdate
             if date and not date in self._interval_in_attr():
                 raise PreventUpdate
+
+            print("DEBUG _set_data", attr, name, date)
 
             return json.dumps({"name": name, "attr": attr, "date": date})
 

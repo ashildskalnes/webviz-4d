@@ -243,9 +243,15 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.create_well_layers()
 
         # Create selectors (attributes, names and dates) for all 3 maps
-        self.selector = SurfaceSelector(app, self.selection_dict, self.map_defaults[0])
-        self.selector2 = SurfaceSelector(app, self.selection_dict, self.map_defaults[1])
-        self.selector3 = SurfaceSelector(app, self.selection_dict, self.map_defaults[2])
+        self.selector = SurfaceSelector(
+            app, self.surface_metadata, self.selection_dict, self.map_defaults[0]
+        )
+        self.selector2 = SurfaceSelector(
+            app, self.surface_metadata, self.selection_dict, self.map_defaults[1]
+        )
+        self.selector3 = SurfaceSelector(
+            app, self.surface_metadata, self.selection_dict, self.map_defaults[2]
+        )
         self.set_callbacks(app)
 
     def add_webvizstore(self) -> List[Tuple[Callable, list]]:
@@ -464,8 +470,24 @@ class SurfaceViewer4D(WebvizPluginABC):
         return min_max
 
     def make_map(self, data, iteration, real, attribute_settings, map_idx):
+
         self.realization = real
         self.iteration = iteration
+
+        if data is None:
+            print("ERROR during metadata selection")
+            heading = "Unknown ERROR has occured"
+            sim_info = "-"
+            surface_layers = []
+            label = "-"
+
+            return (
+                heading,
+                sim_info,
+                surface_layers,
+                label,
+            )
+
         data = json.loads(data)
         selected_zone = data.get("name")
         map_type = self.map_defaults[map_idx]["map_type"]
