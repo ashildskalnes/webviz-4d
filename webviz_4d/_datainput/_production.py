@@ -100,6 +100,16 @@ def make_new_well_layer(
 
     layer = {"name": label, "checked": False, "base_layer": False, "data": data}
 
+    print("DEBUG make_new_well_layer", layer.get("name"))
+    data = layer.get("data")
+
+    for item in data:
+        tooltip = item.get("tooltip")
+        print(" - ", tooltip)
+
+        positions = item.get("positions")
+        print(positions[0], positions[-1])
+
     return layer
 
 
@@ -128,6 +138,16 @@ def make_new_smda_well_layer(
             data.append(polyline_data)
 
     layer = {"name": label, "checked": False, "base_layer": False, "data": data}
+
+    print("DEBUG make_new_smda_well_layer", layer.get("name"))
+    data = layer.get("data")
+
+    for item in data:
+        tooltip = item.get("tooltip")
+        print(" - ", tooltip)
+
+        positions = item.get("positions")
+        print(positions[0], positions[-1])
 
     return layer
 

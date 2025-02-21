@@ -2,10 +2,9 @@ from pathlib import Path
 import datetime
 import json
 import os
-import numpy as np
+import polars as pl
 import pandas as pd
 import logging
-import time
 
 from fmu.sumo.explorer import Explorer
 
@@ -13,17 +12,14 @@ from webviz_config import WebvizPluginABC
 
 from webviz_4d._datainput._surface import (
     make_surface_layer,
-    load_surface,
     get_top_res_surface,
 )
-
 from webviz_4d._datainput.common import (
     read_config,
     get_well_colors,
     get_plot_label,
     get_dates,
 )
-
 from webviz_4d._datainput.well import (
     load_smda_metadata,
     load_smda_wellbores,
@@ -35,7 +31,6 @@ from webviz_4d._datainput.well import (
 from webviz_4d._datainput._production import (
     make_new_well_layer,
 )
-
 from webviz_4d._private_plugins.surface_selector import SurfaceSelector
 from webviz_4d._datainput._colormaps import load_custom_colormaps
 from webviz_4d._datainput._polygons import load_sumo_polygons
@@ -44,20 +39,16 @@ from webviz_4d._datainput._maps import (
     load_surface_from_sumo,
     get_auto_scaling,
 )
-
 from webviz_4d._datainput._metadata import get_all_map_defaults
-
 from webviz_4d._datainput._sumo import (
     get_sumo_metadata,
     get_sumo_zone_polygons,
 )
-
 from webviz_4d._datainput._rddms import (
     get_rddms_dataset_id,
     get_rddms_metadata,
 )
 from webviz_4d._datainput._fmu import get_fmu_metadata
-
 import webviz_4d._providers.wellbore_provider.wellbore_provider as wb
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
@@ -67,13 +58,15 @@ from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddms
 from webviz_4d._datainput.common import find_files, get_path
 from webviz_4d._datainput._auto4d import (
     get_auto4d_metadata,
-    get_auto4d_filename,
 )
 from webviz_4d._datainput._osdu import (
     get_osdu_metadata,
     load_surface_from_osdu,
 )
-
+from webviz_4d._datainput._eclipse import (
+    load_eclipse_prod_data,
+    create_eclipse_production_layers,
+)
 from ._callbacks import (
     set_first_map,
     set_second_map,
@@ -278,11 +271,35 @@ class SurfaceViewer4D(WebvizPluginABC):
                 self.well_colors,
             )
 
-            self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name)
-            pdm_wellbores = self.pdm_wells_info["WB_UWBI"].tolist()
-            self.pdm_wells_df = self.drilled_wells_df[
-                self.drilled_wells_df["unique_wellbore_identifier"].isin(pdm_wellbores)
-            ]
+            if "PDM" in str(production_data):
+                self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name)
+                pdm_wellbores = self.pdm_wells_info["WB_UWBI"].tolist()
+                self.pdm_wells_df = self.drilled_wells_df[
+                    self.drilled_wells_df["unique_wellbore_identifier"].isin(
+                        pdm_wellbores
+                    )
+                ]
+            else:
+                print("Loading production info from SUMO")
+                print(f"{self.my_case.name}: {self.my_case.uuid}")
+
+                iteration = [it.name for it in self.my_case.iterations][0]
+
+                tables = self.my_case.tables.filter(
+                    iteration=iteration, realization=0, tagname="summary"
+                )
+                table = tables[0]
+                ecl_table = table.to_arrow()
+                summary_df = pl.from_arrow(ecl_table)
+
+                ecl_keywords = ["WOPTH"]
+                metadata = self.metadata_lists[0]
+                first_date = min(metadata["time1"].to_list())
+                dates_4d = [first_date] + sorted(metadata["time2"].unique())
+
+                self.ecl_polars_table = load_eclipse_prod_data(
+                    summary_df, ecl_keywords, self.drilled_wells_info, dates_4d
+                )
 
             self.intervals = None
             self.interval_names = None
@@ -302,6 +319,15 @@ class SurfaceViewer4D(WebvizPluginABC):
                 layer_options=self.additional_well_layers,
                 well_colors=self.well_colors,
                 prod_interval="Day",
+            )
+        else:
+            self.interval_well_layers = create_eclipse_production_layers(
+                ecl_polars_table=self.ecl_polars_table,
+                interval_4d=self.default_interval,
+                wellbore_trajectories=self.drilled_wells_df,
+                surface_picks=self.surface_picks,
+                layer_options=self.additional_well_layers,
+                well_colors=self.well_colors,
             )
 
         self.selector = SurfaceSelector(
@@ -549,11 +575,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 or interval != self.default_interval
             ):
                 if get_dates(interval)[0] <= self.production_update:
-                    if "PDM" not in str(self.production_data):
-                        index = self.interval_names.index(interval)
-                        self.interval_well_layers = self.all_interval_layers[index]
-                        self.selected_intervals[map_idx] = interval
-                    else:
+                    if "PDM" in str(self.production_data):
                         self.interval_well_layers = create_production_layers(
                             field_name=self.field_name,
                             pdm_provider=self.pdm_provider,
@@ -564,6 +586,20 @@ class SurfaceViewer4D(WebvizPluginABC):
                             well_colors=self.well_colors,
                             prod_interval="Day",
                         )
+
+                    elif "SUMO" in str(self.production_data):
+                        self.interval_well_layers = create_eclipse_production_layers(
+                            ecl_polars_table=self.ecl_polars_table,
+                            interval_4d=interval,
+                            wellbore_trajectories=self.drilled_wells_df,
+                            surface_picks=self.surface_picks,
+                            layer_options=self.additional_well_layers,
+                            well_colors=self.well_colors,
+                        )
+                    else:
+                        index = self.interval_names.index(interval)
+                        self.interval_well_layers = self.all_interval_layers[index]
+                        self.selected_intervals[map_idx] = interval
                 else:
                     self.interval_well_layers = []
 

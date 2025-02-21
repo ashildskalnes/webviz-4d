@@ -26,6 +26,7 @@ pip install black
 pip install pylint
 pip install pytest
 pip install PrettyTable
+pip install polars
 pip install /private/ashska/dev_311/common-python-sdk-master/common-python-sdk-master
 pip install -e .
 

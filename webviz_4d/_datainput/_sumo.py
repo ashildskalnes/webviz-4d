@@ -833,9 +833,7 @@ def create_sumo_lists(metadata, interval_mode):
                     if interval not in intervals:
                         intervals.append(interval)
 
-                # sorted_intervals = sort_intervals(intervals)
-                sorted_intervals = intervals
-
+                sorted_intervals = sorted(intervals)
                 map_type_dict[value] = sorted_intervals
             else:
                 items = list(map_type_metadata[selector].unique())

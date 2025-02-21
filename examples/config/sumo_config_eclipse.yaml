@@ -11,13 +11,13 @@ shared_settings:
     osdu:
     fmu:
  
-    label: Model 24.3.0 SUMO
+    label: Model 24.3.0 SUMO 
     
     observed_maps: 
         realization_names: ["*"]                  
         iteration_names: [pred]                                   
         map_directories: [share/observations/maps/]   
-        attributes: ["*"] 
+        attributes: ["*"]
         surface_names: ["*"]
         time_intervals: ["*"]
    
@@ -32,7 +32,7 @@ shared_settings:
         production: Producers                                     
         injection: Injectors                                
          
-    well_folder: SMDA  
+    well_folder: &wellfolder SMDA  
     top_reservoir: 
         name: Draupne Fm. 1 JS Top 
         tag_name: depth_structural_model
@@ -42,8 +42,8 @@ shared_settings:
             zones: True
             observed: True
             aggregated: True
-    production_data: PDM 
-    polygons_folder: SUMO
+    production_data: &production_data SUMO 
+    polygons_folder: &polygons_folder SUMO
     colormaps_folder: &colormaps_folder ../colormaps/
     settings_file: &settings ../settings.yaml
     interval_mode: &interval_mode normal
@@ -75,8 +75,8 @@ layout:
           - page: Observed maps 
             content:
               - SurfaceViewer4D: 
-                  well_folder: SMDA
-                  production_data: PDM
+                  well_folder: *wellfolder 
+                  production_data: *production_data
                   colormaps_folder: *colormaps_folder
                   settings_file: *settings 
                   interval_mode: *interval_mode 

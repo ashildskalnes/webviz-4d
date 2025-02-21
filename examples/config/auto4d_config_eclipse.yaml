@@ -25,13 +25,12 @@ shared_settings:
     label: auto4d maps      # Customize
 
     basic_well_layers:
-        #planned: Planned wells
+        planned: Planned wells
         drilled_wells: Drilled wells
-        reservoir_sections: Reservoir sections
+        reservoir_section: Reservoir sections
 
     additional_well_layers:
         production: Producers
-        injection: Injectors
 
     well_folder: &wellfolder SMDA
     top_reservoir:
@@ -43,7 +42,7 @@ shared_settings:
             zones: True
             observed: True
             aggregated: True
-    production_data: &production_data PDM
+    production_data: &production_data SUMO
     polygons_folder: &polygons_folder SUMO
     colormaps_folder: &colormaps_folder ../colormaps/
     settings_file: &settings ../settings.yaml
@@ -77,7 +76,7 @@ layout:
           - page: 4D maps   
             content:
               - SurfaceViewer4D:
-                  well_folder: *wellfolder
+                  well_folder: *wellfolder 
                   production_data: *production_data 
                   colormaps_folder: *colormaps_folder 
                   settings_file:  *settings

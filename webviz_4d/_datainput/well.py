@@ -469,12 +469,15 @@ def create_well_layer(
 
     layer = {"name": label, "checked": check_status, "base_layer": False, "data": data}
 
-    # print("DEBUG well layer", layer.get("name"))
+    # print("DEBUG create_well layer", layer.get("name"))
     # data = layer.get("data")
 
     # for item in data:
     #     tooltip = item.get("tooltip")
     #     print(" - ", tooltip)
+
+    #     positions = item.get("positions")
+    #     print(positions[0], positions[-1])
 
     return layer
 
@@ -609,61 +612,16 @@ def get_position_data(well_dataframe, md_start, md_end):
     if "MD" in well_dataframe.columns:
         well_dataframe = well_dataframe.rename(columns=rename_dict)
 
-    if not well_dataframe.empty and not math.isnan(md_start):
-        well_df = well_dataframe[well_dataframe["md"] >= md_start]
-        resampled_df = resample_well(well_df, md_start, md_end, delta)
-        positions = resampled_df[["easting", "northing"]].values
+    try:
+        if not well_dataframe.empty and not math.isnan(md_start):
+            well_dataframe.dropna(inplace=True)
+            well_df = well_dataframe[well_dataframe["md"] >= md_start]
+            resampled_df = resample_well(well_df, md_start, md_end, delta)
+            positions = resampled_df[["easting", "northing"]].values
+    except:
+        pass
 
     return positions
-
-
-def resample_well(well_df, md_start, md_end, delta):
-    # Resample well trajectory by selecting only positions with a lateral distance larger than the given delta value
-    if math.isnan(md_end):
-        md_end = well_df["md"].iloc[-1]
-
-    dfr = well_df[(well_df["md"] >= md_start) & (well_df["md"] <= md_end)]
-
-    x = dfr["easting"].values
-    y = dfr["northing"].values
-    tvd = dfr["tvd_msl"].values
-    md = dfr["md"].values
-
-    x_new = [x[0]]
-    y_new = [y[0]]
-    tvd_new = [tvd[0]]
-    md_new = [md[0]]
-    j = 0
-
-    for i in range(1, len(x)):
-        dist = ((x[i] - x[j]) ** 2 + (y[i] - y[j]) ** 2) ** 0.5
-        # print(i, j, md[i], dist)
-
-        if dist > delta:
-            x_new.append(x[i])
-            y_new.append(y[i])
-            tvd_new.append(tvd[i])
-            md_new.append(md[i])
-            j = i
-
-    x_new.append(x[-1])
-    y_new.append(y[-1])
-    tvd_new.append(tvd[-1])
-    md_new.append(md[-1])
-
-    dfr_new = pd.DataFrame()
-    dfr_new["easting"] = x_new
-    dfr_new["northing"] = y_new
-    dfr_new["tvd_msl"] = tvd_new
-    dfr_new["md"] = md_new
-
-    # dfr_new = pd.DataFrame()
-    # dfr_new["easting"] = x
-    # dfr_new["northing"] = y
-    # dfr_new["tvd_msl"] = tvd
-    # dfr_new["md"] = md
-
-    return dfr_new
 
 
 def get_well_polyline(
@@ -677,11 +635,6 @@ def get_well_polyline(
 
     sorted_dataframe = well_dataframe.sort_values(by=["md"])
     positions = get_position_data(sorted_dataframe, md_start, md_end)
-
-    # if tooltip in ["NO 16/3-P-3 H planned", "D-32T2:production(oil)"]:
-    # print("DEBUG get_well_polyline")
-    #     print(tooltip)
-    #     print(positions)
 
     if positions is not None:
         return {
@@ -856,6 +809,8 @@ def create_production_layers(
             interval_well_layers.append(well_layer)
 
     return interval_well_layers
+
+    return pdm_well_layer
 
 
 def get_well_position_data(well_dataframe, md_start, md_end, delta):
