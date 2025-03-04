@@ -8,7 +8,7 @@ from typing import Optional
 from io import BytesIO
 import pandas as pd
 import prettytable as pt
-import xtgeo
+import polars as pl
 
 
 defaults = {
@@ -17,6 +17,21 @@ defaults = {
     "delimiter": "--",
     "surface_metadata": "surface_metadata.csv",
 }
+
+
+def print_layer_tooltip(layer):
+    print(layer.get("name"), ":", len(layer.get("data")))
+
+    for well in layer.get("data"):
+        print(well.get("tooltip"))
+
+    print()
+
+
+def print_all(polars_df):
+    with pl.Config() as cfg:
+        cfg.set_tbl_rows(-1)
+        print(polars_df)
 
 
 def get_default_interval(selection_list, options):

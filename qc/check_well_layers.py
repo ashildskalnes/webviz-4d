@@ -1,15 +1,11 @@
 import os
-import numpy as np
-import pandas as pd
-import time
-from datetime import datetime
 import polars as pl
 import polars.selectors as cs
 import argparse
 
-from webviz_4d._datainput.common import (
-    read_config,
-)
+from fmu.sumo.explorer import Explorer
+
+from webviz_4d._datainput.common import read_config, print_layer_tooltip
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
@@ -22,25 +18,8 @@ from webviz_4d._datainput._sumo import get_sumo_metadata
 from webviz_4d._datainput._eclipse import (
     create_eclipse_production_layers,
     print_all,
-    get_ecl_names,
-    match_ecl2smda,
     load_eclipse_prod_data,
 )
-
-
-def print_all(polars_df):
-    with pl.Config() as cfg:
-        cfg.set_tbl_rows(-1)
-        print(polars_df)
-
-
-def print_layer_tooltip(layer):
-    print(layer.get("name"), ":", len(layer.get("data")))
-
-    for well in layer.get("data"):
-        print(well.get("tooltip"))
-
-    print()
 
 
 # Main program
@@ -81,16 +60,41 @@ def main():
 
     drilled_wells_info["Wellbore short name"] = short_names
 
-    metadata, selection_list, sumo_case = get_sumo_metadata(config, field_name)
+    sumo_settings = shared_settings.get("sumo")
+    env_name = sumo_settings.get("env_name")
+    case_name = sumo_settings.get("case_name")
 
-    first_date = min(metadata["time1"].to_list())
-    dates_4d = [first_date] + sorted(metadata["time2"].unique())
+    print()
+    print("Searching for seismic 4D attribute in sumo case:", case_name, " ...")
+
+    sumo = Explorer(env=env_name)
+    cases = sumo.cases.filter(name=case_name)
+
+    if len(cases) > 1:
+        print("WARNING: number of cases", len(cases))
+        for case in cases:
+            if len(case.surfaces) > 0:
+                sumo_case = case
+    else:
+        sumo_case = cases[0]
 
     # Some case info
     print(f"{sumo_case.name}: {sumo_case.uuid}")
     print(sumo_case.field)
     print(sumo_case.status)
     print(sumo_case.user)
+
+    metadata, selection_list = get_sumo_metadata(sumo_case)
+
+    first_date = min(metadata["time1"].to_list())
+    dates_4d = [first_date] + sorted(metadata["time2"].unique())
+
+    shared_settings = config.get("shared_settings")
+    interval_mode = shared_settings.get("interval_mode")
+
+    sumo_settings = shared_settings.get("sumo")
+    env_name = sumo_settings.get("env_name")
+    case_name = sumo_settings.get("case_name")
 
     print("Loading production info from SUMO")
     iteration = [it.name for it in sumo_case.iterations][0]

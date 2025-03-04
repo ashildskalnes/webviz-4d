@@ -156,7 +156,6 @@ def load_eclipse_prod_data(summary_df, ecl_keywords, drilled_wells_info, dates_4
 
         for date_4d in dates_4d:
             column_name = key + "_" + date_4d
-            print(" - column name", column_name)
             date_str = date_4d + " 00:00:00"
             datetime_object = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
 
@@ -213,7 +212,7 @@ def extract_interval_volume(prod_data_table, key, wellbore_name, time1, time2):
     interval_volume = volume2 - volume1
     fluid_text = (
         prod_labels.get(key)
-        + " {:.0f}".format(interval_volume)
+        + ":{:.0f}".format(interval_volume)
         + " ["
         + prod_units[key]
         + "]"
@@ -284,7 +283,7 @@ def create_eclipse_well_layer(
         status = False
         color = color_settings.get("default")
 
-        if layer_name == "production":
+        if "prod" in layer_name:
             color = color_settings.get("oil_production")
 
         wellbore_name = row[uwi]
@@ -306,12 +305,13 @@ def create_eclipse_well_layer(
             status = False
 
             if md_start is not None and not math.isnan(md_start):
-                keys = prod_labels.keys()
+                keys = list(prod_labels.keys())
 
                 interval_volumes = []
                 fluid_texts = []
 
                 for index, key in enumerate(keys):
+
                     interval_volume, fluid_text = extract_interval_volume(
                         prod_data_list[index], key, wellbore_name, time1, time2
                     )

@@ -1,105 +1,35 @@
 import os
-import json
-import msal
-import sys
-from msal_extensions import *
-from msal_extensions import persistence
+from dotenv import load_dotenv
+from msal import PublicClientApplication
+import requests
+
+home = os.path.expanduser("~")
+env_path = os.path.expanduser(os.path.join(home, ".omniaapi"))
+load_dotenv(dotenv_path=env_path)
 
 
-def msal_cache_accounts(clientID, authority, cache_filename):
-    # Based on https://gist.github.com/darrenjrobinson/553ea10e304246ebfa1eac6dde0cf63b
+# Azure AD config
+TENANT = os.environ.get("TENANT")
+CLIENT_ID = os.environ.get("WEBVIZ_4D_ID")
+AUTHORITY = "https://login.microsoftonline.com/" + TENANT
 
-    persistence = build_encrypted_persistence(cache_filename)
-    cache = PersistedTokenCache(persistence)
-
-    app = msal.PublicClientApplication(
-        client_id=clientID, authority=authority, token_cache=cache
-    )
-    accounts = app.get_accounts()
-    return accounts
+_app = PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
+_session = requests.Session()
 
 
-def msal_delegated_refresh(clientID, scope, authority, account, cache_filename):
-    persistence = build_encrypted_persistence(cache_filename)
-    cache = PersistedTokenCache(persistence)
-
-    app = msal.PublicClientApplication(
-        client_id=clientID, authority=authority, token_cache=cache
-    )
-    result = app.acquire_token_silent_with_error(
-        scopes=[scope], account=account, force_refresh=True
-    )
-    return result
-
-
-# def msal_delegated_device_flow(clientID, scope, authority, cache_filename):
-#     print("Initiate Device Code Flow to get an AAD Access Token.")
-#     print(
-#         "Open a browser window and paste in the URL below and then enter the Code. CTRL+C to cancel."
-#     )
-
-#     persistence = build_encrypted_persistence(cache_filename)
-#     cache = PersistedTokenCache(persistence)
-
-#     app = msal.PublicClientApplication(
-#         client_id=clientID, authority=authority, token_cache=cache
-#     )
-#     flow = app.initiate_device_flow(scopes=[scope])
-
-#     if "user_code" not in flow:
-#         raise ValueError(
-#             "Fail to create device flow. Err: %s" % json.dumps(flow, indent=4)
-#         )
-
-#     print(flow["message"])
-#     sys.stdout.flush()
-
-#     result = app.acquire_token_by_device_flow(flow)
-#     return result
-
-
-def msal_delegated_device_flow(clientID, scope, authority, cache_filename):
-    print("Initiate Device Code Flow to get an AAD Access Token.")
-
-    persistence = build_encrypted_persistence(cache_filename)
-    cache = PersistedTokenCache(persistence)
-
-    app = msal.PublicClientApplication(
-        client_id=clientID, authority=authority, token_cache=cache
-    )
-
-    result = None
-
-    # Check the cache to see if this user has signed in before
-
-    if sys.platform == "win32":
-        account = app.get_accounts(os.getlogin())
-    else:
-        account = app.get_accounts(os.environ.get("USER"))
-
-    if account:
-        result = app.acquire_token_silent(scope + " offline_access", account=account)
-
-    if not result:
-        result = app.acquire_token_interactive(scopes=[scope])
-        return result
-
-
-def msal_get_token(CLIENT_ID, AUTHORITY, SCOPE, cache_filename):
-    accounts = msal_cache_accounts(CLIENT_ID, AUTHORITY, cache_filename)
-
-    result = None
+def get_token(SCOPE):
+    account = None
+    accounts = _app.get_accounts()
     if accounts:
-        for account in accounts:
-            myAccount = account
-            # print("Found account in MSAL Cache: " + account["username"])
-            # print("Obtaining a new Access Token using the Refresh Token")
-            result = msal_delegated_refresh(
-                CLIENT_ID, SCOPE, AUTHORITY, myAccount, cache_filename
-            )
-    if result is None or result.get("error"):
-        print(f"Cashed token not found, activating a new token")
-        result = msal_delegated_device_flow(CLIENT_ID, SCOPE, AUTHORITY, cache_filename)
-    if result.get("error"):
-        print(f"Unable to authorize. {result['error_description']}")
-    return result
+        account = accounts[0]  # assuming single user
+        print(f"Logged in as {account['username']}")
+    result = _app.acquire_token_silent([SCOPE], account=account)
+    if not result:
+        # flow = _app.initiate_device_flow([SCOPE])
+        # print(flow['message'])
+        result = _app.acquire_token_interactive([SCOPE])
+    if "access_token" in result:
+        return result["access_token"]
+    else:
+        print(f"Error - {result.get('error')} - {result.get('error_description')}")
+        return None

@@ -179,36 +179,36 @@ def read_surface_file(surface_file, data_source):
 
 
 def get_auto_scaling(attribute_settings, surface, attribute_type):
-    min_max = [None, None]
-    attribute_settings = attribute_settings
     settings = attribute_settings.get(attribute_type)
 
     if settings:
         auto_scaling = settings.get("auto_scaling", 10)
     else:
         auto_scaling = 10
+        colormap_type = "diverging"
+
+    surface_max_val = surface.values.max()
+    surface_min_val = surface.values.min()
+
+    scaled_value = abs(surface.values.std())
+
+    if "mean" in attribute_type.lower() or "average" in attribute_type.lower():
+        scaled_value = (abs(surface_min_val) + abs(surface_max_val)) / 20
+
+    max_val = scaled_value * auto_scaling
 
     if attribute_settings and attribute_type in attribute_settings.keys():
         colormap_type = attribute_settings.get(attribute_type).get("type")
-        surface_max_val = surface.values.max()
-        surface_min_val = surface.values.min()
 
-        scaled_value = abs(surface.values.std())
-
-        if "mean" in attribute_type.lower():
-            scaled_value = (abs(surface_min_val) + abs(surface_max_val)) / 2
-
-        max_val = scaled_value * auto_scaling
-
-        if colormap_type == "diverging":
-            min_val = -max_val
-        elif colormap_type == "positive":
-            min_val = 0
-        elif colormap_type == "negative":
-            min_val = -max_val
-            max_val = 0
-        else:
-            min_val = -max_val
-        min_max = [min_val, max_val]
+    if colormap_type == "diverging":
+        min_val = -max_val
+    elif colormap_type == "positive":
+        min_val = 0
+    elif colormap_type == "negative":
+        min_val = -max_val
+        max_val = 0
+    else:
+        min_val = -max_val
+    min_max = [min_val, max_val]
 
     return min_max

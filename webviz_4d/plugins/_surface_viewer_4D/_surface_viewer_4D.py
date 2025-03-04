@@ -130,18 +130,18 @@ class SurfaceViewer4D(WebvizPluginABC):
         sumo_env = sumo.get("env_name")
         self.sumo_case_name = sumo.get("case_name")
 
-        self.sumo = Explorer(env=sumo_env, keep_alive="20m")
+        self.sumo = Explorer(env=sumo_env)
         cases = self.sumo.cases.filter(name=self.sumo_case_name)
 
-        if len(cases) == 1:
-            self.my_case = cases[0]
-            self.iterations = self.my_case.iterations
-            print()
-            print("SUMO case:", self.my_case.name, self.field_name)
+        if len(cases) > 1:
+            print("WARNING: number of cases", len(cases))
+            for case in cases:
+                if len(case.surfaces) > 0:
+                    self.sumo_case = case
         else:
-            print("ERROR: Number of selected cases =", len(cases))
-            print("       Execution stopped")
-            exit(1)
+            self.sumo_case = cases[0]
+
+        print(f"{self.sumo_case.name}: {self.sumo_case.uuid}")
 
         self.data_sources = []
         self.metadata_lists = []
@@ -158,9 +158,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             print(f"map{index + 1}_defaults: {data_source}")
 
             if data_source == "sumo":
-                metadata, selection_list, self.sumo_case = get_sumo_metadata(
-                    self.config, field_name
-                )
+                metadata, selection_list = get_sumo_metadata(self.sumo_case)
             elif data_source == "auto4d_file":
                 metadata, selection_list = get_auto4d_metadata(self.config)
             elif data_source == "fmu":
@@ -192,15 +190,17 @@ class SurfaceViewer4D(WebvizPluginABC):
             # Get Sumo information (for depth surface and polygons)
             sumo = self.shared_settings.get("sumo")
 
-            if self.field_name.upper() != self.my_case.field.upper():
+            if self.field_name.upper() != self.sumo_case.field.upper():
                 print(
-                    "WARNING: Field name mismatch", self.field_name, self.my_case.field
+                    "WARNING: Field name mismatch",
+                    self.field_name,
+                    self.sumo_case.field,
                 )
 
             self.sumo_surfaces = sumo.get("sumo_surfaces")
 
         self.top_res_surface = get_top_res_surface(
-            self.top_res_surface_settings, self.my_case
+            self.top_res_surface_settings, self.sumo_case
         )
 
         self.map_default_list = [map1_defaults, map2_defaults, map3_defaults]
@@ -215,7 +215,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         ]
 
         # Load polygons
-        if self.my_case.name:
+        if self.sumo_case.name:
             print()
             print("Polygons from SUMO ...")
             iter_name = self.top_res_surface_settings.get("iter")
@@ -225,7 +225,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             items = real.split("-")
             real_id = items[1]
 
-            self.sumo_polygons = self.my_case.polygons.filter(
+            self.sumo_polygons = self.sumo_case.polygons.filter(
                 iteration=iter_name, realization=real_id, name=top_res_name
             )
 
@@ -281,23 +281,23 @@ class SurfaceViewer4D(WebvizPluginABC):
                 ]
             else:
                 print("Loading production info from SUMO")
-                print(f"{self.my_case.name}: {self.my_case.uuid}")
+                print(f"{self.sumo_case.name}: {self.sumo_case.uuid}")
 
-                iteration = [it.name for it in self.my_case.iterations][0]
+                iteration = [it.name for it in self.sumo_case.iterations][0]
 
-                tables = self.my_case.tables.filter(
+                tables = self.sumo_case.tables.filter(
                     iteration=iteration, realization=0, tagname="summary"
                 )
                 table = tables[0]
                 ecl_table = table.to_arrow()
                 summary_df = pl.from_arrow(ecl_table)
 
-                ecl_keywords = ["WOPTH"]
+                ecl_keywords = ["WOPTH", "WGPTH", "WWPTH"]
                 metadata = self.metadata_lists[0]
                 first_date = min(metadata["time1"].to_list())
                 dates_4d = [first_date] + sorted(metadata["time2"].unique())
 
-                self.ecl_polars_table = load_eclipse_prod_data(
+                self.prod_data_list = load_eclipse_prod_data(
                     summary_df, ecl_keywords, self.drilled_wells_info, dates_4d
                 )
 
@@ -322,7 +322,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
         else:
             self.interval_well_layers = create_eclipse_production_layers(
-                ecl_polars_table=self.ecl_polars_table,
+                prod_data_list=self.prod_data_list,
                 interval_4d=self.default_interval,
                 wellbore_trajectories=self.drilled_wells_df,
                 surface_picks=self.surface_picks,
@@ -486,7 +486,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             surface, map_name = load_surface_from_sumo(
                 map_idx,
                 data_source,
-                self.my_case,
+                self.sumo_case,
                 metadata,
                 map_defaults,
                 data,
@@ -544,7 +544,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             # Check if there are polygon layers available for the selected zone, iteration and and realization
             if self.sumo:
                 self.polygons = get_sumo_zone_polygons(
-                    case=self.my_case,
+                    case=self.sumo_case,
                     sumo_polygons=self.sumo_polygons,
                     polygon_settings=self.top_res_surface_settings,
                     map_type=map_type,
@@ -589,7 +589,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
                     elif "SUMO" in str(self.production_data):
                         self.interval_well_layers = create_eclipse_production_layers(
-                            ecl_polars_table=self.ecl_polars_table,
+                            prod_data_list=self.prod_data_list,
                             interval_4d=interval,
                             wellbore_trajectories=self.drilled_wells_df,
                             surface_picks=self.surface_picks,

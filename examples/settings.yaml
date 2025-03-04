@@ -2,45 +2,13 @@ map_settings:
     colormaps_folder: ../colormaps/
     surface_metadata_file: ./surface_metadata.csv
     colormaps_settings: ./attribute_maps.csv
-    default_colormap: magic 
+    default_colormap: seismic_rms 
     
     attribute_settings: 
-        MaxPositive:
-            color: seismic_rms
-            type:  diverging
-            auto_scaling:   10 
-        MaxNegative:
-            color:   seismic_rms
-            type:  diverging
-            auto_scaling:   10 
-        SumPositive:
-            color: seismic_rms
-            type:  diverging
-            auto_scaling:   10 
-        SumNegative:
-            color:   seismic_rms
-            type:  diverging
-            auto_scaling:   10
         RMS:
             color:   Purples
             type:  positive
-            auto_scaling:   8 
-        Value:
-            color:   seismic_rms
-            type:  diverging
-            auto_scaling:   10 
-        max:
-            color: seismic_rms
-            type:  diverging
-            auto_scaling:   10 
-        Max:
-            color: seismic_rms
-            type:  diverging
-            auto_scaling:   10   
-        Average:
-            color: seismic_rms
-            type:  diverging
-            auto_scaling:   10
+            auto_scaling:   8  
             
 well_colors:
     default: black
@@ -59,7 +27,7 @@ polygon_colors:
     owc_outline: lightslategray
     goc_outline: red
     field_outline: lightslategray
-    faults: gray  
+    faults: black  
         
 date_labels:
     20190912: PRM19aut

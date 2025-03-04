@@ -43,7 +43,6 @@ LOGGER = logging.getLogger(__name__)
 MAX_ITEMS = 9000
 
 SMDA_API = "https://api.gateway.equinor.com/smda/v2.0/smda-api/"
-# POZO_API = "https://wfmwellapiprod.azurewebsites.net/"
 SSDL_API = "https://api.gateway.equinor.com/subsurfacedata/v3/api/v3.0/"
 PDM_API = "https://api.gateway.equinor.com/pdm-internal-api/v3/api"
 
@@ -53,9 +52,6 @@ class ProviderImplFile(wb.WellboreProvider):
         if db_name == "SMDA":
             self.smdahandle = smda_connect(omnia_path)
             self.smda_address = wb.SmdaAddress(api=SMDA_API, session=self.smdahandle)
-        # elif db_name == "POZO":
-        #     self.pozohandle = pozo_connect(omnia_path)
-        #     self.pozo_address = wb.PozoAddress(api=POZO_API, session=self.pozohandle)
         elif db_name == "SSDL":
             self.ssdlhandle = ssdl_connect(omnia_path)
             self.ssdl_address = wb.SsdlAddress(api=SSDL_API, session=self.ssdlhandle)

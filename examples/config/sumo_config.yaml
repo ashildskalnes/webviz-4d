@@ -5,13 +5,13 @@ shared_settings:
     field_name: Johan Sverdrup  
     sumo:
         env_name: prod
-        case_name: 24p3p0_histandpred_ff_20240227
+        case_name: 25p0p3_histandpred_ff_16022025
         sumo_surfaces: True
     auto4d:
     osdu:
     fmu:
  
-    label: Model 24.3.0 SUMO
+    label: Model 25.0.3 SUMO
     
     observed_maps: 
         realization_names: ["*"]                  

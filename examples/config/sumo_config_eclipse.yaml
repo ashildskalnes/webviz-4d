@@ -5,14 +5,14 @@ shared_settings:
     field_name: Johan Sverdrup  
     sumo:
         env_name: prod
-        case_name: 24p3p0_histandpred_ff_20240227
+        case_name: 24p12p4_histandpred_ff_20240922
         sumo_surfaces: True
     auto4d:
     osdu:
     fmu:
- 
-    label: Model 24.3.0 SUMO 
-    
+  
+    label: Model 24.12.4 SUMO 
+      
     observed_maps: 
         realization_names: ["*"]                  
         iteration_names: [pred]                                   
@@ -45,7 +45,7 @@ shared_settings:
     production_data: &production_data SUMO 
     polygons_folder: &polygons_folder SUMO
     colormaps_folder: &colormaps_folder ../colormaps/
-    settings_file: &settings ../settings.yaml
+    settings_file: &settings ../settings.yaml   
     interval_mode: &interval_mode normal
                 
 # ------------------------------ 

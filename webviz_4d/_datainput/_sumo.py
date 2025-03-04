@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from fmu.sumo.explorer import Explorer
 from fmu.sumo.explorer.objects.case import Case
 from fmu.sumo.explorer.objects.polygons import Polygons
 from fmu.sumo.explorer.timefilter import TimeType, TimeFilter
@@ -123,7 +122,6 @@ def get_tag_values(surfaces, tag_name):
 
 
 def load_sumo_observed_metadata(my_case):
-    # time filter for intervals
     field_name = my_case.field
     time = TimeFilter(time_type=TimeType.INTERVAL)
 
@@ -870,22 +868,10 @@ def get_sumo_tagname(metadata, name, seismic, attribute, difference, interval_li
     return tagname
 
 
-def get_sumo_metadata(config, field_name):
-    shared_settings = config.get("shared_settings")
-    interval_mode = shared_settings.get("interval_mode")
-
-    sumo_settings = shared_settings.get("sumo")
-    env_name = sumo_settings.get("env_name")
-    case_name = sumo_settings.get("case_name")
-
-    print()
-    print("Searching for seismic 4D attribute in sumo case:", case_name, " ...")
-
-    sumo = Explorer(env=env_name, keep_alive="20m")
-    cases = sumo.cases.filter(name=case_name)
-    my_case = cases[0]
+def get_sumo_metadata(my_case):
 
     metadata = load_sumo_observed_metadata(my_case)
+    interval_mode = "normal"
     selection_list = create_sumo_lists(metadata, interval_mode)
 
-    return metadata, selection_list, my_case
+    return metadata, selection_list

@@ -5,11 +5,11 @@ shared_settings:
     field_name: Johan Sverdrup  
     sumo:
         env_name: prod
-        case_name: 24p12p4_histandpred_ff_20240922
+        case_name: 25p0p3_histandpred_ff_16022025
     auto4d:
     osdu:
     fmu:
-        directory: /scratch/johan_sverdrup2/share/24p12p4/24p12p4_histandpred_ff_20240922 
+        directory: /scratch/johan_sverdrup2/share/25p0p3/25p0p3_histandpred_ff_16022025
         observed_maps: 
             realization_names: ["*"]                  
             iteration_names: [pred]                                   
