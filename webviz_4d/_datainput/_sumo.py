@@ -7,6 +7,25 @@ from fmu.sumo.explorer.timefilter import TimeType, TimeFilter
 from webviz_4d._datainput._metadata import get_realization_id
 
 
+def get_sumo_case(sumo_exp, sumo_case_name):
+    try:
+        cases = sumo_exp.cases.filter(name=sumo_case_name).single
+        my_case = cases[0]
+    except:
+        cases = sumo_exp.cases.filter(name=sumo_case_name)
+        my_case = None
+
+        for case in cases:
+            iteration_names = case.overview.get("iteration_names")
+
+            if len(iteration_names) > 0:
+                my_case = case
+                print("WARNING: Multiple cases found, selected id=:", my_case.uuid)
+                break
+
+    return my_case
+
+
 def sort_intervals(intervals):
     t1_list = []
     t2_list = []
