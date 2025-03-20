@@ -8,7 +8,11 @@ from fmu.sumo.explorer import Explorer
 from webviz_4d._datainput._sumo import get_sumo_case
 
 
-producer_types = {"oil": ["oil", "gas", "water"], "gas": ["gas", "water"]}
+producer_types = {
+    "oil": ["oil", "gas", "water"],
+    "gas": ["gas", "water"],
+}
+
 production_limit_values = {"oil": 0, "gas": 0}
 
 prod_fluid_keys = {
@@ -73,6 +77,7 @@ def get_production_data(summary_df, interval_dates, producer_type):
 
         # Select only wells with an interval production volume above the wanted production limit
         if fluid_volume > volume_limit:
+            well_status = False
             key_volume = {producer_type: fluid_volume}
             well_volumes.append(key_volume)
 
@@ -87,8 +92,20 @@ def get_production_data(summary_df, interval_dates, producer_type):
                 additional_key_volume = {fluid: additional_volume}
                 well_volumes.append(additional_key_volume)
 
-            # Create a dictionary with the interval volumes for all wells and all relevant fluids
-            prod_volumes[well_name] = well_volumes
+            # If producer type == gas and oil_volumes > 0, the well is not a gas producer
+            if producer_type == "gas":
+                oil_column_name = prod_fluid_keys.get("oil") + ":" + ecl_name
+                oil_column = selected_rows.select(pl.col(oil_column_name))
+                oil_volume = oil_column.item(1, 0) - oil_column.item(0, 0)
+
+                if oil_volume == 0:
+                    well_status = True
+            else:
+                well_status = True
+
+            # Update the dictionary with the interval volumes for all wells and all relevant fluids
+            if well_status:
+                prod_volumes[well_name] = well_volumes
 
     return prod_volumes
 
@@ -97,6 +114,9 @@ def main():
     description = "Check SUMO production data"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("sumo_name")
+    parser.add_argument("time0")
+    parser.add_argument("time1")
+    parser.add_argument("producer_type")
     args = parser.parse_args()
 
     sumo_exp = Explorer(env="prod")
@@ -108,7 +128,7 @@ def main():
     print(my_case.field)
     print(my_case.status)
     print(my_case.user)
-    print("Loading production data from SUMO")
+    print("Loading production data from SUMO ...")
 
     iteration = [it.name for it in my_case.iterations][0]
 
@@ -119,8 +139,8 @@ def main():
     ecl_table = table.to_arrow()
     summary_df = pl.from_arrow(ecl_table)
 
-    interval_dates = ["2019-10-01", "2020-10-01"]
-    producer_type = "oil"
+    interval_dates = [args.time0, args.time1]
+    producer_type = args.producer_type
 
     oil_well_interval_volumes = get_production_data(
         summary_df, interval_dates, producer_type
@@ -128,6 +148,7 @@ def main():
 
     print()
     print("Interval:", interval_dates[1], "-", interval_dates[0])
+    print("Producer type", args.producer_type)
     pprint(oil_well_interval_volumes)
 
 
