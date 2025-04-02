@@ -284,8 +284,15 @@ def extract_planned_trajectories(smda_address, metadata, wellbore_name):
             trajectory_df = extract_data(
                 smda_address.session, endpoint, selection, filter
             )
-            trajectory_df = trajectory_df[columns]
-            frames.append(trajectory_df)
+
+            if not trajectory_df.empty:
+                trajectory_df = trajectory_df[columns]
+                frames.append(trajectory_df)
+            else:
+                print(
+                    "WARNING: No trajectory found for",
+                    row["unique_wellbore_identifier"],
+                )
 
         trajectories_df = pd.concat(frames)
 
