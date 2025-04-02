@@ -5,13 +5,13 @@ shared_settings:
     field_name: Johan Sverdrup  
     sumo:
         env_name: prod
-        case_name: 23p20p0_histandpred_ff_20230917
+        case_name: 25p0p3_histandpred_ff_16022025
         sumo_surfaces: True
     auto4d:
     osdu:
     fmu:
  
-    label: Model 23.20.0 SUMO
+    label: Model 25.0.3 SUMO
     
     observed_maps: 
         realization_names: ["*"]                  
@@ -35,9 +35,9 @@ shared_settings:
     well_folder: &wellfolder SMDA  
     top_reservoir: 
         name: Draupne Fm. 1 JS Top 
-        tag_name: depth_structural_model
+        tag_name: depth_structural_model 
         iter: pred
-        real: realization-0 
+        real: realization-0     
         polygon_usage: 
             zones: True
             observed: True
@@ -74,7 +74,7 @@ layout:
         content:                     
           - page: Observed maps 
             content:
-              - SurfaceViewer4D: 
+              - SurfaceViewer4D:  
                   well_folder: *wellfolder 
                   production_data: *production_data
                   colormaps_folder: *colormaps_folder
@@ -86,12 +86,12 @@ layout:
                     data_source: sumo
                     difference_type: AttributeOfDifference
                     coverage: Full  
-                    attribute:  max              # Customize 
-                    name: total                     # Customize  
+                    attribute:  mean              # Customize 
+                    name: intra-upper_triassic_unconformity                     # Customize  
                     map_type: observed                          # Customize
-                    seismic: amplitude                            # Customize 
-                    difference:  NotTimeshifted                # Customize     
-                    interval: 2021-05-15-2020-10-01    
+                    seismic: timeshift                            # Customize 
+                    difference:  ---                # Customize     
+                    interval: 2024-05-15-2020-10-01    
                   map2_defaults: 
                     data_source: sumo
                     difference_type: AttributeOfDifference
