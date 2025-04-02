@@ -1,5 +1,5 @@
 # Configuration file: config.yaml    
-title: WebViz-4D SUMO                                
+title: WebViz-4D QC                                
 
 shared_settings: 
     field_name: Johan Sverdrup  
@@ -47,6 +47,7 @@ shared_settings:
     colormaps_folder: &colormaps_folder ../colormaps/
     settings_file: &settings ../settings.yaml
     interval_mode: &interval_mode normal
+    default_interval: 2023-09-15-2020-10-01 
                 
 # ------------------------------ 
 options:
@@ -113,5 +114,12 @@ layout:
                     difference: NotTimeshifted                  # Customize     
                     interval: 2023-05-15-2022-05-15                           
               
- 
+      - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./sumo_config.yaml  
       

@@ -39,7 +39,7 @@ shared_settings:
     basic_well_layers:
         planned: Planned wells 
         drilled_wells: Drilled wells                        
-        reservoir_sections: Reservoir sections   
+        reservoir_section: Reservoir sections   
           
     additional_well_layers:      
         production: Producers                                     
@@ -86,7 +86,7 @@ layout:
       - group: Timelapse maps 
         icon: layers
         content:                    
-          - page: Observed maps  
+          - page: Observed and simulated maps 
             content: 
               - SurfaceViewer4D: 
                   well_folder: *wellfolder                
@@ -99,15 +99,15 @@ layout:
                   default_interval: 2022-05-15-2020-09-30                    
                   
                   map1_defaults:
-                    data_source: fmu
+                    data_source: sumo
                     difference_type: AttributeOfDifference
-                    coverage: Full
-                    attribute:  MaxPositive             # Customize
-                    name: FullReservoirEnvelope                     # Customize
-                    map_type: observed                          # Customize 
-                    seismic: Amplitude                          # Customize
-                    difference: NotTimeshifted
-                    interval: 2021-05-17-2020-09-30
+                    coverage: Full  
+                    attribute:  max              # Customize 
+                    name: total                     # Customize  
+                    map_type: observed                          # Customize
+                    seismic: amplitude                            # Customize 
+                    difference:  NotTimeshifted                # Customize     
+                    interval: 2021-05-15-2020-10-01
                   map2_defaults:
                     data_source: rddms
                     difference_type: AttributeOfDifference
@@ -119,13 +119,13 @@ layout:
                     difference: NotTimeshifted
                     interval: 2021-05-17-2020-09-30
                   map3_defaults:
-                    data_source: rddms
+                    data_source: osdu
                     difference_type: AttributeOfDifference
                     coverage: Full
-                    attribute:  Average             # Customize
-                    name: Total                     # Customize
-                    map_type: simulated                          # Customize 
-                    seismic: SWAT                          # Customize
+                    attribute:  MaxPositive             # Customize
+                    name: FullReservoirEnvelope                     # Customize
+                    map_type: observed                          # Customize 
+                    seismic: Amplitude                          # Customize
                     difference: NotTimeshifted
                     interval: 2021-05-17-2020-09-30  
                     
@@ -136,6 +136,6 @@ layout:
           - page: How was this made
             content:
               - SyntaxHighlighter:
-                  filename: ./multi_fmu_rddms_rddms.yaml
+                  filename: ./multi_sumo_rddms_osdu.yaml
  
       

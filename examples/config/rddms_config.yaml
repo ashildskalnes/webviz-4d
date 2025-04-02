@@ -1,4 +1,4 @@
-title: Webviz-4D RDDMS                            # Customize
+title: Webviz-4D QC                            # Customize
 
 shared_settings:
     field_name: JOHAN SVERDRUP 
@@ -7,6 +7,7 @@ shared_settings:
         env_name: prod
         case_name: 24p12p4_histandpred_ff_20240922  
     rddms:
+        schema_file: seismic_attribute_interpretation_042_schema.json
         dataspace: JS/Soumik_2
         difference_type: AttributeOfDifference
         coverage: Full
@@ -102,5 +103,14 @@ layout:
                     seismic: SWAT                          # Customize
                     difference: NotTimeshifted
                     interval: 2021-05-17-2020-09-30
+                    
+      - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./rddms_config.yaml 
  
       

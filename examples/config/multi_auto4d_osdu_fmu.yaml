@@ -1,4 +1,4 @@
-title: Webviz-4D OSDU                            # Customize
+title: Webviz-4D QC                            # Customize
 
 shared_settings:
     field_name: JOHAN SVERDRUP 
@@ -39,7 +39,7 @@ shared_settings:
     basic_well_layers:
         planned: Planned wells 
         drilled_wells: Drilled wells                        
-        reservoir_section: Reservoir sections   
+        reservoir_sections: Reservoir sections   
           
     additional_well_layers:      
         production: Producers                                     
@@ -129,6 +129,15 @@ layout:
                     map_type: observed                          # Customize
                     seismic:  amplitude                       # Customize 
                     difference: NotTimeshifted                  # Customize      
-                    interval: 2021-05-15-2020-10-01         
+                    interval: 2021-05-15-2020-10-01  
+                    
+      - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./multi_auto4d_osdu_fmu.yaml       
  
       

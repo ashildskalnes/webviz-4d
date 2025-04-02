@@ -1,6 +1,4 @@
-from dotenv import load_dotenv
-import pandas as pd  # type: ignore
-import numpy as np  # type: ignore
+import os
 import argparse
 from pprint import pprint
 import warnings
@@ -22,7 +20,10 @@ def main():
 
     selected_dataspace = args.dataspace.replace("/", "%2F")
 
-    rddms_service = DefaultRddmsService()
+    schema_dir = "./examples"
+    schema_file = "seismic_attribute_interpretation_042_schema.json"
+    schema_file = os.path.join(schema_dir, schema_file)
+    rddms_service = DefaultRddmsService(schema_file)
     object_type = "resqml20.obj_Grid2dRepresentation"
 
     # List the available data space(s)

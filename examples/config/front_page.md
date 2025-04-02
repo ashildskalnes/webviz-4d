@@ -1,27 +1,25 @@
-### Welcome to the webviz-4D example application
+### Welcome to the Webviz-4D QC application
 
-Welcome to this example application, which is based on an openly available
-[Reek output test dataset](https://github.com/equinor/webviz-subsurface-testdata)
-and [Webviz-4D](https://github.com/equinor/webviz-config).
+This version is developed as QC tool for loading 4D attribute maps from different data sources. The currently possible data sources are:
 
-#### User groups targeted by Webviz
-
-These are the main user groups targeted by [*Webviz*]((https://github.com/equinor/webviz-config)):
-
-  - **You only want to go to a web page**
-    - ...and see the results from your project. Ask one person belonging to the next
-      user group to set it up for your project.
-  - **You do not know scripting**
-    - ...and only want to add different predefined dashboards or
-      visualizations/components in a certain order and/or on different pages in the
-      application. Optionally with some text and mathematical equations (that you provide)
-      inbetween the  dashboards, explaining what the user is looking at.
-  - **You know [Python](https://www.python.org/)**
-    - ..and want to create generic or specialized dashboards you or other users can reuse
-      by simply asking for it in the Webviz configuration file. This can be done without
-      knowing JavaScript (see also [Dash](https://plot.ly/dash/) for more information).
-  - **You know [React](https://reactjs.org/)**
-    - ..and want to create highly specialized visualization which Python
-      or pure config-file users can reuse.
+##### fmu
+    - Searching for attribute maps with metadata defined by fmu-datio
+    - Loading attribute maps from on-premise disk files created by an FMU execution (file format: xtgeo binary)
+    
+##### sumo
+    - Searching for attribute maps with metadata defined by fmu-datio
+    - Loading attribute maps in SUMO created and uploaded by an FMU execution (file format: xtgeo BytesIO blob)
   
-
+##### auto4d_file
+    - Searching for attribute maps with metadata defined by auto4d and or decoding from Openworks object names
+    - Loading attribute maps from on-premise disk files copied from OpenWorks by auto4d (file format: xtgeo binary)
+    
+##### osdu
+    - Searching for attribute maps with metadata defined by SeismicAttributeInterpretation 0.4.2 schema 
+    - Metadata ingested by auto4d (created by auto4d and/or decoding from Openworks object names)
+    - Loading attribute maps in OSDU Core (file format: xtgeo BytesIO blob)
+    
+##### rddms
+    - Searching for attribute maps with metadata defined by defined by SeismicAttributeInterpretation 0.4.2 schema
+    - Metadata from manually created json-files
+    - Loading attribute maps in OSDU RDDMS (file format: resqml/json)

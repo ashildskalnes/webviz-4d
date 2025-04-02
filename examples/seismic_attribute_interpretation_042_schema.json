@@ -1,0 +1,366 @@
+{
+  "x-osdu-inheriting-from-kind": [],
+  "x-osdu-license": "Copyright 2021, The Open Group \\nLicensed under the Apache License,\n             Version 2.0 (the \"License\"); you may not use this file except in compliance with the License. \n             You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 .\n             Unless required by applicable law or agreed to in writing, \n             software distributed under the License is distributed on an \"AS IS\" BASIS, \n             WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, \n             either express or implied. \n             See the License for the specific language governing permissions and limitations under the License.",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "x-osdu-schema-source": "eqnr:cns-api:seismic-attribute-interpretation:0.4.2",
+  "description": "description.",
+  "title": "seismic-attribute-interpretation",
+  "type": "object",
+  "x-osdu-review-status": "Accepted",
+  "required": [
+    "kind",
+    "acl",
+    "legal"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "osdu:wks:AbstractAccessControlList:1.0.0": {
+      "x-osdu-inheriting-from-kind": [],
+      "x-osdu-license": "Copyright 2022, The Open Group \\nLicensed under the Apache License, Version 2.0 (the \"License\"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 . Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.",
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "x-osdu-schema-source": "osdu:wks:AbstractAccessControlList:1.0.0",
+      "description": "The access control tags associated with this entity. This structure is included by the SystemProperties \"acl\", which is part of all OSDU records. Not extensible.",
+      "additionalProperties": false,
+      "title": "Access Control List",
+      "type": "object",
+      "properties": {
+        "viewers": {
+          "description": "The list of viewers to which this data record is accessible/visible/discoverable formatted as an email (core.common.model.storage.validation.ValidationDoc.EMAIL_REGEX).",
+          "title": "List of Viewers",
+          "type": "array",
+          "items": {
+            "pattern": "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$",
+            "type": "string"
+          }
+        },
+        "owners": {
+          "description": "The list of owners of this data record formatted as an email (core.common.model.storage.validation.ValidationDoc.EMAIL_REGEX).",
+          "title": "List of Owners",
+          "type": "array",
+          "items": {
+            "pattern": "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$",
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "owners",
+        "viewers"
+      ],
+      "$id": "https://schema.osdu.opengroup.org/json/abstract/AbstractAccessControlList.1.0.0.json"
+    },
+    "osdu:wks:AbstractLegalTags:1.0.0": {
+      "x-osdu-inheriting-from-kind": [],
+      "x-osdu-license": "Copyright 2022, The Open Group \\nLicensed under the Apache License, Version 2.0 (the \"License\"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 . Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.",
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "x-osdu-schema-source": "osdu:wks:AbstractLegalTags:1.0.0",
+      "description": "Legal meta data like legal tags, relevant other countries, legal status. This structure is included by the SystemProperties \"legal\", which is part of all OSDU records. Not extensible.",
+      "additionalProperties": false,
+      "title": "Legal Meta Data",
+      "type": "object",
+      "properties": {
+        "legaltags": {
+          "description": "The list of legal tags, which resolve to legal properties (like country of origin, export classification code, etc.) and rules with the help of the Compliance Service.",
+          "title": "Legal Tags",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "otherRelevantDataCountries": {
+          "description": "The list of other relevant data countries as an array of two-letter country codes, see https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2.",
+          "title": "Other Relevant Data Countries",
+          "type": "array",
+          "items": {
+            "pattern": "^[A-Z]{2}$",
+            "type": "string"
+          }
+        },
+        "status": {
+          "pattern": "^(compliant|uncompliant)$",
+          "description": "The legal status. Set by the system after evaluation against the compliance rules associated with the \"legaltags\" using the Compliance Service.",
+          "title": "Legal Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "legaltags",
+        "otherRelevantDataCountries"
+      ],
+      "$id": "https://schema.osdu.opengroup.org/json/abstract/AbstractLegalTags.1.0.0.json"
+    }
+  },
+  "properties": {
+    "modifyUser": {
+      "description": "The user reference, which created this version of this resource object. Set by the System.",
+      "title": "Resource Object Version Creation User Reference",
+      "type": "string",
+      "example": "some-user@some-company-cloud.com"
+    },
+    "modifyTime": {
+      "format": "date-time",
+      "description": "Timestamp of the time at which this version of the OSDU resource object was created. Set by the System. The value is a combined date-time string in ISO-8601 given in UTC.",
+      "title": "Resource Object Version Creation DateTime",
+      "type": "string",
+      "example": "2020-12-16T11:52:24.477Z"
+    },
+    "data": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "HorizonSourceIDs": {
+              "examples": [
+                "23588",
+                "19574"
+              ],
+              "description": "ID(s) of the inout seismic horizons - as is in the source datastore",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "MapTypeDimension": {
+              "description": "Discriminate between 3D/4D attribute maps",
+              "type": "string",
+              "example": "4D (Auto4D*)"
+            },
+            "StratigraphicZone": {
+              "description": "Name of stratigraphic zone - if AttributeWindowMode is BetweenHorizons OR Name of Horizon -  if SeismicTraceAttribute is Timeshift",
+              "type": "string",
+              "example": "FullReservoirEnvelope (Auto4D*)"
+            },
+            "StratigraphicColumn": {
+              "description": "Name of 'official' Stratigraphic column in SMDA",
+              "type": "string",
+              "example": "JOHAN SVERDRUP 2015"
+            },
+            "SeismicTraceDataSource": {
+              "description": "Name of the datastore where the seismic cube(s) are loaded (OpenWorks/OSDU/\u2026)",
+              "type": "string",
+              "example": "OpenWorks"
+            },
+            "Name": {
+              "description": "Original name from source or output from Auto4d",
+              "type": "string",
+              "example": "4D_JS_FulRes_24sp-20au_F_Quad_TS_0535_RMS"
+            },
+            "MetadataVersion": {
+              "type": "string",
+              "example": "0.4.2"
+            },
+            "AttributeWindowMode": {
+              "description": "Config/Auto4d (AroundHorizon/BetweenHorizon/FixedWindow)",
+              "type": "string",
+              "example": "BetweenHorizons (Auto4D)"
+            },
+            "SeismicTraceAttribute": {
+              "description": "Description of the content in the input seismic cubes. Ideally this information should be available as metadata for the cubes, but if not it might be decoded from input names (Amplitude/Quadrature/RelativeAcousticImpedance/Timeshift/Timestrain/ExtendedElasticInversion/\u2026)",
+              "type": "string",
+              "example": "Quadrature (Auto4d)"
+            },
+            "FieldID": {
+              "description": "OSDU ID that corresponds to the FieldName in the master-data--Field object",
+              "type": "string"
+            },
+            "HorizonDataSource": {
+              "description": "Name of the datastore where the seismic horizon(s) are loaded (OpenWorks/OSDU/\u2026). If the AttributeWindowMode is Fixed Window the value is NULL",
+              "type": "string",
+              "example": "OpenWorks (Auto4d)"
+            },
+            "FieldName": {
+              "description": "Official field name",
+              "type": "string",
+              "example": "JOHAN SVERDRUP"
+            },
+            "FixedWindowValues": {
+              "description": "Top and bottom window values - if AttributeWindowMode is Fixed Window",
+              "type": "array",
+              "items": {
+                "type": [
+                  "null",
+                  "number"
+                ]
+              }
+            },
+            "AttributeExtractionType": {
+              "description": "Attribute extraction name (Min/Max/MaxPos/MaxNeg/MaxAbs/RMS/Mean/MeanAbs/MeanPos/MeanNeg/Var/SumPos/SumNeg/SumAbs/Value ...)",
+              "type": "string",
+              "example": "RMS (Auto4d)"
+            },
+            "OsduSeismicTraceNames": {
+              "examples": [
+                "EQ24XXXDZC24A-KPSDM-RAW-FULL-0535-TIME",
+                "EQ20231DZC23A-KPSDM-RAW-FULL-0535-TIME"
+              ],
+              "description": "Name of the original seismic cube(s) from a seismic processing project. These might be the same as the SeismicTraceDataSourceNames if the SeismicTraceAttribute is Amplitude.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "SeismicTraceDataSourceNames": {
+              "examples": [
+                "EQ24XXXDZC24A-QUADR-FULL-0535-TIME",
+                "EQ20231DZC23A-QUADR-FULL-0535-TIME"
+              ],
+              "description": "Name of the seismic cube(s) used as input to attribute extraction",
+              "type": "array",
+              "items": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            },
+            "SeismicBingrid_id": {
+              "description": "OSDU ID of the SeismicBinGrid object (work-product-component--SeismicBinGrid)",
+              "type": "string"
+            },
+            "ApplicationName": {
+              "description": "Name of the 'application' doing the OSDU ingestion (Auto4d/SDD/\u2026)",
+              "type": "string",
+              "example": "Auto4D"
+            },
+            "SeismicDifferenceType": {
+              "description": "If the 4D attribute map is created from a seismic difference cube it is important to know if one of the input cubes has ben timeshifted or not so the value options are Timeshifted/NotTimeshifted. In case the SeismicTraceAttribute is Timeshift or Timestrain, the value is NULL.",
+              "type": "string",
+              "example": "Timeshifted (Auto4D*)"
+            },
+            "SeismicTraceIDs": {
+              "description": "OSDU IDs of the OsduSeismicTraceNames objects",
+              "type": "array",
+              "items": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            },
+            "SeismicHorizonsIDs": {
+              "description": "OSDU IDs of the objects in HorizonSourceNames (either already  in OSDU or to be ingested by Auto4d))",
+              "type": "array",
+              "items": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            },
+            "HorizonSourceNames": {
+              "examples": [
+                "3D+TAasgard+JS+Z22+Merge_EQ20231_PH2DG3",
+                "3D+IUTU+JS+Z22+Merge_EQ20231_PH2DG3"
+              ],
+              "description": "Name(s) of the inout seismic horizons - as is in the source datastore",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "HorizonOffsets": {
+              "examples": [
+                -10.1
+              ],
+              "description": "Offset(s) (msec/m) relative to the top and bottom horizons - if AttributeWindowMode is BetweenHorizons or AroundHorizon",
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "SeismicBinGridName": {
+              "description": "Name of OSDU SeismicBinGrid",
+              "type": "string",
+              "example": "EQ19231"
+            },
+            "AttributeDifferenceType": {
+              "description": "A 4D attritbue map can either be created as an attribute of a seismic difference cube (AttributOfDifference) or as the difference between two 3D attribute maps (DifferenceOfAttribute)",
+              "type": "string",
+              "example": "AttributOfDifference (Auto4D)"
+            },
+            "SeismicTraceDataSourceIDs": {
+              "description": "ID of  the seismic cube(s) used as input to attribute extraction",
+              "type": "array",
+              "items": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            },
+            "SeismicTraceDomain": {
+              "description": "Vertical domain (Time/Depth)",
+              "type": "string",
+              "example": "Time (Auto4D)"
+            },
+            "SeismicCoverage": {
+              "description": "If both seismic cubes are covering the full extent of the defined survey area, the value is Full. If one ore both of the cubes have holes (dead traces), the value is Masked. If one or both of the cubes originally had holes that have been padded with traces from another acquisition, the value is Padded.",
+              "type": "string",
+              "example": "Full (Auto4D*)"
+            },
+            "AcitivityModelID": {
+              "description": "OSDU ID of the Activity object created by Auto4d (work-product-component--Activity)",
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "createTime": {
+      "format": "date-time",
+      "description": "Timestamp of the time at which initial version of this OSDU resource object was created. Set by the System. The value is a combined date-time string in ISO-8601 given in UTC.",
+      "title": "Resource Object Creation DateTime",
+      "type": "string",
+      "example": "2020-12-16T11:46:20.163Z"
+    },
+    "kind": {
+      "pattern": "^[\\w\\-\\.]+:[\\w\\-\\.]+:[\\w\\-\\.]+:[0-9]+.[0-9]+.[0-9]+$",
+      "description": "The schema identification for the OSDU resource object following the pattern {Namespace}:{Source}:{Type}:{VersionMajor}.{VersionMinor}.{VersionPatch}. The versioning scheme follows the semantic versioning, https://semver.org/.",
+      "title": "Entity Kind",
+      "type": "string",
+      "example": "osdu:wks:master-data--example:1.0.0"
+    },
+    "legal": {
+      "description": "The entity's legal tags and compliance status. The actual contents associated with the legal tags is managed by the Compliance Service.",
+      "title": "Legal Tags",
+      "$ref": "#/definitions/osdu:wks:AbstractLegalTags:1.0.0"
+    },
+    "createUser": {
+      "description": "The user reference, which created the first version of this resource object.Set by the System.",
+      "title": "Resource Object Creation User Reference",
+      "type": "string",
+      "example": "some-user@some-company-cloud.com"
+    },
+    "id": {
+      "pattern": "^[\\w\\-\\.]+:poststack2ddatasets:[\\w\\-\\.\\:\\%]+$",
+      "description": "",
+      "title": "Entity ID",
+      "type": "string",
+      "example": "10eb81ca-424c-53b8-b635-4b7f562ab3ea"
+    },
+    "acl": {
+      "description": "The access control tags associated with this entity.",
+      "title": "Access Control List",
+      "$ref": "#/definitions/osdu:wks:AbstractAccessControlList:1.0.0"
+    },
+    "version": {
+      "format": "int64",
+      "description": "The version number of this OSDU resource; set by the framework.",
+      "title": "Version Number",
+      "type": "integer",
+      "example": 1562066009929332
+    },
+    "tags": {
+      "description": "A generic dictionary of string keys mapping to string value. Only strings are permitted as keys and values.",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Tag Dictionary",
+      "type": "object",
+      "example": {
+        "NameOfKey": "String value"
+      }
+    }
+  },
+  "$id": "https://schema.osdu.equinor.com/json/seismic-attribute-interpretation.0.4.2.json"
+}

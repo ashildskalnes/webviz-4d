@@ -5,8 +5,6 @@ import xtgeo
 from webviz_4d._datainput._auto4d import get_auto4d_filename
 from webviz_4d._datainput._fmu import get_fmu_filename
 from webviz_4d._datainput._sumo import (
-    create_sumo_lists,
-    load_sumo_observed_metadata,
     get_sumo_interval_list,
     get_selected_surface,
     get_sumo_tagname,

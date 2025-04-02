@@ -46,7 +46,7 @@ def load_cached_data(cache_file_name):
         filetime = datetime.fromtimestamp(path.getctime(cache_file_name))
 
         if filetime > one_day_ago:
-            print("  - Loading metadata from file cache:", cache_file_name)
+            print(" - Reading metadata from file cache:", cache_file_name)
             metadata = pd.read_csv(cache_file_name)
 
             return metadata
@@ -55,7 +55,7 @@ def load_cached_data(cache_file_name):
 
 
 def load_smda_metadata(provider, field):
-    print(" - Loading drilled well metadata from SMDA ...")
+    print("Loading drilled well metadata from SMDA ...")
 
     # Check file cache
     api = "SMDA"
@@ -71,13 +71,13 @@ def load_smda_metadata(provider, field):
 
         dataframe = metadata.dataframe
         dataframe.to_csv(cache_file_name)
-        print("  - Storing metadata to file cache:", cache_file_name)
+        print(" - Storing metadata to file cache:", cache_file_name)
 
     return dataframe
 
 
 def load_smda_wellbores(provider, field):
-    print(" - Loading drilled well trajectories from SMDA ...")
+    print("Loading drilled well trajectories from SMDA ...")
 
     # Check file cache
     api = "SMDA"
@@ -93,10 +93,10 @@ def load_smda_wellbores(provider, field):
 
         dataframe = trajectories.dataframe
         dataframe.to_csv(cache_file_name)
-        print("  - Storing metadata to file cache:", cache_file_name)
+        print(" - Storing metadata to file cache:", cache_file_name)
 
     unique_wellbores = dataframe["unique_wellbore_identifier"].unique()
-    print("  - Drilled wellbores:", len(unique_wellbores))
+    print(" - Wellbore trajectories:", len(unique_wellbores))
 
     return dataframe
 
@@ -172,10 +172,12 @@ def create_basic_well_layers(
     well_colors,
 ):
     basic_well_layers = []
-    print("Creating basic well layers ...")
+    print("Creating basic well layers")
 
     for key, value in basic_well_layers_dict.items():
         layer_name = key
+        print(" - ", layer_name)
+
         label = value
         color = well_colors.get(layer_name, None)
 
@@ -202,7 +204,6 @@ def create_basic_well_layers(
             trajectories = drilled_wells_df
 
         for row in metadata.iterrows():
-            # print(row)
             status = False
 
             df = row[1]

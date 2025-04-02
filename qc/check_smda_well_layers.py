@@ -1,22 +1,20 @@
 import os
 import argparse
 import pandas as pd
-import xtgeo
 from pathlib import Path
 from pprint import pprint
+import warnings
 
 from fmu.sumo.explorer import Explorer
 
 from webviz_4d._datainput.common import (
     read_config,
     get_well_colors,
-    get_default_interval,
 )
 
 from webviz_4d._datainput.well import (
     load_smda_metadata,
     load_smda_wellbores,
-    load_planned_wells,
     create_basic_well_layers,
     create_pdm_well_layer,
     create_pdm_well_layer,
@@ -28,86 +26,16 @@ from webviz_4d._providers.wellbore_provider._provider_impl_file import (
     ProviderImplFile,
 )
 
-from webviz_4d._datainput._sumo import (
-    create_selector_lists,
-    get_realization_surface,
-    get_aggregated_surface,
-)
-
+from webviz_4d._datainput._sumo import get_sumo_metadata
+from webviz_4d._datainput._surface import get_top_res_surface
 import webviz_4d._providers.wellbore_provider.wellbore_provider as wb
 
-import warnings
 
 warnings.filterwarnings("ignore")
 
 
 def get_path(path) -> Path:
     return Path(path)
-
-
-def get_sumo_top_res_surface(sumo_case, surface_info):
-    surface = None
-
-    if surface_info is not None:
-        name = surface_info.get("name")
-        tagname = surface_info.get("tag_name")
-        iter_name = surface_info.get("iter")
-        real = surface_info.get("real")
-        time_interval = [False, False]
-
-        print("Load top reservoir surface from SUMO:", name, tagname, iter_name, real)
-
-        if "realization" in real:
-            real_id = real.split("-")[1]
-            surface = get_realization_surface(
-                case=sumo_case,
-                surface_name=name,
-                attribute=tagname,
-                time_interval=time_interval,
-                iteration_name=iter_name,
-                realization=real_id,
-            )
-        else:
-            surface = get_aggregated_surface(
-                case=sumo_case,
-                surface_name=name,
-                attribute=tagname,
-                time_interval=time_interval,
-                iteration_name=iter_name,
-                operation=real,
-            )
-
-    if surface:
-        return surface.to_regular_surface()
-    else:
-        print(
-            "ERROR: Top reservoir surface not loaded from SUMO",
-        )
-        return None
-
-
-def get_top_res_surface(surface_info, sumo_case):
-    if sumo_case:
-        surface = get_sumo_top_res_surface(sumo_case, surface_info)
-    else:
-        surface = get_top_res_surface_file(surface_info)
-
-    return surface
-
-
-def get_top_res_surface_file(surface_info):
-    if surface_info is not None:
-        name = surface_info.get("file_name")
-        print("Load top reservoir surface:", name)
-
-        if os.path.isfile(name):
-            return xtgeo.surface_from_file(name)
-        else:
-            print("ERROR: File not found")
-            return None
-    else:
-        print("WARNING: Top reservoir surface not defined")
-        return None
 
 
 def main():
@@ -184,24 +112,24 @@ def main():
         well_colors,
     )
 
-    # print("Basic well layers")
-    # for layer in well_basic_layers:
-    #     data = layer.get("data")
-    #     print("  ", layer.get("name"), len(data))
+    print("Basic well layers")
+    for layer in well_basic_layers:
+        data = layer.get("data")
+        print("  ", layer.get("name"), len(data))
 
-    #     for well in data:
-    #         tooltip = well.get("tooltip")
-    #         if layer == "planned":
-    #             print("    ", tooltip)
-    #     print(layer.get("data")[0].get("tooltip"))
-    #     pprint(layer.get("data")[0].get("positions"))
+        for well in data:
+            tooltip = well.get("tooltip")
+            if layer == "planned":
+                print("    ", tooltip)
+        print(layer.get("data")[0].get("tooltip"))
+        pprint(layer.get("data")[0].get("positions"))
 
-    selectors = create_selector_lists(my_case, "timelapse")
+    metadata, selection_list, sumo_case = get_sumo_metadata(config)
     map_types = ["observed", "simulated"]
 
     # Load production data
     print("Loading production/injection data from PDM ...")
-    default_interval = get_default_interval(selection_list=selectors, options=map_types)
+    default_interval = shared_settings.get("")
     additional_well_layers = shared_settings.get("additional_well_layers")
 
     well_additional_layers = create_production_layers(

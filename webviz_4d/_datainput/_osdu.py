@@ -46,11 +46,11 @@ def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, covera
         dataset_id = selected_metadata["dataset_id"].values[0]
         map_name = selected_metadata["map_name"].values[0]
 
-        print(map_name, dataset_id)
-
         return dataset_id, map_name
     except:
         dataset_id = None
+        map_name = None
+
         print("WARNING: Selected map not found in OSDU. Selection criteria are:")
         print(map_type, real, ensemble, name, attribute, time1, time2)
 
@@ -83,12 +83,6 @@ def get_correct_list(name, raw_metatadata_items):
         metatadata_items = names_split
 
     if len(metatadata_items) == 1:
-        # print(name)
-        # print(
-        #     " - WARNING: Number of input seismic traces is",
-        #     len(metatadata_items),
-        # )
-
         nameA = metatadata_items[0]
         nameB = ""
 
@@ -127,9 +121,6 @@ def get_correct_list(name, raw_metatadata_items):
 def get_osdu_metadata_attributes(horizons):
     metadata_dicts = []
 
-    # print("Compiling all attribute data ...")
-    start_time = time.time()
-
     for horizon in horizons:
         if horizon:
             metadata_dicts.append(horizon.__dict__)
@@ -138,9 +129,6 @@ def get_osdu_metadata_attributes(horizons):
     columns = maps_df.columns
     new_columns = [col.replace("_", ".") for col in columns]
     maps_df.columns = new_columns
-
-    # print(" --- %s seconds ---" % (time.time() - start_time))
-    # print()
 
     maps_updated_df = maps_df.replace("", "---")
 
@@ -254,7 +242,7 @@ def convert_metadata(osdu_metadata):
             surface_names.append(zone)
             map_names.append(name)
         else:
-            print("WARNING: No time interval information found:", name)
+            print(" - WARNING: No time interval information found:", name)
 
     zipped_list = list(
         zip(
@@ -352,10 +340,6 @@ def get_osdu_metadata(config, osdu_service, field_name):
         metadata_version=metadata_version, field_name=field_name
     )
 
-    # print("Number of attribute maps:", len(attribute_horizons))
-    print()
-    print("Extracting all metadata ...")
-
     metadata = get_osdu_metadata_attributes(attribute_horizons)
     updated_metadata = osdu_service.update_reference_dates(metadata)
 
@@ -399,20 +383,19 @@ def load_surface_from_osdu(
     map_name = None
 
     if data_source == "osdu":
+        tic = time.perf_counter()
         osdu_service = DefaultOsduService()
         dataset_id, map_name = get_osdu_dataset_id(
             metadata, data, ensemble, real, map_type, coverage
         )
 
         if dataset_id:
-            tic = time.perf_counter()
             dataset = osdu_service.get_horizon_map(file_id=dataset_id)
             blob = io.BytesIO(dataset.content)
             surface = xtgeo.surface_from_file(blob)
             toc = time.perf_counter()
 
-    if surface is not None:
-        print_surface_info(map_idx, tic, toc, surface)
+            print_surface_info(map_idx, tic, toc, surface)
     else:
         metadata_values = [
             map_type,
