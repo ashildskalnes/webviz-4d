@@ -5,6 +5,7 @@ import os
 import polars as pl
 import pandas as pd
 import logging
+from pprint import pprint
 
 from fmu.sumo.explorer import Explorer
 
@@ -204,6 +205,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         )
 
         self.map_default_list = [map1_defaults, map2_defaults, map3_defaults]
+        print("DEBUG map1_defaults", map1_defaults)
         self.map_defaults = get_all_map_defaults(
             self.selection_lists, self.map_default_list
         )

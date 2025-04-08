@@ -1,4 +1,4 @@
-""" Collection of some functions used by the 4D viewer"""
+"""Collection of some functions used by the 4D viewer"""
 
 import io
 from pathlib import Path

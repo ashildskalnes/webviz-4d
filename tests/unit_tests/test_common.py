@@ -33,12 +33,13 @@ def test_well_colors():
 
 def test_get_plot_label():
     interval = "2020-10-01-2019-10-01"
-    plot_label = common.get_plot_label(settings, interval)
-    assert plot_label == "PRM1 - PRM0"
+    date_labels = settings.get("date_labels")
+    plot_label = common.get_plot_label(date_labels, interval)
+    assert plot_label == "PRM20aut - PRM19aut"
 
     interval = "2021-10-01-2019-10-01"
-    plot_label = common.get_plot_label(settings, interval)
-    assert plot_label == "PRM2 - PRM0"
+    plot_label = common.get_plot_label(date_labels, interval)
+    assert plot_label == "PRM21aut - PRM19aut"
 
 
 def test_get_last_date():

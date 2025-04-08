@@ -656,13 +656,16 @@ def open_surface_with_xtgeo(surface):
 
 
 def get_sumo_interval_list(interval):
-    t1 = interval[-10:]
-    t2 = interval[:10]
+    interval_list = None
 
-    if t1 < t2:
-        interval_list = [t1, t2]
-    else:
-        interval_list = [t2, t1]
+    if interval:
+        t1 = interval[-10:]
+        t2 = interval[:10]
+
+        if t1 < t2:
+            interval_list = [t1, t2]
+        else:
+            interval_list = [t2, t1]
 
     return interval_list
 

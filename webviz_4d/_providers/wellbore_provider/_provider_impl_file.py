@@ -228,7 +228,7 @@ class ProviderImplFile(wb.WellboreProvider):
         filter = extract_pdm_filter(
             field_name, wellbore_names, start_date, end_date, interval
         )
-        dataframe = extract_production(self.pdm_address, filter, interval)
+        dataframe = extract_field_production(self.pdm_address, filter, interval)
 
         volumes = wb.DailyProductionVolumes(dataframe)
 

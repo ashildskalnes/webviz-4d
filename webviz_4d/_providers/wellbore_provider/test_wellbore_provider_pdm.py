@@ -23,22 +23,26 @@ def main():
     wellbores = []
     print("\nGet start and last dates for all pdm wellbores ..")
     start = time.time()
-    pdm_dates = pdm_provider.get_pdm_wellbores(field_name=field)
+    all_pdm_dates = pdm_provider.get_pdm_wellbores(field_name=field)
     end = time.time()
     print("Get PDM dates:", end - start)
-    if not pdm_dates.dataframe.empty:
-        print(pdm_dates.dataframe)
-        all_wellbores = pdm_dates.dataframe["WB_UWBI"].values.tolist()
+
+    if not all_pdm_dates.dataframe.empty:
+        print(all_pdm_dates.dataframe.sort_values(by="WB_UWBI"))
+        all_wellbores = all_pdm_dates.dataframe["WB_UWBI"].values.tolist()
         # Get start and last dates for selected pdm wellbores
         print("\nGet start and last dates for selected pdm wellbores ..")
-        wellbores = [pdm_dates.dataframe.iloc[0, 0]]
+        production_wellbore = all_pdm_dates.dataframe[
+            all_pdm_dates.dataframe["PURPOSE"] == "production"
+        ].iloc[0, 0]
+        wellbores = [production_wellbore]
         print(wellbores)
         start = time.time()
         pdm_dates = pdm_provider.get_pdm_wellbores(
             field_name=field, pdm_wellbores=wellbores
         )
         end = time.time()
-        print("Get PDM dates:", end - start)
+        print("Extracted PDM dates:", end - start)
         print(pdm_dates.dataframe)
     else:
         print("ERROR: Not able to find field_uuid for field:", field)
@@ -51,33 +55,34 @@ def main():
         wellbore_names=wellbores,
     )
     end = time.time()
-    print("Extract production data selected (daily):", end - start)
+    print("Extracted production data selected (daily):", end - start)
+
     if production_volumes:
         print(production_volumes.dataframe)
 
-    # Get production volumes for selected well(s)
-    print("\nGet production volumes for selected well(s) ...")
-    start = time.time()
-    production_volumes = pdm_provider.get_production_volumes(
-        field_name=field,
-        wellbore_names=wellbores,
-    )
-    end = time.time()
+    # # Get production volumes for selected well(s)
+    # print("\nGet production volumes for selected well(s) ...")
+    # start = time.time()
+    # production_volumes = pdm_provider.get_production_volumes(
+    #     field_name=field,
+    #     wellbore_names=wellbores,
+    # )
+    # end = time.time()
+    # print("Extracted production data (monthly):", end - start)
 
-    print("Extract production data (monthly):", end - start)
-    if production_volumes:
-        print(production_volumes.dataframe)
+    # if production_volumes:
+    #     print(production_volumes.dataframe)
 
     # Get production volumes for a selected field (daily)
     print("\nGet production volumes for a selected field (daily)...")
     start = time.time()
     production_volumes = pdm_provider.get_production_volumes(field_name=field)
     end = time.time()
-    print("Extract production data:", end - start)
+    print("Extracted production data:", end - start)
     if production_volumes:
         print(production_volumes.dataframe)
 
-        print("Extract cumulative values for a time period - daily")
+        print("Get cumulative values for a time period - daily")
         prod_info = pdm_provider.get_prod_data(
             production_volumes,
             "2019-10-01",
@@ -86,36 +91,41 @@ def main():
         )
         print(prod_info.dataframe)
 
-    # Get production volumes for a selected field (monthly)
-    print("\nGet production volumes for a selected field (monthly)...")
-    start = time.time()
-    production_volumes = pdm_provider.get_production_volumes(
-        field_name=field, interval="Month"
-    )
-    end = time.time()
-    print("Extract production data:", end - start)
-    if production_volumes:
-        print(production_volumes.dataframe)
+    # # Get production volumes for a selected field (monthly)
+    # print("\nGet production volumes for a selected field (monthly)...")
+    # start = time.time()
+    # production_volumes = pdm_provider.get_production_volumes(
+    #     field_name=field, interval="Month"
+    # )
+    # end = time.time()
+    # print("Extracted production data:", end - start)
+    # if production_volumes:
+    #     print(production_volumes.dataframe)
 
-        print("Extract cumulative values for a time period - monthly")
-        prod_info = pdm_provider.get_prod_data(
-            production_volumes,
-            "2019-10-01",
-            "2020-10-01",
-            all_wellbores,
-            interval="Month",
-        )
-        print(prod_info.dataframe)
+    #     print("Get cumulative values for a time period - monthly", end - start)
+    #     prod_info = pdm_provider.get_prod_data(
+    #         production_volumes,
+    #         "2019-10-01",
+    #         "2020-10-01",
+    #         all_wellbores,
+    #         interval="Month",
+    #     )
+    #     print(prod_info.dataframe)
 
     # Get injection volumes for selected well(s)
     print("\nGet injection volumes for selected well(s) ...")
+    injection_wellbore = all_pdm_dates.dataframe[
+        all_pdm_dates.dataframe["PURPOSE"] == "injection"
+    ].iloc[0, 0]
+    wellbores = [injection_wellbore]
+    print(wellbores)
     start = time.time()
     injection_volumes = pdm_provider.get_injection_volumes(
         field_name=field,
         wellbore_names=wellbores,
     )
     end = time.time()
-    print("Extract injection data:", end - start)
+    print("Extracted injection data:", end - start)
     if injection_volumes:
         print(injection_volumes.dataframe)
 
@@ -124,7 +134,7 @@ def main():
     start = time.time()
     injection_volumes = pdm_provider.get_injection_volumes(field_name=field)
     end = time.time()
-    print("Extract injection data:", end - start)
+    print("Extracted injection data:", end - start)
     if injection_volumes:
         print(injection_volumes.dataframe)
 
@@ -137,14 +147,14 @@ def main():
         start_date=start_date,
     )
     end = time.time()
-    print("Extract injection data:", end - start)
+    print("Extracted injection data:", end - start)
     if injection_volumes:
         print(injection_volumes.dataframe)
 
     # Get injection volumes for a selected field and a selected time period
     print("\nGet injection volumes for a selected field and time period...")
     start_date = "2022-09-18"
-    end_date = "2022-09-20"
+    end_date = "2023-09-20"
     start = time.time()
     injection_volumes = pdm_provider.get_injection_volumes(
         field_name=field,
@@ -152,7 +162,7 @@ def main():
         end_date=end_date,
     )
     end = time.time()
-    print("Extract injection data:", end - start)
+    print("Extracted injection data:", end - start)
     print(start_date, end_date)
     if injection_volumes:
         print(injection_volumes.dataframe)

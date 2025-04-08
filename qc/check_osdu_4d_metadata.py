@@ -14,16 +14,17 @@ from pprint import pprint
 
 warnings.filterwarnings("ignore")
 
-def find_all_substrings(txt,sub):
+
+def find_all_substrings(txt, sub):
     positions = []
-    start_index=0
+    start_index = 0
 
     for i in range(len(txt)):
-        j = txt.find(sub,start_index)
-        if(j!=-1):
-            start_index = j+1
+        j = txt.find(sub, start_index)
+        if j != -1:
+            start_index = j + 1
             positions.append(j)
-    
+
     return positions
 
 
@@ -31,7 +32,7 @@ def main():
     description = "Check 4D maps in OSDU"
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("config_file", help="Enter path to the configuration file")
-    
+
     args = parser.parse_args()
     config_file = args.config_file
 
@@ -46,9 +47,11 @@ def main():
     osdu_service = DefaultOsduService()
 
     # Search for 4D maps
-    print("Searching for all seismic 4D attribute maps (GenericRepresentations) in OSDU ...")
+    print(
+        "Searching for all seismic 4D attribute maps (GenericRepresentations) in OSDU ..."
+    )
     attribute_objects = osdu_service.get_attribute_horizons(None)
-    
+
     print("  - found:", len(attribute_objects))
 
     no_metadata_versions = []
@@ -58,11 +61,11 @@ def main():
     auto4d_maps = []
     configuration_maps = []
     selected_metadata_version = "0.3.3"
-    
+
     for attribute_object in attribute_objects:
         id = attribute_object.get("id")
         name = attribute_object.get("data").get("Name")
-        tags =  attribute_object.get("tags")
+        tags = attribute_object.get("tags")
         metadata_version = tags.get("MetadataVersion")
         data_source = attribute_object.get("data").get("Source")
 
@@ -70,17 +73,22 @@ def main():
             auto4d_maps.append(name)
 
         print()
-        print("Name:",name)
+        print("Name:", name)
 
         if metadata_version is None:
             no_metadata_versions.append(name)
-            print("  WARNING: Metadata version not found") 
+            print("  WARNING: Metadata version not found")
         elif metadata_version != selected_metadata_version:
             wrong_metadata_versions.append(name)
             print("  WARNING: Wrong metadata version:", metadata_version)
         else:
             if tags.get("Source.* Horizon") != name:
-                print("  WARNING: OSDU name",name, "is different from OW name", tags.get("Source.* Horizon"))
+                print(
+                    "  WARNING: OSDU name",
+                    name,
+                    "is different from OW name",
+                    tags.get("Source.* Horizon"),
+                )
                 wrong_names.append(name)
             else:
                 attribute_map = {"Name": name, "metadata_version": metadata_version}
@@ -138,13 +146,15 @@ def main():
                     seismic_horizon = tags.get("CalculationWindow.BaseHorizonName")
                     attribute_map.update({"Base horizon name": seismic_horizon})
 
-                    base_horizon_offset = tags.get("CalculationWindow.BaseHorizonOffset")
+                    base_horizon_offset = tags.get(
+                        "CalculationWindow.BaseHorizonOffset"
+                    )
                     attribute_map.update({"Base horizon offset": base_horizon_offset})
 
                 attribute_map.update({"id": id})
 
                 selected_attribute_maps.append(attribute_map)
-                #pprint(attribute_map)
+                # pprint(attribute_map)
 
     for attribute_map in selected_attribute_maps:
         status = True
@@ -158,25 +168,25 @@ def main():
 
         if status:
             print()
-            pprint(attribute_map, sort_dicts=False) 
+            pprint(attribute_map, sort_dicts=False)
             configuration_maps.append(attribute_map)
 
     print()
     print("Number of GenericRepresentations objects:", len(attribute_objects))
     print("  - Number of maps with no metadata version:", len(no_metadata_versions))
-    print("  - Number of maps with wrong metadata version:", len(wrong_metadata_versions))
+    print(
+        "  - Number of maps with wrong metadata version:", len(wrong_metadata_versions)
+    )
     print("  - Number of maps with wrong name:", len(wrong_names))
-    print("  - Number of valid 4D maps with metadata version:", len(selected_attribute_maps))
+    print(
+        "  - Number of valid 4D maps with metadata version:",
+        len(selected_attribute_maps),
+    )
     print("  - Number of selected 4D maps:", len(configuration_maps))
 
     print()
     print("Auto4D maps:", len(auto4d_maps))
 
 
-                
-                
-
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

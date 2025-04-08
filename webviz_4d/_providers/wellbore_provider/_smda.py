@@ -7,16 +7,61 @@ def smda_connect(omnia_path):
     return extract_omnia_session(omnia_path, "SMDA")
 
 
-def extract_data(session, endpoint, selection, filter):
+def get_short_wellname(wellname):
+    """Well name on a short name form where blockname and spaces are removed.
+    This should cope with both North Sea style and Haltenbanken style.
+    E.g.: '31/2-G-5 AH' -> 'G-5AH', '6472_11-F-23_AH_T2' -> 'F-23AHT2'
+    """
+    newname = []
+    first1 = False
+    first2 = False
+    for letter in wellname:
+        if first1 and first2:
+            newname.append(letter)
+            continue
+        if letter in ("_", "/"):
+            first1 = True
+            continue
+        if first1 and letter == "-":
+            first2 = True
+            continue
+
+    xname = "".join(newname)
+    xname = xname.replace("_", "")
+    xname = xname.replace(" ", "")
+    return xname
+
+
+def get_wellbore_aliases(token, api, wellbores):
+    wellbore_aliases = []
+    endpoint = api + "wellbore-alias?"
+
+    filter = "&wellbore_name_set=multilateral%20well%20name"
+    mlt_aliases_df = extract_data(token, endpoint, filter)
+
+    mlt_aliases_list = mlt_aliases_df["unique_wellbore_identifier"].to_list()
+    wellbore_names = wellbores["unique_wellbore_identifier"].to_list()
+
+    for wellbore in wellbore_names:
+        mlt_alias = ""
+
+        if wellbore in mlt_aliases_list:
+            mlt_alias = mlt_aliases_df[
+                mlt_aliases_df["unique_wellbore_identifier"] == wellbore
+            ]
+            alias = mlt_alias["alias"].values[0]
+
+        wellbore_aliases.append(alias)
+
+    return wellbore_aliases
+
+
+def extract_data(session, endpoint, filter):
     extracted_df = pd.DataFrame()
     frames = []
 
     filter = filter.replace(" ", "%20").replace("/", "%2F")
 
-    # if selection != "":
-    #     endpoint = endpoint + "_items=9000" + "&_projection=" + selection + "&" + filter
-    # else:
-    #     endpoint = endpoint + "_items=9000" + "&" + filter
     endpoint = endpoint + "_items=9000" + "&" + filter
     response = session.get(endpoint)
 
@@ -60,6 +105,7 @@ def extract_data(session, endpoint, selection, filter):
 
 def extract_metadata(smda_address, filter):
     endpoint = smda_address.api + "wellbores?"
+    alias_endpoint = smda_address.api + "wellbore-alias?"
 
     columns = [
         "uuid",
@@ -77,10 +123,37 @@ def extract_metadata(smda_address, filter):
         "license_identifier",
     ]
 
-    metadata = extract_data(smda_address.session, endpoint, "", filter)
+    metadata = extract_data(smda_address.session, endpoint, filter)
+    metadata.dropna(subset=["total_depth_driller_tvd"], inplace=True)
+
+    alias_filter = "&wellbore_name_set=multilateral%20well%20name"
+    alias_mlt_name_df = extract_data(smda_address.session, alias_endpoint, alias_filter)
+
+    mlt_names = []
+    mlt_short_names = []
 
     if not metadata.empty:
         metadata = metadata[columns]
+
+        for indx, row in metadata.iterrows():
+            mlt_name = ""
+            mlt_short_name = ""
+
+            wellbore_name = row["unique_wellbore_identifier"]
+
+            selected_alias_meta = alias_mlt_name_df[
+                alias_mlt_name_df["unique_wellbore_identifier"] == wellbore_name
+            ]
+
+            if not selected_alias_meta.empty:
+                mlt_name = selected_alias_meta["alias"].values[0]
+                mlt_short_name = get_short_wellname(mlt_name)
+
+            mlt_names.append(mlt_name)
+            mlt_short_names.append(mlt_short_name)
+
+    metadata["mlt_name"] = mlt_names
+    metadata["mlt_short_name"] = mlt_short_names
 
     return metadata
 
@@ -137,50 +210,6 @@ def extract_picks(smda_address, filter):
     return extract_data(smda_address.session, endpoint, selection, filter)
 
 
-# def extract_planned_data(session, endpoint, field_name):
-#     filter = "field_identifier=" + field_name + "&" + "wellbore_status=planning"
-#     metadata = extract_data(session, endpoint, "", filter)
-#     # plannedwells_df = pd.DataFrame()
-#     # response = session.get(endpoint, verify=True)
-
-#     # if response.status_code == 200:
-#     #     results = response.json()
-#     #     plannedwells_df = pd.DataFrame(results)
-#     # else:
-#     #     print(
-#     #         f"Exception: connecting to {endpoint} {response.status_code} {response.reason}"
-#     #    )
-#     return metadata
-
-
-# def extract_plannedWell_position(selected_wells_df):
-#     frames = []
-
-#     for _i, planned_well in selected_wells_df.iterrows():
-#         well_name = planned_well["unique_wellbore_identifier"]
-#         field_name = planned_well["field_identifier"]
-#         well_points = planned_well["wellPoints"]
-#         well_points = pd.DataFrame(well_points)
-
-#         if not well_points.empty:
-#             md = well_points["measuredDepth"].to_numpy()
-#             position = pd.json_normalize(well_points[["position"][0]])
-
-#             frame = pd.DataFrame()
-#             frame["easting"] = position["x"].to_numpy()
-#             frame["northing"] = position["y"].to_numpy()
-#             frame["tvdmsl"] = -position["z"].to_numpy()
-#             frame["md"] = md
-#             frame["name"] = well_name
-#             frame["field_name"] = field_name
-
-#             frames.append(frame)
-
-#     planned_trajetories = pd.concat(frames)
-
-#     return planned_trajetories
-
-
 def extract_trajectories(smda_address, filter):
     endpoint = smda_address.api + "wellbore-survey-samples?"
     columns = [
@@ -196,11 +225,11 @@ def extract_trajectories(smda_address, filter):
     for column in columns:
         selection = selection + "," + column
 
-    trajectories_df = extract_data(smda_address.session, endpoint, selection, filter)
+    trajectories_df = extract_data(smda_address.session, endpoint, filter)
 
     endpoint = smda_address.api + "wellbore-survey-headers?"
     selection = "projected_coordinate_system"
-    survey_df = extract_data(smda_address.session, endpoint, selection, filter)
+    survey_df = extract_data(smda_address.session, endpoint, filter)
 
     if not survey_df.empty:
         crs = survey_df["projected_coordinate_system"][0]
@@ -228,7 +257,7 @@ def extract_planned_metadata(smda_address, orig_filter):
 
     filter = orig_filter + "&status=planning"
 
-    metadata = extract_data(smda_address.session, endpoint, "", filter)
+    metadata = extract_data(smda_address.session, endpoint, filter)
 
     if not metadata.empty:
         metadata = metadata[columns]
@@ -236,7 +265,7 @@ def extract_planned_metadata(smda_address, orig_filter):
     endpoint = smda_address.api + "wellbore-plan-survey-headers?"
     filter = orig_filter + "&wellbore_status=planning"
 
-    extra_metadata = extract_data(smda_address.session, endpoint, "", filter)
+    extra_metadata = extract_data(smda_address.session, endpoint, filter)
     extra_metadata = extra_metadata[["unique_wellbore_identifier", "design_name"]]
 
     all_metadata = metadata.loc[
@@ -271,7 +300,7 @@ def extract_planned_trajectories(smda_address, metadata, wellbore_name):
 
     if wellbore_name and wellbore_name != "":
         filter = "&unique_wellbore_identifier=" + wellbore_name
-        trajectory_df = extract_data(smda_address.session, endpoint, selection, filter)
+        trajectory_df = extract_data(smda_address.session, endpoint, filter)
         trajectory_df = trajectory_df[columns]
 
         trajectories_df = [trajectory_df]
@@ -280,12 +309,18 @@ def extract_planned_trajectories(smda_address, metadata, wellbore_name):
         frames = []
 
         for _index, row in metadata.iterrows():
+            status = False
             filter = "&unique_wellbore_identifier=" + row["unique_wellbore_identifier"]
-            trajectory_df = extract_data(
-                smda_address.session, endpoint, selection, filter
-            )
-            trajectory_df = trajectory_df[columns]
-            frames.append(trajectory_df)
+            try:
+                trajectory_df = extract_data(smda_address.session, endpoint, filter)
+                trajectory_df = trajectory_df[columns]
+                status = True
+            except:
+                print(row["unique_wellbore_identifier"], "  - trajectory not found")
+                status = False
+
+            if status:
+                frames.append(trajectory_df)
 
         trajectories_df = pd.concat(frames)
 

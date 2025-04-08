@@ -9,13 +9,14 @@ from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduSe
 
 if sys.platform == "win32":
     from webviz_4d._datainput._osdu import (
-        get_osdu_metadata_attributes, 
+        get_osdu_metadata_attributes,
         convert_metadata,
-        create_osdu_lists
+        create_osdu_lists,
     )
 
 warnings.filterwarnings("ignore")
-        
+
+
 def main():
     """Load metadata for all timelapse maps from OW"""
     description = "Compile metadata for all auto4d maps"
@@ -51,7 +52,9 @@ def main():
             updated_metadata = pd.read_csv(cache_file)
         else:
             print("Extract metadata from OSDU ...")
-            attribute_horizons = osdu_service.get_attribute_horizons(osdu_key, field_name)
+            attribute_horizons = osdu_service.get_attribute_horizons(
+                osdu_key, field_name
+            )
             metadata = get_osdu_metadata_attributes(attribute_horizons)
 
             cache_file = "metadata_cache_all.csv"
@@ -68,26 +71,37 @@ def main():
                 )
             ]
 
-            updated_metadata = osdu_service.update_reference_dates(selected_attribute_maps)
+            updated_metadata = osdu_service.update_reference_dates(
+                selected_attribute_maps
+            )
             cache_file = "metadata_cache_" + coverage + ".csv"
             cache_file = os.path.join(config_folder, cache_file)
             updated_metadata.to_csv(cache_file)
             print("Metadata saved to", cache_file)
 
-        print(updated_metadata[["Name","AttributeMap.AttributeType","AttributeMap.SeismicTraceContent","AttributeMap.Coverage","AcquisitionDateA", "AcquisitionDateB"]])
-        
-        validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] !=""]
-        attribute_metadata = validA.loc[validA["AcquisitionDateB"] !=""]
-        
+        print(
+            updated_metadata[
+                [
+                    "Name",
+                    "AttributeMap.AttributeType",
+                    "AttributeMap.SeismicTraceContent",
+                    "AttributeMap.Coverage",
+                    "AcquisitionDateA",
+                    "AcquisitionDateB",
+                ]
+            ]
+        )
+
+        validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] != ""]
+        attribute_metadata = validA.loc[validA["AcquisitionDateB"] != ""]
+
         surface_metadata = convert_metadata(attribute_metadata)
         print(surface_metadata)
-        
-        selection_list = create_osdu_lists(
-                surface_metadata, interval_mode
-            )
-        
+
+        selection_list = create_osdu_lists(surface_metadata, interval_mode)
+
         print(selection_list)
+
 
 if __name__ == "__main__":
     main()
-        

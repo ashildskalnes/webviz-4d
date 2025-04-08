@@ -9,9 +9,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from xtgeo import _cxtgeo
 
-from webviz_4d._providers.wellbore_provider._provider_impl_file import (
-    ProviderImplFile,
-)
+from webviz_4d._providers.wellbore_provider._provider_impl_file import ProviderImplFile
 
 EXTENSION = ".wv4d"
 FOLDER_NAME = ".webviz_4d"
@@ -46,7 +44,7 @@ def load_cached_data(cache_file_name):
         filetime = datetime.fromtimestamp(path.getctime(cache_file_name))
 
         if filetime > one_day_ago:
-            print("  - Loading metadata from file cache:", cache_file_name)
+            print(" - Loading metadata from file cache:", cache_file_name)
             metadata = pd.read_csv(cache_file_name)
 
             return metadata

@@ -85,6 +85,8 @@ class DrilledWellboreMetadata:
             "field_uuid",
             "completion_date",
             "license_identifier",
+            "short_name",
+            "mlt_name",
         ]
     )  # type: ignore
 

@@ -19,5 +19,6 @@ def main():
     osdu_objects = osdu_service.get_seismic_processings(None)
     print("  ", len(osdu_objects))
 
+
 if __name__ == "__main__":
     main()

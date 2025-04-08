@@ -1,8 +1,5 @@
 import os
-import pandas as pd
-import re
-
-from webviz_4d._datainput.common import get_dates
+from pprint import pprint
 
 
 def create_map_settings(attribute, name, map_type, ensemble, realization, interval):
@@ -23,6 +20,10 @@ def get_all_map_defaults(selection_list, map_defaults_list):
     # Return all map defaults if existing, if not create defaults
     map_defaults = []
 
+    print("DEBUG get_all_map_defaults")
+    pprint(selection_list)
+    pprint(map_defaults_list)
+
     for map_default in map_defaults_list:
         if map_default is None and selection_list["observed"] is not None:
             map_type = "observed"
@@ -36,13 +37,14 @@ def get_all_map_defaults(selection_list, map_defaults_list):
     return map_defaults
 
 
-def get_map_defaults(selection_options, default_interval, map_type):
+def get_map_defaults(selection_options, map_type):
     options = selection_options[map_type]
 
     ensemble = options["seismic"][0]
     realization = options["difference"][0]
     attribute = options["attribute"][0]
     name = options["name"][0]
+    interval = options["interval"][0]
 
     map_default = create_map_settings(
         attribute,
@@ -50,9 +52,9 @@ def get_map_defaults(selection_options, default_interval, map_type):
         map_type,
         ensemble,
         realization,
-        default_interval,
+        interval,
     )
-
+    print("DEBUG get_map_defaults", map_default)
     return map_default
 
 
