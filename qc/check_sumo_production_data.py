@@ -324,7 +324,7 @@ def main():
     omnia_env = ".omniaapi"
     home = os.path.expanduser("~")
     env_path = os.path.expanduser(os.path.join(home, omnia_env))
-    pdm_provider = ProviderImplFile(env_path, "PDM")
+    # pdm_provider = ProviderImplFile(env_path, "PDM")
     # pdm_wells_info = load_pdm_info(pdm_provider, my_case.field)
     # print(pdm_wells_info)
 

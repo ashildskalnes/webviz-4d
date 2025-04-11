@@ -155,12 +155,13 @@ def load_surface_from_file(
             ensemble,
             real,
         ]
+
         print()
         print("Selected map not found in", data_source)
         print("  Selection criteria:")
 
-        for index, metadata in enumerate(metadata_keys):
-            print("  - ", metadata, ":", metadata_values[index])
+        for index, meta in enumerate(metadata_values):
+            print("  - ", metadata_keys[index + 1], ":", meta)
 
     return surface, map_name
 
@@ -174,6 +175,8 @@ def read_surface_file(surface_file, data_source):
         toc = time.perf_counter()
     else:
         surface = None
+        tic = None
+        toc = None
 
     return surface, tic, toc
 

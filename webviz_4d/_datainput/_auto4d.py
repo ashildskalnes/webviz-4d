@@ -358,6 +358,7 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, covera
 
     except:
         path = ""
+        map_name = ""
         print("WARNING: Selected file not found in Auto4d directory")
         print("  Selection criteria are:")
         print("  -  ", map_type, name, attribute, time1, time2, ensemble, real)

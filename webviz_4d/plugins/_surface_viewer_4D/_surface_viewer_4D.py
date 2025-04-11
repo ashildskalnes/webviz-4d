@@ -205,7 +205,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         )
 
         self.map_default_list = [map1_defaults, map2_defaults, map3_defaults]
-        print("DEBUG map1_defaults", map1_defaults)
         self.map_defaults = get_all_map_defaults(
             self.selection_lists, self.map_default_list
         )
@@ -275,6 +274,8 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if "PDM" in str(production_data):
                 self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name)
+                print("DEBUG pdm_wells_info")
+                print(self.pdm_wells_info)
                 pdm_wellbores = self.pdm_wells_info["WB_UWBI"].tolist()
                 self.pdm_wells_df = self.drilled_wells_df[
                     self.drilled_wells_df["unique_wellbore_identifier"].isin(
@@ -296,6 +297,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
                 ecl_keywords = ["WOPTH", "WGPTH", "WWPTH"]
                 metadata = self.metadata_lists[0]
+
                 first_date = min(metadata["time1"].to_list())
                 dates_4d = [first_date] + sorted(metadata["time2"].unique())
 

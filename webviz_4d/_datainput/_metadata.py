@@ -20,9 +20,9 @@ def get_all_map_defaults(selection_list, map_defaults_list):
     # Return all map defaults if existing, if not create defaults
     map_defaults = []
 
-    print("DEBUG get_all_map_defaults")
-    pprint(selection_list)
-    pprint(map_defaults_list)
+    # print("DEBUG get_all_map_defaults")
+    # pprint(selection_list)
+    # pprint(map_defaults_list)
 
     for map_default in map_defaults_list:
         if map_default is None and selection_list["observed"] is not None:

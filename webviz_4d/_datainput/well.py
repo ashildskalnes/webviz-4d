@@ -15,6 +15,29 @@ EXTENSION = ".wv4d"
 FOLDER_NAME = ".webviz_4d"
 
 
+def get_tooltip_filename(field, api, mode):
+    home_dir = os.path.expanduser("~")
+    tooltip_folder = os.path.join(home_dir, FOLDER_NAME)
+
+    if not os.path.isdir(tooltip_folder):
+        os.mkdir(tooltip_folder)
+
+    field_dir = os.path.join(tooltip_folder, "." + field.replace(" ", "_").lower())
+
+    if not os.path.isdir(field_dir):
+        os.mkdir(field_dir)
+
+    tooltip_dir_name = os.path.join(field_dir, "." + api.upper())
+    tooltip_dir = os.path.join(os.path.expanduser("~"), tooltip_dir_name.lower())
+
+    if not os.path.isdir(tooltip_dir):
+        os.mkdir(tooltip_dir)
+
+    tooltip_file_name = os.path.join(tooltip_dir, mode + EXTENSION).lower()
+
+    return tooltip_file_name
+
+
 def get_cache_filename(field, api, mode):
     home_dir = os.path.expanduser("~")
     cache_folder = os.path.join(home_dir, FOLDER_NAME)
@@ -33,7 +56,7 @@ def get_cache_filename(field, api, mode):
     if not path.isdir(cache_dir):
         os.mkdir(cache_dir)
 
-    cache_file_name = path.join(cache_dir, mode + EXTENSION)
+    cache_file_name = path.join(cache_dir, mode + EXTENSION).lower()
 
     return cache_file_name
 
@@ -412,6 +435,17 @@ def create_pdm_well_layer(
 
     pdm_well_layer = create_well_layer(layer_df, trajectories_df, label=label)
 
+    field_name = trajectories_df["field_identifier"].unique()[0]
+    mode = field_name.replace(" ", "_") + "_prod_" + interval_4d
+    tooltip_file = get_tooltip_filename(field_name, "pdm", mode)
+
+    layer_df["tooltip"].to_csv(tooltip_file)
+
+    print()
+    print("PDM production layer:", interval)
+    for indx, row in enumerate(layer_df["tooltip"]):
+        print(row)
+
     return pdm_well_layer
 
 
@@ -434,6 +468,7 @@ def get_production_data(prod_data, wellbore_name, fluids):
                 status = True
     except:
         wellbore_volumes = None
+        fluid_volumes = None
 
     return status, fluid_volumes
 
@@ -748,7 +783,7 @@ def create_production_layers(
             end_date=interval_4d[:10],
             interval=prod_interval,
         )
-        prod_dataframe = production_data.dataframe
+        prod_dataframe = production_data.dataframe.sort_values(by="WB_UWBI")
         prod_dataframe.to_csv(cache_file_name)
         print("  - Storing production data to file cache:", cache_file_name)
 

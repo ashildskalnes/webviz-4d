@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import math
@@ -41,6 +42,33 @@ ecl_scaling = {
     "WWPTH": 1000,
     "WWITH": 1000,
 }
+
+
+EXTENSION = ".csv"
+FOLDER_NAME = ".webviz_4d"
+
+
+def get_tooltip_filename(field, api, mode):
+    home_dir = os.path.expanduser("~")
+    tooltip_folder = os.path.join(home_dir, FOLDER_NAME)
+
+    if not os.path.isdir(tooltip_folder):
+        os.mkdir(tooltip_folder)
+
+    field_dir = os.path.join(tooltip_folder, "." + field.replace(" ", "_").lower())
+
+    if not os.path.isdir(field_dir):
+        os.mkdir(field_dir)
+
+    tooltip_dir_name = os.path.join(field_dir, "." + api.upper())
+    tooltip_dir = os.path.join(os.path.expanduser("~"), tooltip_dir_name.lower())
+
+    if not os.path.isdir(tooltip_dir):
+        os.mkdir(tooltip_dir)
+
+    tooltip_file_name = os.path.join(tooltip_dir, mode + EXTENSION).lower()
+
+    return tooltip_file_name
 
 
 def print_all(df):
@@ -160,7 +188,6 @@ def load_eclipse_prod_data(summary_df, ecl_keywords, drilled_wells_info, dates_4
             datetime_object = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
 
             volumes = all_columns.filter(pl.col("DATE") == datetime_object)
-
             scaled_volumes = np.array(volumes.rows()[0][:-1]) / scaling
             col = pl.Series(scaled_volumes)
             ecl_polars_table = ecl_polars_table.with_columns(
@@ -204,11 +231,22 @@ def create_eclipse_production_layers(
 
 
 def extract_interval_volume(prod_data_table, key, wellbore_name, time1, time2):
+    interval_volume = None
+    fluid_text = ""
+
     volumes = prod_data_table.filter(
         pl.col("unique_wellbore_identifier") == wellbore_name
     )
-    volume2 = volumes.select(key + "_" + time2).to_numpy()[0][0]
-    volume1 = volumes.select(key + "_" + time1).to_numpy()[0][0]
+    volume2 = volumes.select(key + "_" + time2)
+    if not volume2.is_empty():
+        volume2 = volume2.to_numpy()[0][0]
+
+    volume1 = volumes.select(key + "_" + time1)
+    if not volume1.is_empty():
+        volume1 = volume1.to_numpy()[0][0]
+    else:
+        volume1 = 0
+
     interval_volume = volume2 - volume1
     fluid_text = (
         prod_labels.get(key)
@@ -223,7 +261,7 @@ def extract_interval_volume(prod_data_table, key, wellbore_name, time1, time2):
 
 def create_tooltip(layer_name, row, fluid_texts):
     short_name = row["ECL shortname"]
-    start_date = row["Start date"][:4]
+    start_date = row["Start date"]
 
     tooltip = short_name + ": "
 
@@ -272,14 +310,8 @@ def create_eclipse_well_layer(
     valid_prod_data = oil_prod_data.filter(pl.col(uwi) != "")
     metadata_df = valid_prod_data.to_pandas()
 
-    # not_valid_prod_data = prod_data.filter(pl.col(uwi) == "")
-
-    # if len(not_valid_prod_data) > 0:
-    #     print("Not valid UWI")
-    #     print_all(not_valid_prod_data)
-    #     print()
-
     for index, row in metadata_df.iterrows():
+        tooltip = ""
         status = False
         color = color_settings.get("default")
 
@@ -315,10 +347,13 @@ def create_eclipse_well_layer(
                     interval_volume, fluid_text = extract_interval_volume(
                         prod_data_list[index], key, wellbore_name, time1, time2
                     )
-                    interval_volumes.append(interval_volume)
-                    fluid_texts.append(fluid_text)
 
-                tooltip = create_tooltip(layer_name, row, fluid_texts)
+                    if interval_volume:
+                        interval_volumes.append(interval_volume)
+                        fluid_texts.append(fluid_text)
+
+                if len(fluid_texts) > 0:
+                    tooltip = create_tooltip(layer_name, row, fluid_texts)
 
                 if tooltip != "" and interval_volumes[0] > 0:
                     status = True
@@ -328,6 +363,8 @@ def create_eclipse_well_layer(
             md_start_list.append(md_start)
             wellbores.append(wellbore_name)
             colors.append(color)
+        # else:
+        #     print("WARNING: Production volumes not found", wellbore_name, interval_4d)
 
     layer_df["unique_wellbore_identifier"] = wellbores
     layer_df["color"] = colors
@@ -338,5 +375,16 @@ def create_eclipse_well_layer(
     layer_df["interval"] = interval
 
     pdm_well_layer = create_well_layer(layer_df, trajectories_df, label=label)
+
+    field_name = trajectories_df["field_identifier"].unique()[0]
+    mode = field_name.replace(" ", "_") + "_prod_" + interval_4d
+    tooltip_file = get_tooltip_filename(field_name, "eclipse", mode)
+
+    layer_df["tooltip"].to_csv(tooltip_file)
+
+    print()
+    print("Eclipse production layer:", interval)
+    for indx, row in enumerate(layer_df["tooltip"]):
+        print(row)
 
     return pdm_well_layer
