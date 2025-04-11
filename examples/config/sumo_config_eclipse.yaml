@@ -5,21 +5,13 @@ shared_settings:
     field_name: Johan Sverdrup  
     sumo:
         env_name: prod
-        case_name: 24p12p4_histandpred_ff_20240922
+        case_name: 25p0p3_histandpred_ff_16022025
         sumo_surfaces: True
     auto4d:
     osdu:
     fmu:
   
-    label: Model 24.12.4 SUMO 
-      
-    observed_maps: 
-        realization_names: ["*"]                  
-        iteration_names: [pred]                                   
-        map_directories: [share/observations/maps/]   
-        attributes: ["*"]
-        surface_names: ["*"]
-        time_intervals: ["*"]
+    label: Model 25.0.3 SUMO 
    
     basic_well_layers: 
         planned: Planned wells  

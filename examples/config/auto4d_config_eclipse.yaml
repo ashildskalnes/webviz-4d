@@ -5,24 +5,25 @@ shared_settings:
     metadata_version: 0.4.2
     sumo:
         env_name: prod
-        case_name: 24p3p0_histandpred_ff_20240227
+        case_name: 25p0p3_histandpred_ff_16022025
+        sumo_surfaces: True
     auto4d_file:
         directory: /scratch/auto4d/userhorizons/ashska
         metadata_format: .a4dmeta
         acquisition_dates:
-            EQ19231DZC23A-KPSDM-RAW-FULL-0535-TIME: 2019-09-12
-            EQ20231DZC23A-KPSDM-RAW-FULL-0535-TIME: 2020-09-30
-            EQ21200DZC23A-KPSDM-RAW-FULL-0535-TIME: 2021-05-17
+            EQ19231DZC23A-KPSDM-RAW-FULL-0535-TIME: 2019-10-01
+            EQ20231DZC23A-KPSDM-RAW-FULL-0535-TIME: 2020-10-01
+            EQ21200DZC23A-KPSDM-RAW-FULL-0535-TIME: 2021-05-15
             EQ22200DZC23A-KPSDM-RAW-FULL-0535-TIME: 2022-05-15
-            EQ22205DZC23A-KPSDM-RAW-FULL-0535-TIME: 2022-08-28
-            EQ23200DZC23A-KPSDM-RAW-FULL-0535-TIME: 2023-05-16
-            EQ23205DZC23B-KPSDM-RAW-FULL-0535-TIME: 2023-09-20
+            EQ22205DZC23A-KPSDM-RAW-FULL-0535-TIME: 2022-09-01
+            EQ23200DZC23A-KPSDM-RAW-FULL-0535-TIME: 2023-05-15
+            EQ23205DZC23B-KPSDM-RAW-FULL-0535-TIME: 2023-09-15
             EQ24200DZC24A-KPSDM-RAW-FULL-0535-TIME: 2024-05-15
         selections:    
             AttributeDifferenceType: AttributeOfDifference
             SeismicCoverage: Full
 
-    label: auto4d maps      # Customize
+    label: auto4d maps (Eclipse)     # Customize
 
     basic_well_layers:
         planned: Planned wells
@@ -81,7 +82,7 @@ layout:
                   colormaps_folder: *colormaps_folder 
                   settings_file:  *settings
                   interval_mode: *interval_mode
-                  default_interval: 2022-05-15-2020-09-30
+                  default_interval: 2022-05-15-2020-10-01
 
                   map1_defaults:
                     data_source: auto4d_file
@@ -92,7 +93,7 @@ layout:
                     map_type: observed                          # Customize 
                     seismic: Amplitude                            # Customize
                     difference: NotTimeshifted                  # Customize
-                    interval: 2021-05-17-2020-09-30
+                    interval: 2021-05-15-2020-10-01
                   map2_defaults:
                     data_source: auto4d_file
                     difference_type: AttributeOfDifference
@@ -102,7 +103,7 @@ layout:
                     map_type: observed                          # Customize
                     seismic: Amplitude                            # Customize
                     difference: NotTimeshifted                     # Customize
-                    interval: 2022-05-15-2020-09-30
+                    interval: 2022-05-15-2020-10-01
                   map3_defaults:
                     data_source: auto4d_file
                     difference_type: AttributeOfDifference
@@ -112,5 +113,5 @@ layout:
                     map_type: observed                          # Customize
                     seismic: Amplitude                          # Customize
                     difference: NotTimeshifted                               # Customize
-                    interval: 2023-05-16-2021-05-17
+                    interval: 2023-05-15-2021-05-15
                     
