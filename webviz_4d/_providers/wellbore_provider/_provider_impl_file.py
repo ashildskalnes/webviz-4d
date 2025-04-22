@@ -250,6 +250,9 @@ class ProviderImplFile(wb.WellboreProvider):
         )
         volumes = extract_field_production(self.pdm_address, filter, interval)
 
+        print("DEBUG get_field_prod_data")
+        print(volumes)
+
         return volumes
 
     def get_field_inj_data(
@@ -267,6 +270,9 @@ class ProviderImplFile(wb.WellboreProvider):
             field_name, wellbore_names, start_date, end_date, interval, field_uuid
         )
         volumes = extract_field_injection(self.pdm_address, filter, interval)
+
+        print("DEBUG get_field_injdata")
+        print(volumes)
 
         return volumes
 

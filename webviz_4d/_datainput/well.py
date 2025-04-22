@@ -323,6 +323,8 @@ def create_pdm_well_layer(
 
     interval = None
 
+    print("Create_pdm_well_layer", layer_name)
+
     if interval_4d is not None:
         interval = interval_4d
 
@@ -431,18 +433,10 @@ def create_pdm_well_layer(
     layer_df["md_start"] = md_start_list
     layer_df["md_end"] = md_end
 
-    # print(layer_df)
-
     pdm_well_layer = create_well_layer(layer_df, trajectories_df, label=label)
 
-    field_name = trajectories_df["field_identifier"].unique()[0]
-    mode = field_name.replace(" ", "_") + "_prod_" + interval_4d
-    tooltip_file = get_tooltip_filename(field_name, "pdm", mode)
-
-    layer_df["tooltip"].to_csv(tooltip_file)
-
     print()
-    print("PDM production layer:", interval)
+    print("PDM well layer:", interval)
     for indx, row in enumerate(layer_df["tooltip"]):
         print(row)
 
@@ -816,7 +810,7 @@ def create_production_layers(
         wellbore_trajectories["unique_wellbore_identifier"].isin(pdm_wellbores)
     ]
 
-    # print("Creating interval well layers ...")
+    print("Creating interval well layers ...")
     interval_well_layers = []
 
     for key, value in layer_options.items():
@@ -842,8 +836,6 @@ def create_production_layers(
             interval_well_layers.append(well_layer)
 
     return interval_well_layers
-
-    return pdm_well_layer
 
 
 def get_well_position_data(well_dataframe, md_start, md_end, delta):

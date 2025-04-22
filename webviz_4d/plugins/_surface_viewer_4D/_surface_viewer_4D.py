@@ -160,15 +160,50 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if data_source == "sumo":
                 metadata, selection_list = get_sumo_metadata(self.sumo_case)
+                key_columns = [
+                    "map_name",
+                    "tagname",
+                    "attribute",
+                    "time1",
+                    "time2",
+                    "seismic",
+                ]
             elif data_source == "auto4d_file":
                 metadata, selection_list = get_auto4d_metadata(self.config)
+                key_columns = [
+                    "map_name",
+                    "name",
+                    "attribute",
+                    "dates",
+                    "seismic",
+                    "coverage",
+                ]
+
             elif data_source == "fmu":
                 metadata, selection_list = get_fmu_metadata(self.config, field_name)
+
+                key_columns = [
+                    "map_name",
+                    "attribute",
+                    "time1",
+                    "time2",
+                    "seismic",
+                ]
             elif data_source == "osdu":
                 self.osdu_service = DefaultOsduService()
                 metadata, selection_list = get_osdu_metadata(
                     self.config, self.osdu_service, field_name
                 )
+                print(metadata.columns)
+
+                key_columns = [
+                    "map_name",
+                    "attribute",
+                    "time1",
+                    "time2",
+                    "seismic",
+                ]
+
             elif data_source == "rddms":
                 rddms = self.shared_settings.get("rddms")
                 self.selected_dataspace = rddms.get("dataspace")
@@ -185,6 +220,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             else:
                 print("ERROR: Data source not supported:", data_source)
 
+            print(metadata[key_columns])
             self.metadata_lists.append(metadata)
             self.selection_lists.append(selection_list)
 
@@ -274,8 +310,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             if "PDM" in str(production_data):
                 self.pdm_wells_info = load_pdm_info(self.pdm_provider, self.field_name)
-                print("DEBUG pdm_wells_info")
-                print(self.pdm_wells_info)
+
                 pdm_wellbores = self.pdm_wells_info["WB_UWBI"].tolist()
                 self.pdm_wells_df = self.drilled_wells_df[
                     self.drilled_wells_df["unique_wellbore_identifier"].isin(

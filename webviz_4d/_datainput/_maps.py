@@ -1,12 +1,11 @@
 import os
 import time
 import xtgeo
+from pprint import pprint
 
 from webviz_4d._datainput._auto4d import get_auto4d_filename
 from webviz_4d._datainput._fmu import get_fmu_filename
 from webviz_4d._datainput._sumo import (
-    create_sumo_lists,
-    load_sumo_observed_metadata,
     get_sumo_interval_list,
     get_selected_surface,
     get_sumo_tagname,
@@ -49,7 +48,6 @@ def load_surface_from_sumo(
     time2 = selected_interval[11:]
 
     metadata_keys = [
-        "map_index",
         "map_type",
         "surface_name",
         "attribute",
@@ -62,15 +60,16 @@ def load_surface_from_sumo(
     map_name = None
 
     if data_source == "sumo":
-        seismic = map_defaults.get("seismic")
-        difference = map_defaults.get("difference")
-        interval = map_defaults.get("interval")
+        seismic = ens
+        difference = real
 
-        interval_list = get_sumo_interval_list(interval)
+        interval_list = get_sumo_interval_list(selected_interval)
 
         tagname = get_sumo_tagname(
             metadata, name, seismic, attribute, difference, interval_list
         )
+
+        print(map_type, name, tagname, interval_list, ens, realization)
         tic = time.perf_counter()
         surface, map_name = get_selected_surface(
             case=sumo_case,
@@ -85,6 +84,7 @@ def load_surface_from_sumo(
 
     if surface is not None:
         print_surface_info(map_idx, tic, toc, surface)
+        print(map_name)
     else:
         metadata_values = [
             map_type,
@@ -98,8 +98,8 @@ def load_surface_from_sumo(
         print("Selected map not found in", data_source)
         print("  Selection criteria:")
 
-        for index, metadata in enumerate(metadata_keys):
-            print("  - ", metadata, ":", metadata_values[index])
+        for index, metadata in enumerate(metadata_values):
+            print("  - ", metadata_keys[index], ":", metadata_values[index])
 
     return surface, map_name
 
@@ -115,6 +115,9 @@ def load_surface_from_file(
     time1 = selected_interval[0:10]
     time2 = selected_interval[11:]
 
+    surface = None
+    map_name = None
+
     metadata_keys = [
         "map_index",
         "map_type",
@@ -124,9 +127,6 @@ def load_surface_from_file(
         "seismic",
         "difference",
     ]
-
-    surface = None
-    map_name = None
 
     if data_source == "auto4d_file":
         surface_file, map_name = get_auto4d_filename(

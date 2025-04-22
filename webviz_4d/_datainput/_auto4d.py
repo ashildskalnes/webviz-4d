@@ -329,15 +329,6 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, covera
     surface_metadata.replace(np.nan, "", inplace=True)
     metadata_coverage = surface_metadata[surface_metadata["coverage"] == coverage]
 
-    headers = [
-        "attribute",
-        "seismic",
-        "difference",
-        "time2",
-        "time1",
-        "map_name",
-    ]
-
     print()
     print("Coverage", coverage)
 

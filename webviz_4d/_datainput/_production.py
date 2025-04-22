@@ -100,7 +100,6 @@ def make_new_well_layer(
 
     layer = {"name": label, "checked": False, "base_layer": False, "data": data}
 
-    print("DEBUG make_new_well_layer", layer.get("name"))
     data = layer.get("data")
 
     for item in data:

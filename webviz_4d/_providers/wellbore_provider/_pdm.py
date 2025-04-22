@@ -69,9 +69,9 @@ def extract_pdm_data_compact(session, endpoint, columns, filter):
     actual_endpoint = (
         endpoint + "columns=" + columns_string + "&top=" + str(top) + "&" + filter
     )
-    # print(actual_endpoint)
 
     frames = []
+    df_prod = DataFrame()
 
     response = session.get(actual_endpoint)
 
@@ -80,7 +80,6 @@ def extract_pdm_data_compact(session, endpoint, columns, filter):
 
         df = json_normalize(results)[columns]
 
-        df_prod = DataFrame()
         for column in columns:
             df_prod[column] = df[column][0]
 
@@ -227,12 +226,9 @@ def extract_field_injection(pdm_address, filter, interval):
     columns = [
         "WB_UWBI",
         "WB_UUID",
-        # "GOV_WB_NAME",
-        # "WELL_UWI",
         prod_time,
         "INJ_TYPE",
         "WB_INJ_VOL",
-        # "GOV_FIELD_NAME",
     ]
 
     volumes = None

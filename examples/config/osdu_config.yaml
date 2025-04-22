@@ -5,9 +5,9 @@ shared_settings:
     metadata_version: 0.4.2
     sumo:
         env_name: prod
-        case_name: 24p12p4_histandpred_ff_20240922    
+        case_name: 25p0p3_histandpred_ff_16022025 
     osdu:
-        instance: npequinor | npequinor-dev
+        instance: equinordev | data
         
     label: osdu maps      # Customize             
                 

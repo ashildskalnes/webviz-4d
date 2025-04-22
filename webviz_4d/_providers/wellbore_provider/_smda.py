@@ -277,9 +277,13 @@ def extract_planned_metadata(smda_address, orig_filter):
     sorted_metadata = all_metadata.sort_values(by="unique_wellbore_identifier")
     extra_metadata.sort_values(by="unique_wellbore_identifier", inplace=True)
 
-    sorted_metadata["design_name"] = list(extra_metadata["design_name"].values)
+    combined_metadata = sorted_metadata.merge(
+        extra_metadata[["unique_wellbore_identifier", "design_name"]],
+        on="unique_wellbore_identifier",
+        how="left",
+    )
 
-    return sorted_metadata
+    return combined_metadata
 
 
 def extract_planned_trajectories(smda_address, metadata, wellbore_name):
