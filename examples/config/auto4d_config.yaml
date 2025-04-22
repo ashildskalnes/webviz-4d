@@ -32,6 +32,7 @@ shared_settings:
 
     additional_well_layers:
         production: Producers
+        injection: INjectors
 
     well_folder: &wellfolder SMDA
     top_reservoir:

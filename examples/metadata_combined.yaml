@@ -1,0 +1,74 @@
+all_metadata:
+    - data_source
+    - field_name
+    - ensemble
+    - realization
+    - map_type
+    - is_observation
+    - is_prediction
+    - strat_name
+    - attribute
+    - extraction_type
+    - acquisition_monitor
+    - acquistion_base
+    - time1
+    - aggregation
+    - content
+    - offset
+    - difference_type
+    - coverage
+    - map_type_dimension
+    - object_name
+    - filename
+    - id
+    - url
+    
+metadata_mapping:
+    fmu:   
+        ensemble: fmu_id.iteration
+        realization: fmu_id.realization
+        map_type: map_type
+        is_observation:
+        is_prediction:
+        strat_name: data.name
+        attribute:
+        extraction_type:
+        acquisition_monitor:
+        acquistion_base:
+        time0: data.time.t1
+        time1: data.time.t2
+        aggregation: statistics
+        content:
+        offset:
+        difference_type:
+        coverage:
+        map_type_dimension:
+        object_name:
+        filename: filename 
+        id:
+        url:
+    sumo:   
+        ensemble: ensemble
+        realization: realization
+        map_type: 
+        is_observation: is_observation
+        is_prediction: 
+        strat_name: name
+        attribute:
+        extraction_type:
+        acquisition_monitor:
+        acquistion_base:
+        time0: time.t0
+        time1: time.t1
+        aggregation: aggregation
+        content: content
+        offset:
+        difference_type:
+        coverage:
+        map_type_dimension:
+        object_name:
+        filename: 
+        id:
+        url:
+    
+    
