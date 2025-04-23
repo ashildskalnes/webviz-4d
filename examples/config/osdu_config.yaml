@@ -14,7 +14,7 @@ shared_settings:
     basic_well_layers:
         planned: Planned wells 
         drilled_wells: Drilled wells                        
-        reservoir_sections: Reservoir sections   
+        reservoir_sections: Reservoir sections    
           
     additional_well_layers:      
         production: Producers                                     
@@ -23,7 +23,7 @@ shared_settings:
     well_folder: &wellfolder SMDA  
     top_reservoir: 
         name: Draupne Fm. 1 JS Top
-        tag_name: depth_structural_model
+        tag_name: depth_structural_model 
         iter: pred
         real: realization-0 
         polygon_usage: 
@@ -33,7 +33,7 @@ shared_settings:
     production_data: &production_data PDM   
     polygons_folder: &polygons_folder SUMO         
     colormaps_folder: &colormaps_folder ../colormaps/     
-    settings_file: &settings ../settings.yaml 
+    settings_file: &settings ./settings.yaml 
     interval_mode: &interval_mode normal
     default_interval: 2020-10-01-2019-10-01         
         
