@@ -5,10 +5,14 @@ import numpy as np
 from ast import literal_eval
 from pprint import pprint
 import xtgeo
+import warnings
 
 from webviz_4d._datainput.common import read_config, print_metadata
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._datainput._maps import print_surface_info
+from webviz_4d._datainput.well import get_cache_filename, load_cached_data
+
+warnings.filterwarnings("ignore")
 
 
 def get_osdu_dataset_id(surface_metadata, data, ensemble, real, map_type, coverage):
@@ -141,6 +145,7 @@ def convert_metadata(osdu_metadata):
     attributes = []
     times1 = []
     times2 = []
+    intervals = []
     seismic_contents = []
     coverages = []
     differences = []
@@ -156,6 +161,7 @@ def convert_metadata(osdu_metadata):
         "attribute",
         "time1",
         "time2",
+        "interval",
         "seismic",
         "coverage",
         "difference",
@@ -230,7 +236,8 @@ def convert_metadata(osdu_metadata):
         if times[0] != "" and times[0] != "":
             times1.append(times[0])
             times2.append(times[1])
-
+            interval = times[1] + "-" + times[0]
+            intervals.append(interval)
             map_types.append(map_type)
             field_names.append(field_name)
             ids.append(id)
@@ -251,6 +258,7 @@ def convert_metadata(osdu_metadata):
             attributes,
             times1,
             times2,
+            intervals,
             seismic_contents,
             coverages,
             differences,
@@ -332,28 +340,44 @@ def create_osdu_lists(metadata, interval_mode):
 
 
 def get_osdu_metadata(config, osdu_service, field_name):
+    print("Loading metadata for SeismicAttributeInterpretation objects in OSDU ...")
+
     shared_settings = config.get("shared_settings")
     metadata_version = shared_settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
 
-    attribute_horizons = osdu_service.get_attribute_horizons(
-        metadata_version=metadata_version, field_name=field_name
-    )
+    # Check file cache
+    api = "OSDU"
+    mode = "meta"
 
-    metadata = get_osdu_metadata_attributes(attribute_horizons)
-    updated_metadata = osdu_service.update_reference_dates(metadata)
+    cache_file_name = get_cache_filename(field_name, api, mode)
+    dataframe = load_cached_data(cache_file_name)
 
-    if field_name:
-        field_metadata = updated_metadata[updated_metadata["FieldName"] == field_name]
-        metadata = field_metadata.copy()
-    else:
-        metadata = updated_metadata
+    if dataframe.empty:
+        attribute_horizons = osdu_service.get_attribute_horizons(
+            metadata_version=metadata_version, field_name=field_name
+        )
 
-    metadata["map_type"] = "observed"
-    converted_metadata = convert_metadata(metadata)
-    selection_list = create_osdu_lists(converted_metadata, interval_mode)
+        metadata = get_osdu_metadata_attributes(attribute_horizons)
+        updated_metadata = osdu_service.update_reference_dates(metadata)
 
-    return converted_metadata, selection_list
+        if field_name:
+            field_metadata = updated_metadata[
+                updated_metadata["FieldName"] == field_name
+            ]
+            metadata = field_metadata.copy()
+        else:
+            metadata = updated_metadata
+
+        metadata["map_type"] = "observed"
+        dataframe = convert_metadata(metadata)
+
+        dataframe.to_csv(cache_file_name)
+        print(" - Storing metadata to file cache:", cache_file_name)
+
+    selection_list = create_osdu_lists(dataframe, interval_mode)
+
+    return dataframe, selection_list
 
 
 def load_surface_from_osdu(
@@ -395,7 +419,7 @@ def load_surface_from_osdu(
             surface = xtgeo.surface_from_file(blob)
             toc = time.perf_counter()
 
-            print_surface_info(map_idx, tic, toc, surface)
+            print_surface_info(map_idx, tic, toc, surface, map_name)
     else:
         metadata_values = [
             map_type,

@@ -26,6 +26,8 @@ def ensemble_layout(
     real_prev_id,
     real_next_id,
 ):
+
+    ens_options = [{"label": ens, "value": ens} for ens in parent.ensembles(map_number)]
     return wcc.FlexBox(
         children=[
             html.Div(
@@ -38,10 +40,7 @@ def ensemble_layout(
                         style=set_grid_layout("12fr 1fr 1fr"),
                         children=[
                             dcc.Dropdown(
-                                options=[
-                                    {"label": ens, "value": ens}
-                                    for ens in parent.ensembles(map_number)
-                                ],
+                                options=ens_options,
                                 value=parent.map_defaults[map_number]["seismic"],
                                 id=ensemble_id,
                                 clearable=False,

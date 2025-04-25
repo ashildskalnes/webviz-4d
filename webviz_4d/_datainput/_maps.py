@@ -11,11 +11,12 @@ from webviz_4d._datainput._sumo import (
 )
 
 
-def print_surface_info(map_idx, tic, toc, surface):
+def print_surface_info(map_idx, tic, toc, surface, map_name):
     print()
     print(f"Map number {map_idx+1}: downloaded the surface in {toc - tic:0.2f} seconds")
     number_cells = surface.nrow * surface.ncol
     print(f"  - Surface size: {surface.nrow} x {surface.ncol} = {number_cells}")
+    print(f"  - Object name: {map_name}")
     print()
 
 
@@ -82,7 +83,7 @@ def load_surface_from_sumo(
         toc = time.perf_counter()
 
     if surface is not None:
-        print_surface_info(map_idx, tic, toc, surface)
+        print_surface_info(map_idx, tic, toc, surface, map_name)
     else:
         metadata_values = [
             map_type,
@@ -143,7 +144,7 @@ def load_surface_from_file(
         print("  - Data source not supported:", data_source)
 
     if surface is not None:
-        print_surface_info(map_idx, tic, toc, surface)
+        print_surface_info(map_idx, tic, toc, surface, map_name)
     else:
         metadata_values = [
             map_type,
@@ -157,8 +158,8 @@ def load_surface_from_file(
         print("Selected map not found in", data_source)
         print("  Selection criteria:")
 
-        for index, metadata in enumerate(metadata_keys):
-            print("  - ", metadata, ":", metadata_values[index])
+        for index, meta in enumerate(metadata_values):
+            print("  - ", metadata_keys[index + 1], ":", meta)
 
     return surface, map_name
 
@@ -172,6 +173,8 @@ def read_surface_file(surface_file, data_source):
         toc = time.perf_counter()
     else:
         surface = None
+        tic = ""
+        toc = ""
 
     return surface, tic, toc
 

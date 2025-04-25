@@ -7,9 +7,9 @@ from pydantic import BaseModel
 
 
 class Config(BaseSettings, BaseConfigManager):
-    INSTANCE: str = "https://npequinor.energy.azure.com"
-    DATA_PARTITION_ID: str = "npequinor-dev"
-    LEGAL_TAG: str = "npequinor-dev-equinor-private-default"
+    INSTANCE: str = "https://equinordev.energy.azure.com"
+    DATA_PARTITION_ID: str = "data"
+    LEGAL_TAG: str = "data-equinor-private-default"
     TENANT_ID: str = "3aa4a235-b6e2-48d5-9195-7fcf05b459b0"
     ACCESS_TOKEN: str = f"{INSTANCE}/dummy"  # TODO: Only temp solution
     # Below is required naming for osdu-api library

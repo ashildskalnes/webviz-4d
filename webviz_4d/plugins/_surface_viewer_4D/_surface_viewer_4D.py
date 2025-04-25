@@ -303,15 +303,9 @@ class SurfaceViewer4D(WebvizPluginABC):
                 prod_interval="Day",
             )
 
-        self.selector = SurfaceSelector(
-            app, self.selection_lists[0], self.map_defaults[0], self.default_interval
-        )
-        self.selector2 = SurfaceSelector(
-            app, self.selection_lists[1], self.map_defaults[1], self.default_interval
-        )
-        self.selector3 = SurfaceSelector(
-            app, self.selection_lists[2], self.map_defaults[2], self.default_interval
-        )
+        self.selector = SurfaceSelector(app, self.metadata_lists[0], map1_defaults)
+        self.selector2 = SurfaceSelector(app, self.metadata_lists[1], map2_defaults)
+        self.selector3 = SurfaceSelector(app, self.metadata_lists[2], map3_defaults)
         self.set_callbacks(app)
 
     def define_defaults(self):
@@ -468,6 +462,7 @@ class SurfaceViewer4D(WebvizPluginABC):
                 real,
             )
         elif data_source == "osdu":
+            print(metadata)
             surface, map_name = load_surface_from_osdu(
                 map_idx,
                 data_source,
@@ -535,7 +530,6 @@ class SurfaceViewer4D(WebvizPluginABC):
                 if self.polygon_layers is not None:
                     for polygon_layer in self.polygon_layers:
                         layer = polygon_layer
-
                         surface_layers.append(layer)
 
             if self.basic_well_layers:

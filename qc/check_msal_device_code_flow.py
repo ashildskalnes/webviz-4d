@@ -13,6 +13,7 @@ from webviz_4d._datainput.well import (
     load_smda_metadata,
 )
 
+
 def main():
     # Initiate
     omnia_env = ".omniaapi"
@@ -22,9 +23,9 @@ def main():
     load_dotenv(omnia_path)
 
     if platform == "linux" or platform == "linux2":
-        os.environ[
-            "REQUESTS_CA_BUNDLE"
-        ] = "/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt"
+        os.environ["REQUESTS_CA_BUNDLE"] = (
+            "/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt"
+        )
 
     TENANT = os.environ.get("TENANT")
     AUTHORITY = "https://login.microsoftonline.com/" + TENANT
@@ -46,14 +47,10 @@ def main():
 
     field_name = "JOHAN SVERDRUP"
     print("Loading drilled well data from SMDA ...")
-    drilled_wells_info = load_smda_metadata(
-        smda_provider, field_name
-    )
+    drilled_wells_info = load_smda_metadata(smda_provider, field_name)
 
     print(drilled_wells_info)
-  
+
 
 if __name__ == "__main__":
     main()
-    
-

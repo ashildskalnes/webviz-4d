@@ -35,17 +35,16 @@ def main():
 
     updated_metadata = osdu_service.update_reference_dates(selected_attribute_maps)
 
-    validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] !=""]
-    valid_metadata = validA.loc[validA["AcquisitionDateB"] !=""]
+    validA = updated_metadata.loc[updated_metadata["AcquisitionDateA"] != ""]
+    valid_metadata = validA.loc[validA["AcquisitionDateB"] != ""]
 
     print("Selected and valid metadata version:", version)
-    print(
-        valid_metadata[["Name", "AttributeMap.FieldName", "AttributeMap.Name"]]
-    )
+    print(valid_metadata[["Name", "AttributeMap.FieldName", "AttributeMap.Name"]])
 
     webviz4d_metadata = convert_metadata(valid_metadata)
     webviz4d_metadata.to_csv("metadata.csv")
     print(webviz4d_metadata)
-    
+
+
 if __name__ == "__main__":
     main()

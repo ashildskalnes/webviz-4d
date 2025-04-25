@@ -16,6 +16,7 @@ def load_auto4d_metadata_new(auto4d_dir, file_ext, mdata_version, acquisition_da
         "dates": "dates",
         "time1": "time1",
         "time2": "time2",
+        "interval": "interval",
         "seismic": "SeismicTraceAttribute",
         "coverage": "SeismicCoverage",
         "difference": "SeismicDifferenceType",
@@ -62,6 +63,7 @@ def load_auto4d_metadata_new(auto4d_dir, file_ext, mdata_version, acquisition_da
                     seismic_traces = metadata.get("SeismicTraceDataSourceNames")
                     time1 = str(acquisition_dates.get(seismic_traces[1]))
                     time2 = str(acquisition_dates.get(seismic_traces[0]))
+                    interval = time2 + "-" + time1
 
                     filename = os.path.join(auto4d_dir, map_name + ".gri")
 
@@ -73,6 +75,7 @@ def load_auto4d_metadata_new(auto4d_dir, file_ext, mdata_version, acquisition_da
                         "dates": [time1, time2],
                         "time1": time1,
                         "time2": time2,
+                        "interval": interval,
                         "seismic": metadata.get("SeismicTraceAttribute"),
                         "coverage": metadata.get("SeismicCoverage"),
                         "difference": difference,
@@ -193,6 +196,7 @@ def get_auto4d_filename(surface_metadata, data, ensemble, real, map_type, covera
 
     except:
         path = ""
+        map_name = ""
         print("WARNING: Selected file not found in Auto4d directory")
         print("  Selection criteria are:")
         print("  -  ", map_type, name, attribute, time1, time2, ensemble, real)

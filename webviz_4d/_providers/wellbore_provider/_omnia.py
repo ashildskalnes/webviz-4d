@@ -10,9 +10,9 @@ def extract_omnia_session(omnia_path, api_name):
     load_dotenv(omnia_path)
 
     if platform == "linux" or platform == "linux2":
-        os.environ[
-            "REQUESTS_CA_BUNDLE"
-        ] = "/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt"
+        os.environ["REQUESTS_CA_BUNDLE"] = (
+            "/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt"
+        )
 
     TENANT = os.environ.get("TENANT")
     AUTHORITY = "https://login.microsoftonline.com/" + TENANT

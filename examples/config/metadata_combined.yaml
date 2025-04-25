@@ -1,0 +1,65 @@
+standard_metadata:
+    data_source
+    map_type
+    strat_name
+    extraction_type
+    interval
+    content
+    offset
+    difference_type
+    difference
+    coverage
+    map_type_dimension
+    
+extra_metadata:
+    field_name
+    object_name
+    filename
+    id
+    url
+    
+metadata_mapping:
+    fmu:   
+        ensemble: fmu_id.iteration
+        realization: fmu_id.realization
+        map_type: map_type
+        is_observation:
+        is_prediction:
+        strat_name: data.name
+        attribute:
+        extraction_type:
+        interval:
+        content:
+        offset:
+        difference_type:
+        coverage:
+        map_type_dimension:
+        object_name:
+        filename: filename 
+        id:
+        url:
+    sumo:   
+        ensemble: ensemble
+        realization: realization
+        map_type: 
+        is_observation: is_observation
+        is_prediction: 
+        strat_name: name
+        attribute:
+        extraction_type:
+        acquisition_monitor:
+        acquistion_base:
+        time0: time.t0
+        time1: time.t1
+        aggregation: aggregation
+        content: content
+        offset:
+        difference_type:
+        coverage:
+        map_type_dimension:
+        object_name:
+        filename: 
+        id:
+        url:
+    
+    

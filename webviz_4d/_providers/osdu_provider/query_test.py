@@ -33,23 +33,23 @@ class DefaultOsduService:
         self.storage_schema_client = StorageSchemaClient(**client_config)
 
     def get_osdu_metadata(self, kind, string):
-        # Search for an osdu object 
+        # Search for an osdu object
         osdu_object = None
 
         translation = {
             "Any": "*:*:*:*",
             "id": "*:*:*:*",
-            "Generic Representations": "osdu:wks:work-product-component--GenericRepresentation:*"
+            "Generic Representations": "osdu:wks:work-product-component--GenericRepresentation:*",
         }
 
         if kind in translation.keys():
             translated_kind = translation.get(kind)
         else:
             translated_kind = None
-            print("ERROR: kind not supported:",kind)
-        
+            print("ERROR: kind not supported:", kind)
+
         if translated_kind:
-            query =  kind + '*:\"' + string + '*\"'
+            query = kind + '*:"' + string + '*"'
             query_request = QueryRequest(kind=translated_kind, query=query)
             result = self.search_client.query_records(query_request, self.access_token)
             result.raise_for_status()
@@ -63,21 +63,19 @@ class DefaultOsduService:
                     osdu_object = osdu_objects[0]
 
         return osdu_object
-    
-    
+
+
 def main():
     osdu_service = DefaultOsduService()
 
     id = "npequinor-dev:work-product-component--GenericRepresentation:8b2223f115374fac9f1a5bb545d564ab"
 
-    osdu_metadata = osdu_service.get_osdu_metadata("id",id)
+    osdu_metadata = osdu_service.get_osdu_metadata("id", id)
     pprint(osdu_metadata)
 
     string = "Datafun"
-    osdu_metadata = osdu_service.get_osdu_metadata("Generic Representations",string)
+    osdu_metadata = osdu_service.get_osdu_metadata("Generic Representations", string)
     pprint(osdu_metadata)
-
-
 
 
 if __name__ == "__main__":

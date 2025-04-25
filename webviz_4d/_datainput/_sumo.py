@@ -133,6 +133,7 @@ def load_sumo_observed_metadata(my_case):
     attributes = []
     times1 = []
     times2 = []
+    intervals = []
     seismic_contents = []
     coverages = []
     differences = []
@@ -145,6 +146,7 @@ def load_sumo_observed_metadata(my_case):
         "attribute",
         "time1",
         "time2",
+        "interval",
         "seismic",
         "coverage",
         "difference",
@@ -172,12 +174,14 @@ def load_sumo_observed_metadata(my_case):
         time = surface._metadata.get("data").get("time")
         time1 = str(time.get("t0").get("value"))[0:10]
         time2 = str(time.get("t1").get("value"))[0:10]
+        interval = time2 + "-" + time1
 
         surface_names.append(name)
         tagnames.append(tagname)
         attributes.append(attribute_type)
         times1.append(time1)
         times2.append(time2)
+        intervals.append(interval)
         seismic_contents.append(seismic_content)
         coverages.append(coverage)
         differences.append(difference)
@@ -191,6 +195,7 @@ def load_sumo_observed_metadata(my_case):
             attributes,
             times1,
             times2,
+            intervals,
             seismic_contents,
             coverages,
             differences,

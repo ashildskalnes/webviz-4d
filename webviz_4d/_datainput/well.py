@@ -148,7 +148,7 @@ def load_pdm_info(provider, field):
     print("Loading production wells metadata from PDM ...")
     # Check file cache
     api = "PDM"
-    mode = field.replace(" ", "_") + "_meta"
+    mode = "meta"
 
     cache_file_name = get_cache_filename(field, api, mode)
     dataframe = load_cached_data(cache_file_name)

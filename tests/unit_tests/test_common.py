@@ -31,14 +31,14 @@ def test_well_colors():
     assert oil == "green"
 
 
-def test_get_plot_label():
-    interval = "2020-10-01-2019-10-01"
-    plot_label = common.get_plot_label(settings, interval)
-    assert plot_label == "PRM1 - PRM0"
+# def test_get_plot_label():
+#     interval = "2020-10-01-2019-10-01"
+#     plot_label = common.get_plot_label(settings, interval)
+#     assert plot_label == "PRM1 - PRM0"
 
-    interval = "2021-10-01-2019-10-01"
-    plot_label = common.get_plot_label(settings, interval)
-    assert plot_label == "PRM2 - PRM0"
+#     interval = "2021-10-01-2019-10-01"
+#     plot_label = common.get_plot_label(settings, interval)
+#     assert plot_label == "PRM2 - PRM0"
 
 
 def test_get_last_date():

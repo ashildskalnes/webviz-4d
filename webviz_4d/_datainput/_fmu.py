@@ -14,6 +14,7 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
     attributes = []
     times1 = []
     times2 = []
+    intervals = []
     seismic_contents = []
     coverages = []
     differences = []
@@ -26,6 +27,7 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
         "attribute",
         "time1",
         "time2",
+        "interval",
         "seismic",
         "coverage",
         "difference",
@@ -62,12 +64,14 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
         times = data.get("time")
         time1 = str(times.get("t0").get("value"))[0:10]
         time2 = str(times.get("t1").get("value"))[0:10]
+        interval = time2 + "-" + time1
         filename = file.get("absolute_path")
 
         surface_names.append(seismic_horizon)
         attributes.append(attribute_type)
         times1.append(time1)
         times2.append(time2)
+        intervals.append(interval)
         seismic_contents.append(seismic_content)
         coverages.append(coverage)
         differences.append(difference)
@@ -81,6 +85,7 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
             attributes,
             times1,
             times2,
+            intervals,
             seismic_contents,
             coverages,
             differences,

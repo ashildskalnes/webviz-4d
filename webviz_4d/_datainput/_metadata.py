@@ -1,8 +1,9 @@
 import os
 import pandas as pd
-import re
+import argparse
+from pprint import pprint
 
-from webviz_4d._datainput.common import get_dates
+from webviz_4d._datainput.common import read_config
 
 
 def create_map_settings(attribute, name, map_type, ensemble, realization, interval):
@@ -238,3 +239,45 @@ def get_realization_id(realization_name):
         real_id = int(real[1])
 
     return real_id
+
+
+def main():
+    DESCRIPTION = ""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser.add_argument("config_file", help="Enter name of configuration file")
+    args = parser.parse_args()
+
+    standard_metadata = [
+        "data_source",
+        "map_type",
+        "strat_name",
+        "extraction_type",
+        "interval",
+        "content",
+        "offset",
+        "difference_type",
+        "difference",
+        "coverage",
+        "map_type_dimension",
+    ]
+
+    extra_metadata = [
+        "field_name",
+        "object_name",
+        "filename",
+        "id",
+        "url",
+    ]
+
+    config_file = args.config_file
+    config = read_config(config_file)
+    surface_viewer = config["layout"][0]["content"][1]["content"][0]["content"][0][
+        "SurfaceViewer4D"
+    ]
+    selectors = surface_viewer.get("selectors")
+
+    pprint(selectors, sort_dicts=False)
+
+
+if __name__ == "__main__":
+    main()
