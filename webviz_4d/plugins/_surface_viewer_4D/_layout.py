@@ -27,13 +27,23 @@ def ensemble_layout(
     real_next_id,
 ):
 
+    print("DEBUG parent.data")
+    print(parent.data)
+
     ens_options = [{"label": ens, "value": ens} for ens in parent.ensembles(map_number)]
+    ens_value = ens_options[0].get("value")
+
+    real_options = [
+        {"label": real, "value": real} for real in parent.realizations(map_number)
+    ]
+    real_value = real_options[0].get("value")
+
     return wcc.FlexBox(
         children=[
             html.Div(
                 [
                     html.Label(
-                        "Seismic",
+                        list(parent.selectors.values())[3],
                         style={"fontSize": 15, "fontWeight": "bold"},
                     ),
                     html.Div(
@@ -41,7 +51,7 @@ def ensemble_layout(
                         children=[
                             dcc.Dropdown(
                                 options=ens_options,
-                                value=parent.map_defaults[map_number]["seismic"],
+                                value=ens_value,
                                 id=ensemble_id,
                                 clearable=False,
                                 persistence=True,
@@ -76,18 +86,15 @@ def ensemble_layout(
             html.Div(
                 children=[
                     html.Label(
-                        "Difference",
+                        list(parent.selectors.values())[4],
                         style={"fontSize": 15, "fontWeight": "bold"},
                     ),
                     html.Div(
                         style=set_grid_layout("12fr 1fr 1fr"),
                         children=[
                             dcc.Dropdown(
-                                options=[
-                                    {"label": real, "value": real}
-                                    for real in parent.realizations(map_number)
-                                ],
-                                value=parent.map_defaults[map_number]["difference"],
+                                options=real_options,
+                                value=real_value,
                                 id=real_id,
                                 clearable=False,
                                 persistence=True,

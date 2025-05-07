@@ -37,7 +37,7 @@ from webviz_4d._private_plugins.surface_selector import SurfaceSelector
 from webviz_4d._datainput._colormaps import load_custom_colormaps
 from webviz_4d._datainput._polygons import load_sumo_polygons
 from webviz_4d._datainput._maps import (
-    load_surface_from_file,
+    load_surface_from_file_new,
     load_surface_from_sumo,
     get_auto_scaling,
 )
@@ -62,7 +62,7 @@ from webviz_4d._providers.wellbore_provider._provider_impl_file import (
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddmsService
 from webviz_4d._datainput.common import find_files, get_path
-from webviz_4d._datainput._auto4d import get_auto4d_metadata
+from webviz_4d._datainput._auto4d import get_auto4d_metadata_selectors
 from webviz_4d._datainput._osdu import (
     get_osdu_metadata,
     load_surface_from_osdu,
@@ -80,6 +80,14 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+default_selectors = {
+    "extraction_type": "Surface attribute",
+    "strat_name": "Surface/Zone name",
+    "interval": "Interval",
+    "content": "Seismic",
+    "difference": "Difference",
+}
+
 
 class SurfaceViewer4D(WebvizPluginABC):
     """### SurfaceViewer4D"""
@@ -90,11 +98,11 @@ class SurfaceViewer4D(WebvizPluginABC):
         well_folder: Path = None,
         production_data: Path = None,
         colormaps_folder: Path = None,
+        selectors: dict = default_selectors,
         map1_defaults: dict = None,
         map2_defaults: dict = None,
         map3_defaults: dict = None,
         map_suffix: str = ".gri",
-        default_interval: str = None,
         settings_file: Path = None,
         interval_mode: str = "normal",
     ):
@@ -104,6 +112,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.shared_settings = self.config["shared_settings"]
         self.field_name = self.shared_settings.get("field_name")
         self.label = self.shared_settings.get("label")
+        self.selectors = selectors
         print("Field name:", self.field_name)
         print("Label:", self.label)
 
@@ -116,10 +125,10 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.colormaps_folder = colormaps_folder
         self.map_suffix = map_suffix
         self.interval_mode = interval_mode
-        self.default_interval = default_interval
 
         self.define_defaults()
         self.load_settings_info(settings_file)
+        self.data = {}
 
         field_name = self.shared_settings.get("field_name")
 
@@ -163,7 +172,23 @@ class SurfaceViewer4D(WebvizPluginABC):
                     self.config
                 )
             elif data_source == "auto4d_file":
-                metadata, selection_list = get_auto4d_metadata(self.config)
+                all_metadata, selection_list = get_auto4d_metadata_selectors(
+                    self.config, self.selectors, map_default
+                )
+                fixed_keys = list(map_default.keys())
+                fixed_values = list(map_default.values())
+                fixed_dict = dict(zip(fixed_keys, fixed_values))
+
+                print("DEBUG map_defaults:")
+                print(map_defaults[index])
+
+                metadata = all_metadata[
+                    (all_metadata[fixed_keys[0]] == fixed_values[0])
+                    & (all_metadata[fixed_keys[1]] == fixed_values[1])
+                    & (all_metadata[fixed_keys[2]] == fixed_values[2])
+                    & (all_metadata[fixed_keys[3]] == fixed_values[3])
+                    & (all_metadata[fixed_keys[4]] == fixed_values[4])
+                ]
             elif data_source == "fmu":
                 metadata, selection_list = get_fmu_metadata(self.config, field_name)
             elif data_source == "osdu":
@@ -192,6 +217,9 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             self.metadata_lists.append(metadata)
             self.selection_lists.append(selection_list)
+
+            intervals = sorted(metadata["interval"].unique())
+            self.default_interval = intervals[0]
 
             print(" - Metadata loaded:", len(metadata))
 
@@ -303,9 +331,15 @@ class SurfaceViewer4D(WebvizPluginABC):
                 prod_interval="Day",
             )
 
-        self.selector = SurfaceSelector(app, self.metadata_lists[0], map1_defaults)
-        self.selector2 = SurfaceSelector(app, self.metadata_lists[1], map2_defaults)
-        self.selector3 = SurfaceSelector(app, self.metadata_lists[2], map3_defaults)
+        self.selector = SurfaceSelector(
+            app, selectors, self.metadata_lists[0], map1_defaults
+        )
+        self.selector2 = SurfaceSelector(
+            app, selectors, self.metadata_lists[1], map2_defaults
+        )
+        self.selector3 = SurfaceSelector(
+            app, selectors, self.metadata_lists[2], map3_defaults
+        )
         self.set_callbacks(app)
 
     def define_defaults(self):
@@ -362,21 +396,39 @@ class SurfaceViewer4D(WebvizPluginABC):
             load_custom_colormaps(colormap_files)
 
     def ensembles(self, map_number):
-        map_type = self.map_defaults[map_number]["map_type"]
+        # map_type = self.map_defaults[map_number]["map_type"]
+        # selection_list = self.selection_lists[map_number]
+        # return selection_list[map_type]["seismic"]
+
+        selector_keys = list(self.selectors.keys())
         selection_list = self.selection_lists[map_number]
-        return selection_list[map_type]["seismic"]
+        # print("DEBUG ensemble selection_list", selection_list)
+        key_3 = selector_keys[3]
+        # print("DEBUG key_3", key_3)
+        selection_list = selection_list[key_3]
+        # print("DEBUG ensembles", selection_list)
+
+        return selection_list
 
     def realizations(self, map_number):
-        map_type = self.map_defaults[map_number]["map_type"]
+        # map_type = self.map_defaults[map_number]["map_type"]
+        # selection_list = self.selection_lists[map_number]
+        # realization_list = selection_list[map_type]["difference"]
+
+        # if map_type == "simulated":
+        #     if "aggregated" in selection_list.keys():  # SUMO
+        #         aggregations = selection_list["aggregated"]["aggregation"]
+        #         realization_list = realization_list + aggregations
+
+        selector_keys = list(self.selectors.keys())
         selection_list = self.selection_lists[map_number]
-        realization_list = selection_list[map_type]["difference"]
+        # print("DEBUG realization selection_list", selection_list)
+        key_4 = selector_keys[4]
+        # print("DEBUG key_4", key_4)
+        selection_list = selection_list[key_4]
+        # print("DEBUG realizations", selection_list)
 
-        if map_type == "simulated":
-            if "aggregated" in selection_list.keys():  # SUMO
-                aggregations = selection_list["aggregated"]["aggregation"]
-                realization_list = realization_list + aggregations
-
-        return realization_list
+        return selection_list
 
     @property
     def layout(self):
@@ -425,6 +477,12 @@ class SurfaceViewer4D(WebvizPluginABC):
 
     def make_map(self, data, ensemble, real, attribute_settings, map_idx):
         data = json.loads(data)
+        self.data = data
+        print("DEBUG make_map")
+        print(" - data", data)
+        print(" - ensemble", ensemble)
+        print(" - real", real)
+
         name = data["name"]
         attribute = data["attr"]
 
@@ -432,23 +490,20 @@ class SurfaceViewer4D(WebvizPluginABC):
 
         data_source = self.data_sources[map_idx]
         metadata = self.metadata_lists[map_idx]
-
         map_defaults = self.map_defaults[map_idx]
-        map_type = map_defaults["map_type"]
-        coverage = map_defaults["coverage"]
 
         surface = None
+        coverage = "Full"
 
         if data_source == "auto4d_file" or data_source == "fmu":
-            surface, map_name = load_surface_from_file(
+            surface, map_name = load_surface_from_file_new(
                 map_idx,
-                self.data_sources[map_idx],
+                self.selectors,
                 metadata,
                 map_defaults,
                 data,
                 ensemble,
                 real,
-                coverage,
             )
         elif data_source == "sumo":
             surface, map_name = load_surface_from_sumo(
@@ -463,6 +518,7 @@ class SurfaceViewer4D(WebvizPluginABC):
             )
         elif data_source == "osdu":
             print(metadata)
+            coverage = None
             surface, map_name = load_surface_from_osdu(
                 map_idx,
                 data_source,
@@ -513,6 +569,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             # Check if there are polygon layers available for the selected zone, iteration and and realization
             if self.sumo:
+                map_type = "observed"
                 self.polygons = get_sumo_zone_polygons(
                     case=self.my_case,
                     sumo_polygons=self.sumo_polygons,

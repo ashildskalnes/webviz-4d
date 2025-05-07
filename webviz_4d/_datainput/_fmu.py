@@ -190,6 +190,39 @@ def get_fmu_filename(data, ensemble, real, map_type, metadata):
     return path, map_name
 
 
+def get_fmu_filename_new(data, ensemble, real, map_type, metadata):
+    selected_interval = data["date"]
+    name = data["name"]
+    attribute = data["attr"]
+
+    time2 = selected_interval[0:10]
+    time1 = selected_interval[11:]
+
+    metadata.replace(np.nan, "", inplace=True)
+
+    try:
+        selected_metadata = metadata[
+            (metadata["difference"] == real)
+            & (metadata["seismic"] == ensemble)
+            & (metadata["map_type"] == map_type)
+            & (metadata["time1"] == time1)
+            & (metadata["time2"] == time2)
+            & (metadata["name"] == name)
+            & (metadata["attribute"] == attribute)
+        ]
+
+        path = selected_metadata["filename"].values[0]
+        map_name = path.split("/")[-1]
+    except:
+        path = ""
+        map_name = None
+        print("WARNING: selected map not found. Selection criteria are:")
+        print(map_type, real, ensemble, name, attribute, time1, time2)
+        # print(metadata)
+
+    return path, map_name
+
+
 def get_fmu_metadata(config, field_name):
     shared_settings = config.get("shared_settings")
     interval_mode = shared_settings.get("interval_mode")

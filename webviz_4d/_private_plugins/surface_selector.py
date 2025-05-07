@@ -40,13 +40,49 @@ class SurfaceSelector:
             - somedate
             - somedate"""
 
-    def __init__(self, app, surface_meta, map_defaults):
+    def __init__(self, app, selectors, surface_meta, map_defaults):
         self.surface_meta = surface_meta
-        print("DEBUG surface_meta")
-        print(surface_meta.columns)
+        self.selections = selectors
         self.map_defaults = map_defaults
-        self.current_selections = map_defaults
-        self._storage_id = f"{str(uuid4())}-surface-selector"
+        self.selector_keys = list(selectors.keys())
+
+        # print("DEBUG surface_selector selectors", selectors)
+
+        first_selector_metadata_values = surface_meta[self.selector_keys[0]].to_list()
+        first_selector_value = first_selector_metadata_values[0]
+        # print("DEBUG first selection:", self.selector_keys[0], first_selector_value)
+
+        second_selector_values = list(
+            self.surface_meta[
+                self.surface_meta[self.selector_keys[0]] == first_selector_value
+            ][self.selector_keys[1]].unique()
+        )
+        # print("DEBUG second selection list", second_selector_values)
+        second_selector_value = second_selector_values[0]
+        # print("DEBUG second selection:", self.selector_keys[1], second_selector_value)
+
+        # print("DEBUG self.selector_keys[2]", self.selector_keys[2])
+        first_column = self.selector_keys[0]
+        second_column = self.selector_keys[1]
+        selected_metadata = self.surface_meta[
+            (self.surface_meta[first_column] == first_selector_value)
+            & (self.surface_meta[second_column] == second_selector_value)
+        ]
+        # print("DEBUG selected_metadata third selector")
+        # print(selected_metadata[["map_name", "coverage", "interval"]])
+
+        third_selector_values = list(selected_metadata[self.selector_keys[2]].unique())
+        third_selector_value = third_selector_values[0]
+        # print("DEBUG third selection:", self.selector_keys[2], third_selector_value)
+
+        self.current_selections = {
+            self.selector_keys[0]: first_selector_value,
+            self.selector_keys[1]: second_selector_value,
+            self.selector_keys[2]: third_selector_value,
+        }
+
+        # print("DEBUG current_selections", self.current_selections)
+        self._storage_id = f"{str(uuid4())}-selector1"
         self.set_ids()
         self.set_callbacks(app)
 
@@ -79,21 +115,46 @@ class SurfaceSelector:
 
     @property
     def attrs(self):
-        return list(self.surface_meta["attribute"].unique())
+        first_selector_values = list(self.surface_meta[self.selector_keys[0]].unique())
+        # print("DEBUG attrs", first_selector_values)
+        return first_selector_values
 
     def _names_in_attr(self, attribute):
-        return list(
-            self.surface_meta[self.surface_meta["attribute"] == attribute][
-                "name"
+        second_selector_values = list(
+            self.surface_meta[self.surface_meta[self.selector_keys[0]] == attribute][
+                self.selector_keys[1]
             ].unique()
         )
+        # print("DEBUG _names in attr", second_selector_values)
+        return second_selector_values
 
     def _interval_in_attr(self, attribute):
-        return list(
-            self.surface_meta[self.surface_meta["attribute"] == attribute][
-                "interval"
-            ].unique()
+        first_selector_metadata_values = self.surface_meta[
+            self.selector_keys[0]
+        ].to_list()
+        first_selector_value = first_selector_metadata_values[0]
+        # print("DEBUG first selection:", self.selector_keys[0], first_selector_value)
+
+        second_selector_values = list(
+            self.surface_meta[
+                self.surface_meta[self.selector_keys[0]] == first_selector_value
+            ][self.selector_keys[1]].unique()
         )
+        # print("DEBUG second selection list", second_selector_values)
+        second_selector_value = second_selector_values[0]
+        # print("DEBUG second selection:", self.selector_keys[1], second_selector_value)
+
+        # print("DEBUG self.selector_keys[2]", self.selector_keys[2])
+        first_column = self.selector_keys[0]
+        second_column = self.selector_keys[1]
+        selected_metadata = self.surface_meta[
+            (self.surface_meta[first_column] == first_selector_value)
+            & (self.surface_meta[second_column] == second_selector_value)
+        ]
+
+        third_selector_values = list(selected_metadata[self.selector_keys[2]].unique())
+        # print("DEBUG _interval in attr", third_selector_values)
+        return third_selector_values
 
     @property
     def attribute_selector(self):
@@ -111,7 +172,7 @@ class SurfaceSelector:
                             options=[
                                 {"label": attr, "value": attr} for attr in self.attrs
                             ],
-                            value=self.current_selections["attribute"],
+                            value=self.current_selections[self.selector_keys[0]],
                             clearable=False,
                             persistence=True,
                             persistence_type="session",
@@ -181,6 +242,10 @@ class SurfaceSelector:
 
     @property
     def layout(self):
+        label_1 = self.selections[self.selector_keys[1]]
+        key_1 = self.selector_keys[1]
+        label_2 = self.selections[self.selector_keys[2]]
+        key_2 = self.selector_keys[1]
         return html.Div(
             children=[
                 html.Div(
@@ -189,26 +254,18 @@ class SurfaceSelector:
                         self.selector(
                             self.name_wrapper_id,
                             self.name_id,
-                            "Surface/Zone name",
-                            self.current_selections["name"],
+                            label_1,
+                            self.current_selections[key_1],
                             self.name_id_btn_prev,
                             self.name_id_btn_next,
                         ),
                         self.selector(
                             self.date_wrapper_id,
                             self.date_id,
-                            "Interval",
-                            self.current_selections["interval"],
+                            label_2,
+                            self.current_selections[key_2],
                             self.date_id_btn_prev,
                             self.date_id_btn_next,
-                        ),
-                        self.selector(
-                            self.coverage_wrapper_id,
-                            self.coverage_id,
-                            "Coverage",
-                            self.current_selections["coverage"],
-                            self.coverage_id_btn_prev,
-                            self.coverage_id_btn_next,
                         ),
                     ]
                 ),
@@ -326,7 +383,7 @@ class SurfaceSelector:
             if date and not date in self._interval_in_attr(attr):
                 raise PreventUpdate
 
-            return json.dumps({"name": name, "attr": attr, "date": date})
+            return json.dumps({"attr": attr, "name": name, "date": date})
 
 
 def prev_value(current_value, options):

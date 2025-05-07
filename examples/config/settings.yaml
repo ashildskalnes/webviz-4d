@@ -64,7 +64,7 @@ polygon_colors:
     injectites: khaki
         
 date_labels:
-    20190912: PRM19aut
+    20191012: PRM19aut
     20191001: PRM19aut
     20201001: PRM20aut
     20200930: PRM20aut
@@ -74,6 +74,7 @@ date_labels:
     20220828: PRM22aut
     20230515: PRM23spr
     20230516: PRM23spr
+    20230915: PRM24aut
     20230920: PRM24aut
     
 prod_data_intervals: 

@@ -1,0 +1,136 @@
+title: Webviz-4D QC                            # Customize
+
+shared_settings:
+    field_name: JOHAN SVERDRUP
+    metadata_version: 0.4.2
+    map_type: 4D                                # 3D/4D/Horizon
+    sumo:
+        env_name: prod
+        case_name: 25p0p3_histandpred_ff_16022025
+    osdu:
+        instance: npequinor | npequinor-dev
+    rddms:
+        instance: npequinor | npequinor-dev
+        dataspace: JS/Soumik_2
+    fmu:
+        directory: /scratch/johan_sverdrup2/share/24p12p4/24p12p4_histandpred_ff_20240922
+        observed_maps:
+            realization_names: ["*"]
+            iteration_names: [pred]
+            map_directories: [share/observations/maps/]
+            attributes: ["*"]
+            surface_names: ["*"]
+            time_intervals: ["*"]
+    auto4d_file:
+        directory: /scratch/auto4d/userhorizons/ashska
+        metadata_format: .a4dmeta
+        acquisition_dates:
+            EQ19231: 2019-10-01
+            EQ20231: 2020-10-01
+            EQ21200: 2021-05-15
+            EQ22200: 2022-05-15
+            EQ22205: 2022-09-01
+            EQ23200: 2023-05-15
+            EQ23205: 2023-09-15
+            EQ24200: 2024-05-15
+            EQ24205: 2024-09-15
+            EQ25200: 2025-05-15
+
+    label: Multi source test      # Customize
+
+    basic_well_layers:
+        planned: Planned wells
+        drilled_wells: Drilled wells
+        reservoir_sections: Reservoir sections
+
+    additional_well_layers:
+        production: Producers
+        injection: Injectors
+
+    well_folder: &wellfolder SMDA
+    top_reservoir:
+        name: Draupne Fm. 1 JS Top
+        tag_name: depth_structural_model
+        iter: pred
+        real: realization-0
+        polygon_usage:
+            zones: True
+            observed: True
+            aggregated: True
+    production_data: &production_data PDM
+    polygons_folder: &polygons_folder SUMO
+    colormaps_folder: &colormaps_folder ../colormaps/
+    settings_file: &settings ./settings.yaml
+    interval_mode: &interval_mode normal
+
+# ------------------------------
+options:
+  menu:
+    show_logo: true
+    bar_position: left
+    drawer_position: left
+    initially_pinned: true
+    initially_collapsed: true
+
+# ------------------------------
+layout:
+  - section: Webviz-4D TGX
+    content:
+      # -----------------------------
+      - page: Front page
+        icon: home
+        content:
+          - Markdown:
+              markdown_file: ./front_page.md
+
+      # -------------------------------
+      - group: Timelapse maps
+        icon: layers
+        content:
+          - page: Observed maps
+            content:
+              - SurfaceViewer4D:
+                  well_folder: *wellfolder
+                  production_data: *production_data
+                  colormaps_folder: *colormaps_folder
+                  settings_file:  *settings
+                  interval_mode: *interval_mode
+                  selectors:
+                    extraction_type: Surface attribute
+                    strat_zone: Surface/Zone name
+                    interval: Interval
+                    content: Seismic
+                    difference: Difference
+
+                  map1_defaults:
+                    data_source: auto4d_file
+                    map_type: observed
+                    offset:
+                    difference_type: AttributeOfDifference
+                    coverage: Full
+                    map_type_dimension: 4D
+
+                  map2_defaults:
+                    data_source: fmu
+                    map_type: observed
+                    offset:
+                    difference_type: AttributeOfDifference
+                    coverage: Full
+                    map_type_dimension: 4D
+
+                  map3_defaults:
+                    data_source: auto4d_file
+                    map_type: observed
+                    offset:
+                    difference_type: AttributeOfDifference
+                    coverage: Full
+                    map_type_dimension: 4D
+
+      - group: Information
+        icon: info_circle
+        content:
+
+          - page: How was this made
+            content:
+              - SyntaxHighlighter:
+                  filename: ./multi_auto4d_osdu_fmu.yaml

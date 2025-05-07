@@ -1,9 +1,14 @@
 import os
 import pandas as pd
+import numpy as np
 import argparse
 from pprint import pprint
+import time
+import xtgeo
 
 from webviz_4d._datainput.common import read_config
+from webviz_4d._datainput._auto4d import get_auto4d_metadata_selectors
+from webviz_4d._datainput._auto4d import get_auto4d_filename
 
 
 def create_map_settings(attribute, name, map_type, ensemble, realization, interval):
@@ -239,45 +244,3 @@ def get_realization_id(realization_name):
         real_id = int(real[1])
 
     return real_id
-
-
-def main():
-    DESCRIPTION = ""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    parser.add_argument("config_file", help="Enter name of configuration file")
-    args = parser.parse_args()
-
-    standard_metadata = [
-        "data_source",
-        "map_type",
-        "strat_name",
-        "extraction_type",
-        "interval",
-        "content",
-        "offset",
-        "difference_type",
-        "difference",
-        "coverage",
-        "map_type_dimension",
-    ]
-
-    extra_metadata = [
-        "field_name",
-        "object_name",
-        "filename",
-        "id",
-        "url",
-    ]
-
-    config_file = args.config_file
-    config = read_config(config_file)
-    surface_viewer = config["layout"][0]["content"][1]["content"][0]["content"][0][
-        "SurfaceViewer4D"
-    ]
-    selectors = surface_viewer.get("selectors")
-
-    pprint(selectors, sort_dicts=False)
-
-
-if __name__ == "__main__":
-    main()

@@ -2,8 +2,8 @@ import os
 import time
 import xtgeo
 
-from webviz_4d._datainput._auto4d import get_auto4d_filename
-from webviz_4d._datainput._fmu import get_fmu_filename
+from webviz_4d._datainput._auto4d import get_auto4d_filename_new
+from webviz_4d._datainput._fmu import get_fmu_filename_new
 from webviz_4d._datainput._sumo import (
     get_sumo_interval_list,
     get_selected_surface,
@@ -160,6 +160,65 @@ def load_surface_from_file(
 
         for index, meta in enumerate(metadata_values):
             print("  - ", metadata_keys[index + 1], ":", meta)
+
+    return surface, map_name
+
+
+def load_surface_from_file_new(
+    map_idx,
+    selectors,
+    metadata,
+    map_defaults,
+    data,
+    ensemble,
+    real,
+):
+    fixed_keys = list(map_defaults.keys())
+    fixed_values = list(map_defaults.values())
+    fixed_dict = dict(zip(fixed_keys, fixed_values))
+
+    print("DEBUG map_defaults:")
+    print(map_defaults)
+
+    metadata_fixed = metadata[
+        (metadata[fixed_keys[0]] == fixed_values[0])
+        & (metadata[fixed_keys[1]] == fixed_values[1])
+        & (metadata[fixed_keys[2]] == fixed_values[2])
+        & (metadata[fixed_keys[3]] == fixed_values[3])
+        & (metadata[fixed_keys[4]] == fixed_values[4])
+    ]
+
+    selection_columns = list(map_defaults.keys())
+    selection_columns.append("filename")
+
+    selected_interval = data["date"]
+    selected_metadata = metadata_fixed[selection_columns]
+
+    data_source = map_defaults.get("data_source")
+
+    surface = None
+    map_name = None
+
+    if data_source == "auto4d_file":
+        surface_file, map_name = get_auto4d_filename_new(
+            metadata_fixed, selectors, data, ensemble, real
+        )
+        surface, tic, toc = read_surface_file(surface_file, data_source)
+        map_name = surface_file.split("/")[-1]
+    elif data_source == "fmu":
+        surface_file, map_name = get_fmu_filename_new(data, ensemble, real, metadata)
+        surface, tic, toc = read_surface_file(surface_file, data_source)
+        map_name = surface_file.split("/")[-1]
+    else:
+        print("ERROR load_surface_from_file")
+        print("  - Data source not supported:", data_source)
+
+    if surface is not None:
+        print_surface_info(map_idx, tic, toc, surface, map_name)
+    else:
+        print()
+        print("Selected map not found in", data_source)
+        # print("  Selection criteria:")
 
     return surface, map_name
 
