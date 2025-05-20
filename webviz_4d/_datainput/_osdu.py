@@ -438,6 +438,18 @@ def load_surface_from_osdu(
     return surface, map_name
 
 
+def parse_seismic_horizons(osdu_service, osdu_objects):
+    seismic_horizons = []
+
+    for _index, osdu_object in enumerate(osdu_objects):
+        seismic_horizon = osdu_service.parse_seismic_horizon(osdu_object)
+
+        if seismic_horizon:
+            seismic_horizons.append(seismic_horizon)
+
+    return seismic_horizons
+
+
 def main():
     config_file = "/private/ashska/dev_311/my_forks/fields/johan_sverdrup/osdu_config/osdu_config_new.yaml"
     config = read_config(config_file)

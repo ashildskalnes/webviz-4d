@@ -50,7 +50,7 @@ def main():
 
     print()
     print("--------------------------------------------------------------------------")
-    print("OSDU Objects status:", datetime.now(), "npequinor | npequinor-dev")
+    print("OSDU Objects status:", datetime.now(), "data | equinordev")
     print("--------------------------------------------------------------------------")
     print()
 
@@ -151,6 +151,8 @@ def main():
     print()
     print(horizon_table)
     print()
+
+    print("Searching for JS seismic cubes:")
 
     # Seismic cubes
     seismic_table = pt.PrettyTable()

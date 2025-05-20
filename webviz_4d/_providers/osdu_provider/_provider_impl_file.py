@@ -55,6 +55,7 @@ class DefaultOsduService:
     def parse_seismic_horizon(self, osdu_object: dict) -> osdu.SeismicHorizon:
         Name = ""
         FieldID = ""
+        OwId = ""
         SeismicDomainTypeID = ""
         Datasets = []
         InterpretationName = ""
@@ -91,6 +92,7 @@ class DefaultOsduService:
             tags = data.get("tags")
 
         if tags:
+            OwId = tags.get("id", "")
             InlineIncrement = tags.get("InlineIncrement", "")
             CrosslineIncrement = tags.get("CrosslineIncrement", "")
 
@@ -110,6 +112,7 @@ class DefaultOsduService:
             id,
             kind,
             Name,
+            OwId,
             FieldID,
             SeismicDomainTypeID,
             Datasets,

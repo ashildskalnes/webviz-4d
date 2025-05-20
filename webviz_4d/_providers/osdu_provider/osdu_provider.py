@@ -14,6 +14,7 @@ class SeismicHorizon:
     id: str
     kind: str
     Name: str
+    OwId: str
     FieldID: str
     SeismicDomainTypeID: str
     Datasets: list[str]

@@ -262,3 +262,19 @@ def print_metadata(metadata):
 
     print()
     print(table)
+
+
+def print_osdu_metadata(metadata, field_names):
+    sorted_metadata = metadata.sort_values(by=["Name"])
+    sorted_metadata = sorted_metadata.reset_index(drop=True)
+
+    table = pt.PrettyTable()
+
+    table.field_names = ["idx"] + field_names
+
+    for idx, row in sorted_metadata.iterrows():
+        items = [idx] + row[field_names].to_list()
+        table.add_row(items)
+
+    print()
+    print(table)
