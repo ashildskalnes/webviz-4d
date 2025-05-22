@@ -63,7 +63,7 @@ def load_surface_from_sumo(
     if data_source == "sumo":
         seismic = map_defaults.get("seismic")
         difference = map_defaults.get("difference")
-        interval = map_defaults.get("interval")
+        interval = data["date"]
 
         interval_list = get_sumo_interval_list(interval)
 

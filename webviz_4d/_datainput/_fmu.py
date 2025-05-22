@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from pprint import pprint
 
-from webviz_4d._datainput.common import read_config
+from webviz_4d._datainput.common import read_yaml_file
 
 
 def load_fmu_metadata(fmu_dir, map_directory, field_name):
@@ -43,7 +43,7 @@ def load_fmu_metadata(fmu_dir, map_directory, field_name):
     metadata_files = glob.glob(fmu_dir + "/" + map_directory + ".*" + file_ext)
 
     for metadata_file in metadata_files:
-        metadata = read_config(metadata_file)
+        metadata = read_yaml_file(metadata_file)
         file = metadata.get("file")
         data = metadata.get("data")
 

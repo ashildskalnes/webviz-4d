@@ -15,7 +15,7 @@ from webviz_4d._datainput._surface import (
 )
 
 from webviz_4d._datainput.common import (
-    read_config,
+    read_yaml_file,
     get_well_colors,
     get_plot_label,
     get_dates,
@@ -100,12 +100,22 @@ class SurfaceViewer4D(WebvizPluginABC):
     ):
         super().__init__()
         logging.getLogger("").setLevel(level=logging.WARNING)
+        supported_config_version = "1.2"
         self.config = app.webviz_settings
         self.shared_settings = self.config["shared_settings"]
         self.field_name = self.shared_settings.get("field_name")
         self.label = self.shared_settings.get("label")
+        self.config_version = str(self.shared_settings.get("config_version"))
+
         print("Field name:", self.field_name)
         print("Label:", self.label)
+        print("Configuration version:", self.config_version)
+
+        if self.config_version != supported_config_version:
+            print("ERROR: Configuration file has wrong version")
+            print("       Required version:", supported_config_version)
+            print("       Configuration version:", self.config_version)
+            exit(1)
 
         self.basic_well_layers = self.shared_settings.get("basic_well_layers", None)
         self.additional_well_layers = self.shared_settings.get("additional_well_layers")
@@ -343,7 +353,7 @@ class SurfaceViewer4D(WebvizPluginABC):
 
     def load_settings_info(self, settings_path):
         if settings_path:
-            settings = read_config(settings_path)
+            settings = read_yaml_file(settings_path)
 
             map_settings = settings.get("map_settings")
             self.attribute_settings = map_settings.get("attribute_settings")

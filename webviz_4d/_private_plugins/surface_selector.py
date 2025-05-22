@@ -42,8 +42,6 @@ class SurfaceSelector:
 
     def __init__(self, app, surface_meta, map_defaults):
         self.surface_meta = surface_meta
-        print("DEBUG surface_meta")
-        print(surface_meta.columns)
         self.map_defaults = map_defaults
         self.current_selections = map_defaults
         self._storage_id = f"{str(uuid4())}-surface-selector"

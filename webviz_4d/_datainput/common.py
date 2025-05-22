@@ -8,7 +8,6 @@ from typing import Optional
 from io import BytesIO
 import pandas as pd
 import prettytable as pt
-import xtgeo
 
 
 defaults = {
@@ -17,6 +16,17 @@ defaults = {
     "delimiter": "--",
     "surface_metadata": "surface_metadata.csv",
 }
+
+
+def read_yaml_file(yaml_file):
+    """Return the content of a yaml file as a dict"""
+
+    content = {}
+
+    with open(yaml_file, "r") as stream:
+        content = yaml.safe_load(stream)
+
+    return content
 
 
 def get_default_interval(selection_list, options):
@@ -33,14 +43,24 @@ def get_default_interval(selection_list, options):
     return default_interval
 
 
-def read_config(config_file):
+def read_config(config_file, selected_version):
     """Return the content of a configuration file as a dict"""
-    config_dict = {}
 
-    with open(config_file, "r") as stream:
-        config_dict = yaml.safe_load(stream)
+    config = read_yaml_file(config_file)
 
-    return config_dict
+    shared_settings = config.get("shared_settings")
+
+    if shared_settings is not None:
+        version = shared_settings.get("version", "")
+
+        if version != selected_version:
+            print("ERROR: Required version:", selected_version, "not found")
+            print("        version =", version)
+            config = {}
+    else:
+        print("WARNING: shared_settings info not found in", config_file)
+
+    return config
 
 
 def get_config_item(config, key):
