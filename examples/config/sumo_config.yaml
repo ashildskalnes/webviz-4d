@@ -2,6 +2,7 @@
 title: WebViz-4D QC                                
 
 shared_settings: 
+    config_version: 1.2
     field_name: Johan Sverdrup  
     sumo:
         env_name: prod
@@ -33,11 +34,11 @@ shared_settings:
         injection: Injectors                                
          
     well_folder: &wellfolder SMDA  
-    top_reservoir: 
+    top_reservoir:  
         name: Draupne Fm. 1 JS Top 
         tag_name: depth_structural_model 
         iter: pred
-        real: realization-0     
+        real: realization-0      
         polygon_usage: 
             zones: True
             observed: True
@@ -45,7 +46,7 @@ shared_settings:
     production_data: &production_data PDM 
     polygons_folder: &polygons_folder SUMO
     colormaps_folder: &colormaps_folder ../colormaps/
-    settings_file: &settings ../settings.yaml
+    settings_file: &settings ./settings.yaml
     interval_mode: &interval_mode normal
     default_interval: 2023-09-15-2020-10-01 
                 
@@ -70,10 +71,10 @@ layout:
               markdown_file: ./front_page.md  
               
       # -------------------------------
-      - group: Timelapse maps   
+      - group: Timelapse maps     
         icon: layers
-        content:                     
-          - page: Observed maps 
+        content:                      
+          - page: Observed maps  
             content:
               - SurfaceViewer4D:  
                   well_folder: *wellfolder 

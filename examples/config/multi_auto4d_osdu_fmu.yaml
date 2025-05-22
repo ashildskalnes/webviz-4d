@@ -1,6 +1,7 @@
 title: Webviz-4D QC                            # Customize
 
 shared_settings:
+    config_version: 1.2
     field_name: JOHAN SVERDRUP 
     metadata_version: 0.4.2
     map_type: 4D                                # 3D/4D/Horizon

@@ -1,11 +1,12 @@
 title: Webviz-4D QC                            # Customize
 
 shared_settings:
+    config_version: 1.2
     field_name: JOHAN SVERDRUP 
     metadata_version: 0.4.2
     sumo:
         env_name: prod
-        case_name: 24p12p4_histandpred_ff_20240922    
+        case_name: 25p0p3_histandpred_ff_16022025    
     osdu:
         instance: npequinor | npequinor-dev
         
@@ -103,7 +104,7 @@ layout:
                     difference: NotTimeshifted
                     interval: 2021-05-17-2020-09-30
  
-       - group: Information
+      - group: Information
         icon: info_circle
         content:
 
