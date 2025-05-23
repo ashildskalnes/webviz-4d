@@ -129,6 +129,9 @@ class SurfaceSelector:
         return second_selector_values
 
     def _interval_in_attr(self, attribute):
+        # print("DEBUG interval_in attr self.surface_meta")
+        # print(self.surface_meta)
+
         first_selector_metadata_values = self.surface_meta[
             self.selector_keys[0]
         ].to_list()

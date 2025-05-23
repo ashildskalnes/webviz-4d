@@ -8,19 +8,19 @@ map_settings:
         MaxPositive:
             color: seismic_rms
             type:  diverging
-            auto_scaling:   10 
+            auto_scaling:   15 
         MaxNegative:
             color:   seismic_rms
             type:  diverging
-            auto_scaling:   10 
+            auto_scaling:   15 
         SumPositive:
             color: seismic_rms
             type:  diverging
-            auto_scaling:   10 
+            auto_scaling:   15 
         SumNegative:
             color:   seismic_rms
             type:  diverging
-            auto_scaling:   10
+            auto_scaling:   15
         RMS:
             color:   Purples
             type:  positive
@@ -28,15 +28,15 @@ map_settings:
         Value:
             color:   seismic_rms
             type:  diverging
-            auto_scaling:   10 
+            auto_scaling:   15 
         max:
             color: seismic_rms
             type:  diverging
-            auto_scaling:   10 
+            auto_scaling:   15 
         min:
             color: seismic_rms
             type:  diverging
-            auto_scaling:   10
+            auto_scaling:   15
         mean:
             color: seismic_rms
             type:  diverging
@@ -44,11 +44,11 @@ map_settings:
         Max:
             color: seismic_rms
             type:  diverging
-            auto_scaling:   10   
+            auto_scaling:   15   
         Average:
             color: seismic_rms
             type:  diverging
-            auto_scaling:   10   
+            auto_scaling:   15   
             
 well_colors:
     default: black
@@ -72,12 +72,12 @@ polygon_colors:
     injectites: khaki
         
 date_labels:
-    20191012: PRM19aut
-    20191001: PRM19aut
-    20201001: PRM20aut
+    20191512: PRM19aut
+    20191501: PRM19aut
+    20201501: PRM20aut
     20200930: PRM20aut
-    20210515: PRM21spr
-    20210517: PRM21spr
+    20215515: PRM21spr
+    20215517: PRM21spr
     20220515: PRM22spr
     20220828: PRM22aut
     20230515: PRM23spr

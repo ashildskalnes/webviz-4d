@@ -1,6 +1,8 @@
 import os
+import numpy as np
 import time
 import xtgeo
+from pprint import pprint
 
 from webviz_4d._datainput._auto4d import get_auto4d_filename_new
 from webviz_4d._datainput._fmu import get_fmu_filename_new
@@ -103,6 +105,63 @@ def load_surface_from_sumo(
     return surface, map_name
 
 
+def load_surface_from_sumo_new(
+    map_idx, sumo_case, input_metadata, selectors, data, ensemble, real
+):
+    metadata = input_metadata.copy()
+    metadata.replace(np.nan, "", inplace=True)
+
+    selected_keys = list(selectors.keys())
+    selected_values = list(data.values())
+    selected_values = selected_values + [ensemble, real]
+
+    selection_dict = dict(zip(selected_keys, selected_values))
+
+    try:
+        selected_metadata = metadata[
+            (metadata[selected_keys[0]] == selected_values[0])
+            & (metadata[selected_keys[1]] == selected_values[1])
+            & (metadata[selected_keys[2]] == selected_values[2])
+            & (metadata[selected_keys[3]] == selected_values[3])
+            & (metadata[selected_keys[4]] == selected_values[4])
+        ]
+
+        print(selected_metadata)
+
+        map_type = selected_metadata["map_type"].values[0]
+        map_name = selected_metadata["map_name"].values[0]
+        tagname = selected_metadata["tagname"].values[0]
+        interval_list = selected_metadata["dates"].values[0]
+
+        tic = time.perf_counter()
+        surface, map_name = get_selected_surface(
+            case=sumo_case,
+            map_type=map_type,
+            surface_name=map_name,
+            attribute=tagname,
+            time_interval=interval_list,
+            iteration_name="",
+            realization="",
+        )
+        toc = time.perf_counter()
+
+    except:
+        map_name = ""
+        surface = None
+
+        print("WARNING: Selected file not found in SUMO")
+        print("  Selection criteria are:")
+        pprint(selection_dict)
+
+    if surface is not None:
+        print_surface_info(map_idx, tic, toc, surface, map_name)
+    else:
+        print()
+        print("Selected map not found in sumo")
+
+    return surface, map_name
+
+
 def load_surface_from_file(
     map_idx, data_source, metadata, map_defaults, data, ensemble, real, coverage
 ):
@@ -128,13 +187,13 @@ def load_surface_from_file(
     map_name = None
 
     if data_source == "auto4d_file":
-        surface_file, map_name = get_auto4d_filename(
+        surface_file, map_name = get_auto4d_filename_new(
             metadata, data, ensemble, real, map_type, coverage
         )
         surface, tic, toc = read_surface_file(surface_file, data_source)
         map_name = surface_file.split("/")[-1]
     elif data_source == "fmu":
-        surface_file, map_name = get_fmu_filename(
+        surface_file, map_name = get_fmu_filename_new(
             data, ensemble, real, map_type, metadata
         )
         surface, tic, toc = read_surface_file(surface_file, data_source)
@@ -177,9 +236,6 @@ def load_surface_from_file_new(
     fixed_values = list(map_defaults.values())
     fixed_dict = dict(zip(fixed_keys, fixed_values))
 
-    print("DEBUG map_defaults:")
-    print(map_defaults)
-
     metadata_fixed = metadata[
         (metadata[fixed_keys[0]] == fixed_values[0])
         & (metadata[fixed_keys[1]] == fixed_values[1])
@@ -191,8 +247,8 @@ def load_surface_from_file_new(
     selection_columns = list(map_defaults.keys())
     selection_columns.append("filename")
 
-    selected_interval = data["date"]
-    selected_metadata = metadata_fixed[selection_columns]
+    # print("DEBUG metadata_fixed")
+    # print(metadata_fixed[selectors.keys()])
 
     data_source = map_defaults.get("data_source")
 
@@ -206,7 +262,9 @@ def load_surface_from_file_new(
         surface, tic, toc = read_surface_file(surface_file, data_source)
         map_name = surface_file.split("/")[-1]
     elif data_source == "fmu":
-        surface_file, map_name = get_fmu_filename_new(data, ensemble, real, metadata)
+        surface_file, map_name = get_fmu_filename_new(
+            metadata_fixed, selectors, data, ensemble, real
+        )
         surface, tic, toc = read_surface_file(surface_file, data_source)
         map_name = surface_file.split("/")[-1]
     else:

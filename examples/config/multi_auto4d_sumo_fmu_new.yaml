@@ -1,6 +1,7 @@
 title: Webviz-4D QC                            # Customize
 
 shared_settings:
+    config_version: 2.0
     field_name: JOHAN SVERDRUP
     metadata_version: 0.4.2
     map_type: 4D                                # 3D/4D/Horizon
@@ -60,7 +61,7 @@ shared_settings:
     production_data: &production_data PDM
     polygons_folder: &polygons_folder SUMO
     colormaps_folder: &colormaps_folder ../colormaps/
-    settings_file: &settings ./settings.yaml
+    settings_file: &settings ../settings.yaml
     interval_mode: &interval_mode normal
 
 # ------------------------------

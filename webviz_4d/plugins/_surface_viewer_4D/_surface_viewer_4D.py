@@ -4,9 +4,9 @@ import json
 import os
 import pandas as pd
 import logging
+from pprint import pprint
 
 from fmu.sumo.explorer import Explorer
-
 from webviz_config import WebvizPluginABC
 
 from webviz_4d._datainput._surface import (
@@ -38,14 +38,14 @@ from webviz_4d._datainput._colormaps import load_custom_colormaps
 from webviz_4d._datainput._polygons import load_sumo_polygons
 from webviz_4d._datainput._maps import (
     load_surface_from_file_new,
-    load_surface_from_sumo,
+    load_surface_from_sumo_new,
     get_auto_scaling,
 )
 
 from webviz_4d._datainput._metadata import get_all_map_defaults
 
 from webviz_4d._datainput._sumo import (
-    get_sumo_metadata,
+    get_sumo_metadata_selectors,
     get_sumo_zone_polygons,
 )
 
@@ -53,7 +53,7 @@ from webviz_4d._datainput._rddms import (
     get_rddms_dataset_id,
     get_rddms_metadata,
 )
-from webviz_4d._datainput._fmu import get_fmu_metadata
+from webviz_4d._datainput._fmu import get_fmu_metadata_selectors
 
 import webviz_4d._providers.wellbore_provider.wellbore_provider as wb
 from webviz_4d._providers.wellbore_provider._provider_impl_file import (
@@ -156,6 +156,7 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.data_sources = []
         self.metadata_lists = []
         self.selection_lists = []
+        self.initial_selections = []
 
         map_defaults = [map1_defaults, map2_defaults, map3_defaults]
 
@@ -168,29 +169,18 @@ class SurfaceViewer4D(WebvizPluginABC):
             print(f"map{index + 1}_defaults: {data_source}")
 
             if data_source == "sumo":
-                metadata, selection_list, self.sumo_case = get_sumo_metadata(
-                    self.config
+                all_metadata, selection_list, self.sumo_case = (
+                    get_sumo_metadata_selectors(self.config, self.selectors)
                 )
             elif data_source == "auto4d_file":
                 all_metadata, selection_list = get_auto4d_metadata_selectors(
-                    self.config, self.selectors, map_default
+                    self.config, self.selectors
                 )
-                fixed_keys = list(map_default.keys())
-                fixed_values = list(map_default.values())
-                fixed_dict = dict(zip(fixed_keys, fixed_values))
 
-                print("DEBUG map_defaults:")
-                print(map_defaults[index])
-
-                metadata = all_metadata[
-                    (all_metadata[fixed_keys[0]] == fixed_values[0])
-                    & (all_metadata[fixed_keys[1]] == fixed_values[1])
-                    & (all_metadata[fixed_keys[2]] == fixed_values[2])
-                    & (all_metadata[fixed_keys[3]] == fixed_values[3])
-                    & (all_metadata[fixed_keys[4]] == fixed_values[4])
-                ]
             elif data_source == "fmu":
-                metadata, selection_list = get_fmu_metadata(self.config, field_name)
+                all_metadata, selection_list = get_fmu_metadata_selectors(
+                    self.config, self.selectors
+                )
             elif data_source == "osdu":
                 self.osdu_service = DefaultOsduService()
                 metadata, selection_list = get_osdu_metadata(
@@ -215,6 +205,19 @@ class SurfaceViewer4D(WebvizPluginABC):
             else:
                 print("ERROR: Data source not supported:", data_source)
 
+            fixed_keys = list(map_default.keys())
+            fixed_values = list(map_default.values())
+
+            metadata = all_metadata[
+                (all_metadata[fixed_keys[0]] == fixed_values[0])
+                & (all_metadata[fixed_keys[1]] == fixed_values[1])
+                & (all_metadata[fixed_keys[2]] == fixed_values[2])
+                & (all_metadata[fixed_keys[3]] == fixed_values[3])
+                & (all_metadata[fixed_keys[4]] == fixed_values[4])
+            ]
+
+            metadata.sort_values(by=list(selectors.keys()), inplace=True)
+
             self.metadata_lists.append(metadata)
             self.selection_lists.append(selection_list)
 
@@ -222,6 +225,9 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.default_interval = intervals[0]
 
             print(" - Metadata loaded:", len(metadata))
+
+            initial_selection = self.define_initial_selection(index)
+            self.initial_selections.append(initial_selection)
 
             # Get Sumo information (for depth surface and polygons)
             sumo = self.shared_settings.get("sumo")
@@ -375,6 +381,20 @@ class SurfaceViewer4D(WebvizPluginABC):
         if self.basic_well_layers is None:
             self.basic_well_layers = default_basic_well_layers
 
+    def define_initial_selection(self, map_index):
+        metadata = self.metadata_lists[map_index]
+        selectors = self.selectors
+        initial_selections = []
+        selected_metadata = metadata
+
+        for key in selectors.keys():
+            options = selected_metadata[key].tolist()
+            selection = options[0]
+            initial_selections.append(selection)
+            selected_metadata = selected_metadata[selected_metadata[key] == selection]
+
+        return initial_selections
+
     def load_settings_info(self, settings_path):
         if settings_path:
             settings = read_config(settings_path)
@@ -396,37 +416,18 @@ class SurfaceViewer4D(WebvizPluginABC):
             load_custom_colormaps(colormap_files)
 
     def ensembles(self, map_number):
-        # map_type = self.map_defaults[map_number]["map_type"]
-        # selection_list = self.selection_lists[map_number]
-        # return selection_list[map_type]["seismic"]
-
         selector_keys = list(self.selectors.keys())
         selection_list = self.selection_lists[map_number]
-        # print("DEBUG ensemble selection_list", selection_list)
         key_3 = selector_keys[3]
-        # print("DEBUG key_3", key_3)
         selection_list = selection_list[key_3]
-        # print("DEBUG ensembles", selection_list)
 
         return selection_list
 
     def realizations(self, map_number):
-        # map_type = self.map_defaults[map_number]["map_type"]
-        # selection_list = self.selection_lists[map_number]
-        # realization_list = selection_list[map_type]["difference"]
-
-        # if map_type == "simulated":
-        #     if "aggregated" in selection_list.keys():  # SUMO
-        #         aggregations = selection_list["aggregated"]["aggregation"]
-        #         realization_list = realization_list + aggregations
-
         selector_keys = list(self.selectors.keys())
         selection_list = self.selection_lists[map_number]
-        # print("DEBUG realization selection_list", selection_list)
         key_4 = selector_keys[4]
-        # print("DEBUG key_4", key_4)
         selection_list = selection_list[key_4]
-        # print("DEBUG realizations", selection_list)
 
         return selection_list
 
@@ -446,7 +447,16 @@ class SurfaceViewer4D(WebvizPluginABC):
         if zone_name == "3D+TAasgard+JS+Z22+Merge_EQ20231_PH2DG3":
             zone_name = "FullReservoirEnvelope"
 
-        heading = txt + self.selected_attributes[map_ind] + " (" + zone_name + ")"
+        self.selected_ensembles
+        heading = (
+            txt
+            + self.selected_ensembles[map_ind]
+            + " "
+            + self.selected_attributes[map_ind]
+            + " ("
+            + zone_name
+            + ")"
+        )
 
         sim_info = info
         label = get_plot_label(self.date_labels, self.selected_intervals[map_ind])
@@ -478,11 +488,6 @@ class SurfaceViewer4D(WebvizPluginABC):
     def make_map(self, data, ensemble, real, attribute_settings, map_idx):
         data = json.loads(data)
         self.data = data
-        print("DEBUG make_map")
-        print(" - data", data)
-        print(" - ensemble", ensemble)
-        print(" - real", real)
-
         name = data["name"]
         attribute = data["attr"]
 
@@ -506,12 +511,11 @@ class SurfaceViewer4D(WebvizPluginABC):
                 real,
             )
         elif data_source == "sumo":
-            surface, map_name = load_surface_from_sumo(
+            surface, map_name = load_surface_from_sumo_new(
                 map_idx,
-                data_source,
-                self.my_case,
+                self.sumo_case,
                 metadata,
-                map_defaults,
+                self.selectors,
                 data,
                 ensemble,
                 real,

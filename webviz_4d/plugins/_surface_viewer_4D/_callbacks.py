@@ -26,7 +26,6 @@ def set_first_map(parent, app):
         real,
         attribute_settings,
     ):
-        print("DEBUG _set_base_layer data", data)
         return parent.make_map(data, ensemble, real, attribute_settings, 0)
 
 

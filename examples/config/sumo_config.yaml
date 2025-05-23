@@ -2,6 +2,7 @@
 title: WebViz-4D QC                                
 
 shared_settings: 
+    config_version: 2.0 
     field_name: Johan Sverdrup  
     sumo:
         env_name: prod
@@ -74,45 +75,40 @@ layout:
         icon: layers
         content:                     
           - page: Observed maps 
-            content:
+            content:  
               - SurfaceViewer4D:  
-                  well_folder: *wellfolder 
+                  well_folder: *wellfolder
                   production_data: *production_data
                   colormaps_folder: *colormaps_folder
-                  settings_file: *settings 
-                  interval_mode: *interval_mode 
-                  default_interval: 2023-09-15-2020-10-01                    
-                   
-                  map1_defaults: 
+                  settings_file:  *settings
+                  interval_mode: *interval_mode
+                  selectors:
+                    extraction_type: Surface attribute
+                    strat_zone: Surface/Zone name
+                    interval: Interval
+                    content: Seismic
+                    difference: Difference
+
+                  map1_defaults:
                     data_source: sumo
+                    map_type: observed
                     difference_type: AttributeOfDifference
-                    coverage: Full  
-                    attribute:  mean              # Customize 
-                    name: intra-upper_triassic_unconformity                     # Customize  
-                    map_type: observed                          # Customize
-                    seismic: timeshift                            # Customize 
-                    difference:  ---                # Customize     
-                    interval: 2024-05-15-2020-10-01    
-                  map2_defaults: 
+                    coverage: Unknown
+                    map_dim: 4D
+
+                  map2_defaults:
                     data_source: sumo
+                    map_type: observed
                     difference_type: AttributeOfDifference
-                    coverage: Full 
-                    attribute: max              # Customize
-                    name: total                          # Customize
-                    map_type: observed                          # Customize
-                    seismic: amplitude                            # Customize 
-                    difference: NotTimeshifted                  # Customize     
-                    interval: 2022-05-15-2021-05-15 
-                  map3_defaults: 
+                    coverage: Unknown
+                    map_dim: 4D
+
+                  map3_defaults:
                     data_source: sumo
+                    map_type: observed
                     difference_type: AttributeOfDifference
-                    coverage: Full 
-                    attribute: max      # Customize
-                    name: total                          # Customize 
-                    map_type: observed                          # Customize
-                    seismic:  amplitude                       # Customize 
-                    difference: NotTimeshifted                  # Customize     
-                    interval: 2023-05-15-2022-05-15                           
+                    coverage: Unknown
+                    map_dim: 4D
               
       - group: Information
         icon: info_circle

@@ -26,17 +26,13 @@ def ensemble_layout(
     real_prev_id,
     real_next_id,
 ):
-
-    print("DEBUG parent.data")
-    print(parent.data)
-
     ens_options = [{"label": ens, "value": ens} for ens in parent.ensembles(map_number)]
-    ens_value = ens_options[0].get("value")
+    ens_value = parent.initial_selections[map_number][3]
 
     real_options = [
         {"label": real, "value": real} for real in parent.realizations(map_number)
     ]
-    real_value = real_options[0].get("value")
+    real_value = parent.initial_selections[map_number][4]
 
     return wcc.FlexBox(
         children=[

@@ -5,7 +5,9 @@ from fmu.sumo.explorer import Explorer
 from fmu.sumo.explorer.objects.case import Case
 from fmu.sumo.explorer.objects.polygons import Polygons
 from fmu.sumo.explorer.timefilter import TimeType, TimeFilter
+
 from webviz_4d._datainput._metadata import get_realization_id
+from webviz_4d._datainput._auto4d import create_selectors_list
 
 
 def sort_intervals(intervals):
@@ -206,6 +208,71 @@ def load_sumo_observed_metadata(my_case):
 
     all_metadata = pd.DataFrame(zipped_list, columns=headers)
     all_metadata.fillna(value=np.nan, inplace=True)
+    all_metadata["map_type"] = "observed"
+
+    return all_metadata
+
+
+def load_sumo_observed_metadata_selectors(my_case):
+    # time filter for intervals
+    field_name = my_case.field
+    time = TimeFilter(time_type=TimeType.INTERVAL)
+
+    all_metadata = pd.DataFrame()
+    metadata_list = []
+
+    surfaces = my_case.surfaces.filter(stage="case")
+    timelapse_surfaces = surfaces.filter(time=time)
+    surfaces = timelapse_surfaces
+
+    for surface in surfaces:
+        name = surface.name
+        tagname = surface.tagname
+        tagname_info = tagname.split("_")
+        attribute_type = tagname_info[-1]
+        seismic_content = tagname_info[0]
+        coverage = "Unknown"
+        bin_grid_name = "Unknown"
+        map_dim = "4D"
+        difference_type = "AttributeOfDifference"
+        filename = "Unknown"
+
+        if seismic_content == "timestrain" or seismic_content == "timeshift":
+            difference = "---"
+        else:
+            difference = "NotTimeshifted"
+
+        horizon_items = name.split("--")
+        seismic_horizon = horizon_items[0]
+        time = surface._metadata.get("data").get("time")
+        time1 = str(time.get("t0").get("value"))[0:10]
+        time2 = str(time.get("t1").get("value"))[0:10]
+        interval = time2 + "-" + time1
+
+        map_dict = {
+            "map_name": name,
+            "strat_zone": seismic_horizon,
+            "field_name": field_name,
+            "extraction_type": attribute_type,
+            "dates": [time1, time2],
+            "time1": time1,
+            "time2": time2,
+            "interval": interval,
+            "content": seismic_content,
+            "coverage": coverage,
+            "difference": difference,
+            "filename": filename,
+            "bin_grid_name": bin_grid_name,
+            "map_dim": map_dim,
+            "difference_type": difference_type,
+            "tagname": tagname,
+        }
+
+        metadata_list.append(map_dict)
+
+    all_metadata = pd.DataFrame(metadata_list)
+    all_metadata.fillna(value=np.nan, inplace=True)
+    all_metadata["data_source"] = "sumo"
     all_metadata["map_type"] = "observed"
 
     return all_metadata
@@ -892,5 +959,23 @@ def get_sumo_metadata(config):
 
     metadata = load_sumo_observed_metadata(my_case)
     selection_list = create_sumo_lists(metadata, interval_mode)
+
+    return metadata, selection_list, my_case
+
+
+def get_sumo_metadata_selectors(config, selectors):
+    shared_settings = config.get("shared_settings")
+    interval_mode = shared_settings.get("interval_mode")
+
+    sumo_settings = shared_settings.get("sumo")
+    env_name = sumo_settings.get("env_name")
+    case_name = sumo_settings.get("case_name")
+
+    sumo = Explorer(env=env_name, keep_alive="20m")
+    cases = sumo.cases.filter(name=case_name)
+    my_case = cases[0]
+
+    metadata = load_sumo_observed_metadata_selectors(my_case)
+    selection_list = create_selectors_list(metadata, selectors, interval_mode)
 
     return metadata, selection_list, my_case

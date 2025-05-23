@@ -30,24 +30,6 @@ def load_auto4d_metadata_new(auto4d_dir, file_ext, mdata_version, acquisition_da
 
     all_metadata = pd.DataFrame()
 
-    metadata_headers = {
-        "map_name": "Name",
-        "name": "StratigraphicZone",
-        "attribute": "AttributeExtractionType",
-        "dates": "dates",
-        "time1": "time1",
-        "time2": "time2",
-        "interval": "interval",
-        "seismic": "SeismicTraceAttribute",
-        "coverage": "SeismicCoverage",
-        "difference": "SeismicDifferenceType",
-        "filename": "filename",
-        "field_name": "FieldName",
-        "bin_grid_name": "SeismicBinGridName",
-        "strat_zone": "StratigraphicColumn",
-        "diff_type": "AttributeDifferenceType",
-    }
-
     # Search for all metadata files
     metadata_files = glob.glob(auto4d_dir + "/*" + file_ext)
 
@@ -119,7 +101,7 @@ def load_auto4d_metadata_new(auto4d_dir, file_ext, mdata_version, acquisition_da
 
 
 def load_auto4d_metadata_selectors(
-    auto4d_dir, map_default, file_ext, mdata_version, acquisition_dates
+    auto4d_dir, file_ext, mdata_version, acquisition_dates
 ):
     # print("config", config)
     # surface_viewer = config["layout"][0]["content"][1]["content"][0]["content"][0][
@@ -182,7 +164,6 @@ def load_auto4d_metadata_selectors(
                         "coverage": metadata.get("SeismicCoverage"),
                         "difference": difference,
                         "filename": filename,
-                        "field_name": metadata.get("FieldName"),
                         "bin_grid_name": metadata.get("SeismicBinGridName"),
                         "map_dim": metadata.get("MapTypeDimension"),
                         "difference_type": metadata.get("AttributeDifferenceType"),
@@ -254,7 +235,7 @@ def create_auto4d_lists(metadata, interval_mode, selectors):
     return map_dict
 
 
-def create_auto4d_lists_selectors(metadata, selectors, interval_mode):
+def create_selectors_list(metadata, selectors, interval_mode):
     # Metadata 0.4.2
     # selectors = {
     #     "strat_zone": "name",
@@ -396,7 +377,7 @@ def get_auto4d_metadata(config):
     return metadata, selection_list
 
 
-def get_auto4d_metadata_selectors(config, selectors, map_default):
+def get_auto4d_metadata_selectors(config, selectors):
     shared_settings = config.get("shared_settings")
     metadata_version = shared_settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
@@ -409,11 +390,10 @@ def get_auto4d_metadata_selectors(config, selectors, map_default):
 
     metadata = load_auto4d_metadata_selectors(
         directory,
-        map_default,
         metadata_format,
         metadata_version,
         acquisition_dates,
     )
-    selection_list = create_auto4d_lists_selectors(metadata, selectors, interval_mode)
+    selection_list = create_selectors_list(metadata, selectors, interval_mode)
 
     return metadata, selection_list
