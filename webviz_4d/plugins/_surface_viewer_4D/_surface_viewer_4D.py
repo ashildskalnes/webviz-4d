@@ -64,8 +64,8 @@ from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddms
 from webviz_4d._datainput.common import find_files, get_path
 from webviz_4d._datainput._auto4d import get_auto4d_metadata_selectors
 from webviz_4d._datainput._osdu import (
-    get_osdu_metadata,
-    load_surface_from_osdu,
+    get_osdu_metadata_selectors,
+    load_surface_from_osdu_new,
 )
 
 from ._callbacks import (
@@ -176,31 +176,14 @@ class SurfaceViewer4D(WebvizPluginABC):
                 all_metadata, selection_list = get_auto4d_metadata_selectors(
                     self.config, self.selectors
                 )
-
             elif data_source == "fmu":
                 all_metadata, selection_list = get_fmu_metadata_selectors(
                     self.config, self.selectors
                 )
             elif data_source == "osdu":
                 self.osdu_service = DefaultOsduService()
-                metadata, selection_list = get_osdu_metadata(
-                    self.config, self.osdu_service, field_name
-                )
-            elif data_source == "rddms":
-                rddms = self.shared_settings.get("rddms")
-                self.selected_dataspace = rddms.get("dataspace")
-                config_dir = os.path.dirname(settings_file)
-                schema_file = rddms.get("schema_file")
-                schema_file = os.path.join(config_dir, schema_file)
-                self.osdu_service = DefaultOsduService()
-                self.rddms_service = DefaultRddmsService(schema_file)  # type: ignore
-
-                metadata, selection_list = get_rddms_metadata(
-                    self.config,
-                    self.osdu_service,
-                    self.rddms_service,
-                    self.selected_dataspace,
-                    field_name,
+                all_metadata, selection_list = get_osdu_metadata_selectors(
+                    self.config, self.osdu_service, self.selectors, field_name
                 )
             else:
                 print("ERROR: Data source not supported:", data_source)
@@ -221,23 +204,19 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.metadata_lists.append(metadata)
             self.selection_lists.append(selection_list)
 
-            intervals = sorted(metadata["interval"].unique())
-            self.default_interval = intervals[0]
-
-            print(" - Metadata loaded:", len(metadata))
+            print(" - All metadata:", len(all_metadata))
+            print(" - Selected metadata:", len(metadata))
 
             initial_selection = self.define_initial_selection(index)
             self.initial_selections.append(initial_selection)
 
-            # Get Sumo information (for depth surface and polygons)
-            sumo = self.shared_settings.get("sumo")
+        # Get Sumo information (for depth surface and polygons)
+        sumo = self.shared_settings.get("sumo")
 
-            if self.field_name.upper() != self.my_case.field.upper():
-                print(
-                    "WARNING: Field name mismatch", self.field_name, self.my_case.field
-                )
+        if self.field_name.upper() != self.my_case.field.upper():
+            print("WARNING: Field name mismatch", self.field_name, self.my_case.field)
 
-            self.sumo_surfaces = sumo.get("sumo_surfaces")
+        self.sumo_surfaces = sumo.get("sumo_surfaces")
 
         self.top_res_surface = get_top_res_surface(
             self.top_res_surface_settings, self.my_case
@@ -325,17 +304,17 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.well_update = str(datetime.date.today())
             self.production_update = str(datetime.date.today())
 
-        if "PDM" in str(production_data):
-            self.interval_well_layers = create_production_layers(
-                field_name=self.field_name,
-                pdm_provider=self.pdm_provider,
-                interval_4d=self.default_interval,
-                wellbore_trajectories=self.drilled_wells_df,
-                surface_picks=self.surface_picks,
-                layer_options=self.additional_well_layers,
-                well_colors=self.well_colors,
-                prod_interval="Day",
-            )
+        # if "PDM" in str(production_data):
+        #     self.interval_well_layers = create_production_layers(
+        #         field_name=self.field_name,
+        #         pdm_provider=self.pdm_provider,
+        #         interval_4d=self.default_interval,
+        #         wellbore_trajectories=self.drilled_wells_df,
+        #         surface_picks=self.surface_picks,
+        #         layer_options=self.additional_well_layers,
+        #         well_colors=self.well_colors,
+        #         prod_interval="Day",
+        #     )
 
         self.selector = SurfaceSelector(
             app, selectors, self.metadata_lists[0], map1_defaults
@@ -498,7 +477,6 @@ class SurfaceViewer4D(WebvizPluginABC):
         map_defaults = self.map_defaults[map_idx]
 
         surface = None
-        coverage = "Full"
 
         if data_source == "auto4d_file" or data_source == "fmu":
             surface, map_name = load_surface_from_file_new(
@@ -521,26 +499,19 @@ class SurfaceViewer4D(WebvizPluginABC):
                 real,
             )
         elif data_source == "osdu":
-            print(metadata)
-            coverage = None
-            surface, map_name = load_surface_from_osdu(
+            surface, map_name = load_surface_from_osdu_new(
                 map_idx,
-                data_source,
                 metadata,
-                map_defaults,
+                self.selectors,
                 data,
                 ensemble,
                 real,
-                coverage,
             )
         elif data_source == "rddms":
             map_type = map_defaults.get("map_type")
             uuid, uuid_url, map_name = get_rddms_dataset_id(
                 metadata, data, ensemble, real, map_type
             )
-
-            print("Loading surface from:", data_source)
-            print()
 
             surface = self.rddms_service.load_surface_from_rddms(
                 map_idx=map_idx,
@@ -600,9 +571,11 @@ class SurfaceViewer4D(WebvizPluginABC):
             interval = data["date"]
 
             # Load new interval layers if selected interval has changed
+            default_interval = None
+
             if (
                 interval != self.selected_intervals[map_idx]
-                or interval != self.default_interval
+                or interval != default_interval
             ):
                 if get_dates(interval)[0] <= self.production_update:
                     if "PDM" not in str(self.production_data):

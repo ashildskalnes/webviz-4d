@@ -1,53 +1,70 @@
-# Configuration file: config.yaml    
-title: Webviz-4D FMU                                
+title: Webviz-4D QC                            # Customize
 
 shared_settings:
-    config_version: 2.0 
-    field_name: Johan Sverdrup  
-    label: FMU Model 25.0.3 
+    config_version: 2.0
+    field_name: JOHAN SVERDRUP
+    metadata_version: 0.4.2
+    map_type: 4D                                # 3D/4D/Horizon
     sumo:
         env_name: prod
         case_name: 25p0p3_histandpred_ff_16022025
-    auto4d:
     osdu:
+        instance: npequinor | npequinor-dev
+    rddms:
+        instance: npequinor | npequinor-dev
+        dataspace: JS/Soumik_2
     fmu:
-        directory: /scratch/johan_sverdrup2/share/25p0p3/25p0p3_histandpred_ff_16022025 
-        observed_maps: 
-            realization_names: ["*"]                  
-            iteration_names: [pred]                                   
-            map_directories: [share/observations/maps/]   
+        directory: /scratch/johan_sverdrup2/share/25p0p3/25p0p3_histandpred_ff_16022025
+        observed_maps:
+            realization_names: ["*"]
+            iteration_names: [pred]
+            map_directories: [share/observations/maps/]
             attributes: ["*"]
             surface_names: ["*"]
-            time_intervals: ["*"]   
-   
-    basic_well_layers: 
-        planned: Planned wells  
-        drilled_wells: Drilled wells                         
-        reservoir_sections: Reservoir sections              
-        #active_production: Producers - active                      
-        #active_injection: Injectors - active                        
-        
-    additional_well_layers:      
-        production: Producers                                     
-        injection: Injectors                                
-         
-    well_folder: &wellfolder SMDA    
-    top_reservoir:  
+            time_intervals: ["*"]
+    auto4d_file:
+        directory: /scratch/auto4d/userhorizons/ashska
+        metadata_format: .a4dmeta
+        acquisition_dates:
+            EQ19231: 2019-10-01
+            EQ20231: 2020-10-01
+            EQ21200: 2021-05-15
+            EQ22200: 2022-05-15
+            EQ22205: 2022-09-01
+            EQ23200: 2023-05-15
+            EQ23205: 2023-09-15
+            EQ24200: 2024-05-15
+            EQ24205: 2024-09-15
+            EQ25200: 2025-05-15
+
+    label: Multi source      # Customize
+
+    basic_well_layers:
+        planned: Planned wells
+        drilled_wells: Drilled wells
+        reservoir_sections: Reservoir sections
+
+    additional_well_layers:
+        production: Producers
+        injection: Injectors
+
+    well_folder: &wellfolder SMDA
+    top_reservoir:
         name: Draupne Fm. 1 JS Top
         tag_name: depth_structural_model
         iter: pred
-        real: realization-0 
-        polygon_usage: 
+        real: realization-0
+        polygon_usage:
             zones: True
             observed: True
             aggregated: True
     production_data: &production_data PDM
     polygons_folder: &polygons_folder SUMO
-    colormaps_folder: &colormaps_folder ../colormaps/ 
+    colormaps_folder: &colormaps_folder ../colormaps/
     settings_file: &settings ../settings.yaml
-    interval_mode: &interval_mode normal 
-                
-# ------------------------------   
+    interval_mode: &interval_mode normal
+
+# ------------------------------
 options:
   menu:
     show_logo: true
@@ -58,20 +75,20 @@ options:
 
 # ------------------------------
 layout:
-  - section: Webviz-4D TGX 
+  - section: Webviz-4D TGX
     content:
-      # -----------------------------         
-      - page: Front page 
+      # -----------------------------
+      - page: Front page
         icon: home
-        content:                  
-          - Markdown: 
-              markdown_file: ./front_page.md  
-              
+        content:
+          - Markdown:
+              markdown_file: ./front_page.md
+
       # -------------------------------
-      - group: Timelapse maps  
+      - group: Timelapse maps
         icon: layers
-        content:                     
-          - page: 4D maps  
+        content:
+          - page: Observed maps
             content:
               - SurfaceViewer4D:
                   well_folder: *wellfolder
@@ -94,7 +111,7 @@ layout:
                     map_dim: 4D
 
                   map2_defaults:
-                    data_source: fmu
+                    data_source: sumo
                     map_type: observed
                     difference_type: AttributeOfDifference
                     coverage: Unknown
@@ -106,6 +123,7 @@ layout:
                     difference_type: AttributeOfDifference
                     coverage: Unknown
                     map_dim: 4D
+
       - group: Information
         icon: info_circle
         content:
@@ -113,4 +131,4 @@ layout:
           - page: How was this made
             content:
               - SyntaxHighlighter:
-                  filename: ./fmu_config.yaml       
+                  filename: ./multi_fmu_sumo_fmu_config.yaml

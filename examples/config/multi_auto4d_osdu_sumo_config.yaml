@@ -37,7 +37,7 @@ shared_settings:
             EQ24205: 2024-09-15
             EQ25200: 2025-05-15
 
-    label: auto4d      # Customize
+    label: OSDU      # Customize
 
     basic_well_layers:
         planned: Planned wells
@@ -111,14 +111,14 @@ layout:
                     map_dim: 4D
 
                   map2_defaults:
-                    data_source: auto4d_file
+                    data_source: osdu
                     map_type: observed
                     difference_type: AttributeOfDifference
                     coverage: Full
                     map_dim: 4D
 
                   map3_defaults:
-                    data_source: auto4d_file
+                    data_source: sumo
                     map_type: observed
                     difference_type: AttributeOfDifference
                     coverage: Full
@@ -131,4 +131,4 @@ layout:
           - page: How was this made
             content:
               - SyntaxHighlighter:
-                  filename: ./auto4d_config.yaml
+                  filename: ./multi_auto4d_osdu_sumo.yaml

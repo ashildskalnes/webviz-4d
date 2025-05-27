@@ -14,7 +14,7 @@ shared_settings:
         instance: npequinor | npequinor-dev
         dataspace: JS/Soumik_2
     fmu:
-        directory: /scratch/johan_sverdrup2/share/24p12p4/24p12p4_histandpred_ff_20240922
+        directory: /scratch/johan_sverdrup2/share/25p0p3/25p0p3_histandpred_ff_16022025
         observed_maps:
             realization_names: ["*"]
             iteration_names: [pred]
@@ -37,7 +37,7 @@ shared_settings:
             EQ24205: 2024-09-15
             EQ25200: 2025-05-15
 
-    label: Multi source test      # Customize
+    label: OSDU      # Customize
 
     basic_well_layers:
         planned: Planned wells
@@ -104,28 +104,25 @@ layout:
                     difference: Difference
 
                   map1_defaults:
-                    data_source: auto4d_file
+                    data_source: osdu
                     map_type: observed
-                    offset:
                     difference_type: AttributeOfDifference
-                    coverage: Full
-                    map_type_dimension: 4D
+                    coverage: Masked
+                    map_dim: 4D
 
                   map2_defaults:
-                    data_source: fmu
+                    data_source: sumo
                     map_type: observed
-                    offset:
                     difference_type: AttributeOfDifference
-                    coverage: Full
-                    map_type_dimension: 4D
+                    coverage: Unknown
+                    map_dim: 4D
 
                   map3_defaults:
-                    data_source: auto4d_file
+                    data_source: fmu
                     map_type: observed
-                    offset:
                     difference_type: AttributeOfDifference
-                    coverage: Full
-                    map_type_dimension: 4D
+                    coverage: Unknown
+                    map_dim: 4D
 
       - group: Information
         icon: info_circle
@@ -134,4 +131,4 @@ layout:
           - page: How was this made
             content:
               - SyntaxHighlighter:
-                  filename: ./multi_auto4d_osdu_fmu.yaml
+                  filename: ./multi_osdu_sumo_fmu_config.yaml

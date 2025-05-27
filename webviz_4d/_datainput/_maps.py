@@ -283,8 +283,6 @@ def load_surface_from_file_new(
 
 def read_surface_file(surface_file, data_source):
     if os.path.isfile(surface_file):
-        print()
-        print("Loading surface from:", data_source)
         tic = time.perf_counter()
         surface = load_surface(surface_file)
         toc = time.perf_counter()

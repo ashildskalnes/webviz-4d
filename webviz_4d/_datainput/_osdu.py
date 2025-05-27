@@ -11,6 +11,7 @@ from webviz_4d._datainput.common import read_config, print_metadata
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._datainput._maps import print_surface_info
 from webviz_4d._datainput.well import get_cache_filename, load_cached_data
+from webviz_4d._datainput._auto4d import create_selectors_list
 
 warnings.filterwarnings("ignore")
 
@@ -140,46 +141,20 @@ def get_osdu_metadata_attributes(horizons):
 
 
 def convert_metadata(osdu_metadata):
-    ids = []
-    surface_names = []
-    attributes = []
-    times1 = []
-    times2 = []
-    intervals = []
-    seismic_contents = []
-    coverages = []
-    differences = []
-    datasets = []
-    field_names = []
-    map_types = []
-    map_names = []
-    zone_names = []
-
-    headers = [
-        "id",
-        "name",
-        "attribute",
-        "time1",
-        "time2",
-        "interval",
-        "seismic",
-        "coverage",
-        "difference",
-        "dataset_id",
-        "field_name",
-        "map_type",
-        "map_name",
-    ]
+    metadata_list = []
 
     for _index, row in osdu_metadata.iterrows():
         if "0.4.2" in row["MetadataVersion"]:
-            id = row["id"]
+            name = row["Name"]
+            strat_zone = row["StratigraphicZone"]
             field_name = row["FieldName"]
-            attribute_type = row["AttributeExtractionType"]
-            seismic_content = row["SeismicTraceAttribute"]
+            extraction_type = row["AttributeExtractionType"]
+            content = row["SeismicTraceAttribute"]
             coverage = row["SeismicCoverage"]
             difference = row["SeismicDifferenceType"]
-            zone = row["StratigraphicZone"]
+            difference_type = row["AttributeDifferenceType"]
+            bingrid_name = row["SeismicBinGridName"]
+            map_dim = row["MapTypeDimension"]
             dataset_ids = row["DatasetIDs"]
 
             if type(dataset_ids) == str:
@@ -190,27 +165,9 @@ def convert_metadata(osdu_metadata):
             elif dataset_ids and len(dataset_ids) == 2:
                 dataset_id = dataset_ids[1]
             else:
-                dataset_id = "FullReservoirEnvelope"
+                dataset_id = ""
         else:
-            id = row["id"]
-            field_name = row["AttributeMap.FieldName"]
-            dataset_id = row["IrapBinaryID"]
-            attribute_type = row["AttributeMap.AttributeType"]
-            seismic_content = row["AttributeMap.SeismicTraceContent"]
-            coverage = row["AttributeMap.Coverage"]
-            difference = row["AttributeMap.SeismicDifference"]
-
-            window_mode = row["CalculationWindow.WindowMode"]
-            horizon_names = []
-
-            if window_mode == "AroundHorizon":
-                seismic_horizon = row["CalculationWindow.HorizonName"]
-                seismic_horizon = seismic_horizon.replace("+", "_")
-                horizon_names.append(seismic_horizon)
-            elif window_mode == "BetweenHorizons":
-                seismic_horizon = row["CalculationWindow.TopHorizonName"]
-                seismic_horizon = seismic_horizon.replace("+", "_")
-                horizon_names.append(horizon_names)
+            print("ERROR Metadata version not supported:", row["MetadataVersion"])
 
         name = row["Name"]
 
@@ -233,46 +190,36 @@ def convert_metadata(osdu_metadata):
         if type(times) == str:
             times = literal_eval(times)
 
-        if times[0] != "" and times[0] != "":
-            times1.append(times[0])
-            times2.append(times[1])
-            interval = times[1] + "-" + times[0]
-            intervals.append(interval)
-            map_types.append(map_type)
-            field_names.append(field_name)
-            ids.append(id)
-            datasets.append(dataset_id)
-            attributes.append(attribute_type)
-            seismic_contents.append(seismic_content)
-            coverages.append(coverage)
-            differences.append(difference)
-            surface_names.append(zone)
-            map_names.append(name)
-        else:
-            print(" - WARNING: No time interval information found:", name)
+        interval = times[1] + "-" + times[0]
 
-    zipped_list = list(
-        zip(
-            ids,
-            surface_names,
-            attributes,
-            times1,
-            times2,
-            intervals,
-            seismic_contents,
-            coverages,
-            differences,
-            datasets,
-            field_names,
-            map_types,
-            map_names,
-        )
-    )
+        map_dict = {
+            "map_name": name,
+            "strat_zone": strat_zone,
+            "field_name": field_name,
+            "extraction_type": extraction_type,
+            "dates": times,
+            "time1": times[0],
+            "time2": times[1],
+            "interval": interval,
+            "content": content,
+            "coverage": coverage,
+            "difference": difference,
+            "filename": "",
+            "bin_grid_name": bingrid_name,
+            "map_dim": map_dim,
+            "difference_type": difference_type,
+            "tagname": "",
+            "map_type": map_type,
+            "dataset_id": dataset_id,
+        }
 
-    metadata = pd.DataFrame(zipped_list, columns=headers)
-    metadata.fillna(value=np.nan, inplace=True)
+        metadata_list.append(map_dict)
 
-    return metadata
+    all_metadata = pd.DataFrame(metadata_list)
+    all_metadata.fillna(value=np.nan, inplace=True)
+    all_metadata["data_source"] = "osdu"
+
+    return all_metadata
 
 
 def create_osdu_lists(metadata, interval_mode):
@@ -380,6 +327,45 @@ def get_osdu_metadata(config, osdu_service, field_name):
     return dataframe, selection_list
 
 
+def get_osdu_metadata_selectors(config, osdu_service, selectors, field_name):
+    shared_settings = config.get("shared_settings")
+    metadata_version = shared_settings.get("metadata_version")
+    interval_mode = shared_settings.get("interval_mode")
+
+    # Check file cache
+    api = "OSDU"
+    mode = "meta"
+
+    cache_file_name = get_cache_filename(field_name, api, mode)
+    dataframe = load_cached_data(cache_file_name)
+
+    if dataframe.empty:
+        attribute_horizons = osdu_service.get_attribute_horizons(
+            metadata_version=metadata_version, field_name=field_name
+        )
+
+        metadata = get_osdu_metadata_attributes(attribute_horizons)
+        updated_metadata = osdu_service.update_reference_dates(metadata)
+
+        if field_name:
+            field_metadata = updated_metadata[
+                updated_metadata["FieldName"] == field_name
+            ]
+            metadata = field_metadata.copy()
+        else:
+            metadata = updated_metadata
+
+        metadata["map_type"] = "observed"
+        dataframe = convert_metadata(metadata)
+
+        dataframe.to_csv(cache_file_name)
+        print(" - Storing metadata to file cache:", cache_file_name)
+
+    selection_list = create_selectors_list(dataframe, selectors, interval_mode)
+
+    return dataframe, selection_list
+
+
 def load_surface_from_osdu(
     map_idx, data_source, metadata, map_defaults, data, ensemble, real, coverage
 ):
@@ -434,6 +420,65 @@ def load_surface_from_osdu(
 
         for index, metadata in enumerate(metadata_keys):
             print("  - ", metadata, ":", metadata_values[index])
+
+    return surface, map_name
+
+
+def load_surface_from_osdu_new(
+    map_idx,
+    input_metadata,
+    selectors,
+    data,
+    ensemble,
+    real,
+):
+    metadata = input_metadata.copy()
+
+    selected_keys = list(selectors.keys())
+    selected_values = list(data.values())
+    selected_values = selected_values + [ensemble, real]
+
+    selection_dict = dict(zip(selected_keys, selected_values))
+
+    try:
+        selected_metadata = metadata[
+            (metadata[selected_keys[0]] == selected_values[0])
+            & (metadata[selected_keys[1]] == selected_values[1])
+            & (metadata[selected_keys[2]] == selected_values[2])
+            & (metadata[selected_keys[3]] == selected_values[3])
+            & (metadata[selected_keys[4]] == selected_values[4])
+        ]
+
+        if len(selected_metadata) != 1:
+            print("WARNING number of datasets =", len(selected_metadata))
+
+            selected_metadata = selected_metadata.head(1)
+
+        map_name = selected_metadata["map_name"].values[0]
+        dataset_id = selected_metadata["dataset_id"].values[0]
+
+        tic = time.perf_counter()
+        osdu_service = DefaultOsduService()
+
+        if dataset_id:
+            dataset = osdu_service.get_horizon_map(file_id=dataset_id)
+            blob = io.BytesIO(dataset.content)
+            surface = xtgeo.surface_from_file(blob)
+            toc = time.perf_counter()
+
+    except:
+        map_name = ""
+        surface = None
+
+        print("WARNING: Selected file not found in OSDU")
+        print("  Selection criteria are:")
+        pprint(selection_dict)
+
+    if surface is not None:
+        print_surface_info(map_idx, tic, toc, surface, map_name)
+    else:
+        print()
+        print("Selected map not found in OSDU")
 
     return surface, map_name
 

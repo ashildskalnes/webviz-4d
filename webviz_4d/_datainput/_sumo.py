@@ -975,6 +975,8 @@ def get_sumo_metadata_selectors(config, selectors):
     cases = sumo.cases.filter(name=case_name)
     my_case = cases[0]
 
+    print("SUMO case", my_case.name)
+
     metadata = load_sumo_observed_metadata_selectors(my_case)
     selection_list = create_selectors_list(metadata, selectors, interval_mode)
 
