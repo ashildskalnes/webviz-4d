@@ -37,7 +37,7 @@ shared_settings:
             EQ24205: 2024-09-15
             EQ25200: 2025-05-15
 
-    label: auto4d      # Customize
+    label: auto4d files      # Customize
 
     basic_well_layers:
         planned: Planned wells
@@ -61,7 +61,7 @@ shared_settings:
     production_data: &production_data PDM
     polygons_folder: &polygons_folder SUMO
     colormaps_folder: &colormaps_folder ../colormaps/
-    settings_file: &settings ../settings.yaml
+    settings_file: &settings ./settings.yaml
     interval_mode: &interval_mode normal
 
 # ------------------------------

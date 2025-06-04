@@ -37,7 +37,7 @@ shared_settings:
             EQ24205: 2024-09-15
             EQ25200: 2025-05-15
 
-    label: OSDU      # Customize
+    label: OSDU/SUMO/FMU      # Customize
 
     basic_well_layers:
         planned: Planned wells

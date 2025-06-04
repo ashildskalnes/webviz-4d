@@ -131,4 +131,4 @@ layout:
           - page: How was this made
             content:
               - SyntaxHighlighter:
-                  filename: ./multi_auto4d_osdu_fmu.yaml
+                  filename: ./osdu_config.yaml
