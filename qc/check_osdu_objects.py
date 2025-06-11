@@ -7,7 +7,7 @@ import prettytable as pt
 
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._datainput._osdu import (
-    get_osdu_metadata_attributes,
+    get_osdu_metadata,
 )
 import warnings
 
@@ -64,7 +64,7 @@ def main():
     if len(attribute_horizons) == 0:
         exit()
 
-    metadata = get_osdu_metadata_attributes(attribute_horizons)
+    metadata = get_osdu_metadata(attribute_horizons)
 
     # # Load and print one attribute map
     # selected_metadata = metadata.iloc[0]

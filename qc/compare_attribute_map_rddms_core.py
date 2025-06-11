@@ -13,7 +13,7 @@ from webviz_4d._datainput.common import read_config
 from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddmsService
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._datainput._osdu import (
-    get_osdu_metadata_attributes,
+    get_osdu_metadata,
     convert_metadata,
 )
 
@@ -126,7 +126,7 @@ def main():
     if len(attribute_horizons) == 0:
         exit()
 
-    metadata = get_osdu_metadata_attributes(attribute_horizons)
+    metadata = get_osdu_metadata(attribute_horizons)
 
     # osdu_metadata = metadata[metadata["FieldName"] == field_name]
     updated_metadata = osdu_service.update_reference_dates(metadata)
@@ -153,7 +153,7 @@ def main():
         selected_dataspace, field_name
     )
 
-    metadata = get_osdu_metadata_attributes(attribute_horizons)
+    metadata = get_osdu_metadata(attribute_horizons)
     updated_metadata = osdu_service.update_reference_dates(metadata)
     updated_metadata["map_type"] = "observed"
 

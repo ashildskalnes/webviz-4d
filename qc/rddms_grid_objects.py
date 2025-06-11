@@ -12,7 +12,7 @@ from webviz_4d._datainput.common import read_config
 from webviz_4d._providers.rddms_provider._provider_impl_file import DefaultRddmsService
 from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 from webviz_4d._datainput._osdu import (
-    get_osdu_metadata_attributes,
+    get_osdu_metadata,
     convert_metadata,
 )
 
