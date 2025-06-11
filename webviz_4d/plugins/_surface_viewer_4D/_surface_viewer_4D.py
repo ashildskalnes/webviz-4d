@@ -157,16 +157,19 @@ class SurfaceViewer4D(WebvizPluginABC):
         self.metadata_lists = []
         self.selection_lists = []
         self.initial_selections = []
+        self.data_types = []
 
         map_defaults = [map1_defaults, map2_defaults, map3_defaults]
 
         # Check surface map data sources
         for index, map_default in enumerate(map_defaults):
             data_source = map_default.get("data_source")
+            data_type = map_default.get("data_type", "attribute_horizon")
             self.data_sources.append(data_source)
+            self.data_types.append(data_type)
 
             print()
-            print(f"map{index + 1}_defaults: {data_source}")
+            print(f"map{index + 1}_defaults: {data_source} {data_type}")
 
             if data_source == "sumo":
                 all_metadata, selection_list, self.sumo_case = (
@@ -183,7 +186,11 @@ class SurfaceViewer4D(WebvizPluginABC):
             elif data_source == "osdu":
                 self.osdu_service = DefaultOsduService()
                 all_metadata, selection_list = get_osdu_metadata_selectors(
-                    self.config, self.osdu_service, self.selectors, field_name
+                    self.config,
+                    self.osdu_service,
+                    self.selectors,
+                    field_name,
+                    data_type,
                 )
             else:
                 print("ERROR: Data source not supported:", data_source)
@@ -256,7 +263,8 @@ class SurfaceViewer4D(WebvizPluginABC):
             self.pdm_provider = ProviderImplFile(env_path, "PDM")
 
             self.drilled_wells_info = load_smda_metadata(
-                self.smda_provider, self.field_name
+                self.smda_provider,
+                self.field_name,
             )
 
             self.drilled_wells_df = load_smda_wellbores(
@@ -303,18 +311,6 @@ class SurfaceViewer4D(WebvizPluginABC):
 
             self.well_update = str(datetime.date.today())
             self.production_update = str(datetime.date.today())
-
-        # if "PDM" in str(production_data):
-        #     self.interval_well_layers = create_production_layers(
-        #         field_name=self.field_name,
-        #         pdm_provider=self.pdm_provider,
-        #         interval_4d=self.default_interval,
-        #         wellbore_trajectories=self.drilled_wells_df,
-        #         surface_picks=self.surface_picks,
-        #         layer_options=self.additional_well_layers,
-        #         well_colors=self.well_colors,
-        #         prod_interval="Day",
-        #     )
 
         self.selector = SurfaceSelector(
             app, selectors, self.metadata_lists[0], map1_defaults

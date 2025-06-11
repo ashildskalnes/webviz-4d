@@ -123,7 +123,7 @@ def get_correct_list(name, raw_metatadata_items):
     return metatadata_items
 
 
-def get_osdu_metadata_attributes(horizons):
+def get_osdu_metadata(horizons):
     metadata_dicts = []
 
     for horizon in horizons:
@@ -286,9 +286,7 @@ def create_osdu_lists(metadata, interval_mode):
     return map_dict
 
 
-def get_osdu_metadata(config, osdu_service, field_name):
-    print("Loading metadata for SeismicAttributeInterpretation objects in OSDU ...")
-
+def get_osdu_metadata_selectors(config, osdu_service, selectors, field_name, data_type):
     shared_settings = config.get("shared_settings")
     metadata_version = shared_settings.get("metadata_version")
     interval_mode = shared_settings.get("interval_mode")
@@ -297,66 +295,41 @@ def get_osdu_metadata(config, osdu_service, field_name):
     api = "OSDU"
     mode = "meta"
 
-    cache_file_name = get_cache_filename(field_name, api, mode)
+    cache_file_name = get_cache_filename(field_name, data_type, api, mode)
     dataframe = load_cached_data(cache_file_name)
 
     if dataframe.empty:
-        attribute_horizons = osdu_service.get_attribute_horizons(
-            metadata_version=metadata_version, field_name=field_name
-        )
+        if data_type == "horizon":
+            seismic_horizons = osdu_service.get_seismic_horizons(
+                version=metadata_version
+            )
 
-        metadata = get_osdu_metadata_attributes(attribute_horizons)
-        updated_metadata = osdu_service.update_reference_dates(metadata)
+            print("Seismic horizon objetcs found:", len(seismic_horizons))
 
-        if field_name:
-            field_metadata = updated_metadata[
-                updated_metadata["FieldName"] == field_name
-            ]
-            metadata = field_metadata.copy()
+            metadata = get_osdu_metadata(seismic_horizons)
+            updated_metadata = osdu_service.update_item_names(metadata)
+            dataframe = convert_horizon_metadata(metadata)
+
+            print("DEBUG metadata")
+            print(dataframe)
         else:
-            metadata = updated_metadata
+            attribute_horizons = osdu_service.get_attribute_horizons(
+                metadata_version=metadata_version, field_name=field_name
+            )
 
-        metadata["map_type"] = "observed"
-        dataframe = convert_metadata(metadata)
+            metadata = get_osdu_metadata(attribute_horizons)
+            updated_metadata = osdu_service.update_reference_dates(metadata)
 
-        dataframe.to_csv(cache_file_name)
-        print(" - Storing metadata to file cache:", cache_file_name)
+            if field_name:
+                field_metadata = updated_metadata[
+                    updated_metadata["FieldName"] == field_name
+                ]
+                metadata = field_metadata.copy()
+            else:
+                metadata = updated_metadata
 
-    selection_list = create_osdu_lists(dataframe, interval_mode)
-
-    return dataframe, selection_list
-
-
-def get_osdu_metadata_selectors(config, osdu_service, selectors, field_name):
-    shared_settings = config.get("shared_settings")
-    metadata_version = shared_settings.get("metadata_version")
-    interval_mode = shared_settings.get("interval_mode")
-
-    # Check file cache
-    api = "OSDU"
-    mode = "meta"
-
-    cache_file_name = get_cache_filename(field_name, api, mode)
-    dataframe = load_cached_data(cache_file_name)
-
-    if dataframe.empty:
-        attribute_horizons = osdu_service.get_attribute_horizons(
-            metadata_version=metadata_version, field_name=field_name
-        )
-
-        metadata = get_osdu_metadata_attributes(attribute_horizons)
-        updated_metadata = osdu_service.update_reference_dates(metadata)
-
-        if field_name:
-            field_metadata = updated_metadata[
-                updated_metadata["FieldName"] == field_name
-            ]
-            metadata = field_metadata.copy()
-        else:
-            metadata = updated_metadata
-
-        metadata["map_type"] = "observed"
-        dataframe = convert_metadata(metadata)
+            metadata["map_type"] = "observed"
+            dataframe = convert_metadata(metadata)
 
         dataframe.to_csv(cache_file_name)
         print(" - Storing metadata to file cache:", cache_file_name)

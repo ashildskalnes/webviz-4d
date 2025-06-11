@@ -192,7 +192,7 @@ def create_rddms_lists(metadata, interval_mode):
     return map_dict
 
 
-def get_osdu_metadata_attributes(horizons):
+def get_osdu_metadata(horizons):
     metadata_dicts = []
 
     # print("Compiling all attribute data ...")
@@ -355,7 +355,7 @@ def get_rddms_metadata(config, osdu_service, rddms_service, dataspace, field_nam
         dataspace_name=dataspace, field_name=field_name
     )
 
-    metadata = get_osdu_metadata_attributes(attribute_horizons)
+    metadata = get_osdu_metadata(attribute_horizons)
     updated_metadata = osdu_service.update_reference_dates(metadata)
     selected_field_metadata = updated_metadata[
         updated_metadata["FieldName"] == field_name

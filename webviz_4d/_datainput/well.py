@@ -17,9 +17,9 @@ EXTENSION = ".wv4d"
 FOLDER_NAME = ".webviz_4d"
 
 
-def get_cache_filename(field, api, mode):
+def get_cache_filename(field, data_type, api, mode):
     home_dir = os.path.expanduser("~")
-    cache_folder = os.path.join(home_dir, FOLDER_NAME)
+    cache_folder = os.path.join(home_dir, FOLDER_NAME, data_type)
 
     if not os.path.isdir(cache_folder):
         os.mkdir(cache_folder)
@@ -58,10 +58,11 @@ def load_smda_metadata(provider, field):
     print("Loading drilled well metadata from SMDA ...")
 
     # Check file cache
+    data_type = "wellbore"
     api = "SMDA"
     mode = "meta"
 
-    cache_file_name = get_cache_filename(field, api, mode)
+    cache_file_name = get_cache_filename(field, data_type, api, mode)
     dataframe = load_cached_data(cache_file_name)
 
     if dataframe.empty:
@@ -80,10 +81,11 @@ def load_smda_wellbores(provider, field):
     print("Loading drilled well trajectories from SMDA ...")
 
     # Check file cache
+    data_type = "wellbore"
     api = "SMDA"
     mode = "data"
 
-    cache_file_name = get_cache_filename(field, api, mode)
+    cache_file_name = get_cache_filename(field, data_type, api, mode)
     dataframe = load_cached_data(cache_file_name)
 
     if dataframe.empty:
@@ -105,10 +107,11 @@ def load_planned_wells(provider, field):
     print("Loading planned well data from SMDA ...")
 
     # Check file cache
+    data_type = "wellbore"
     api = "Planned"
     mode = "meta"
 
-    cache_file_name = get_cache_filename(field, api, mode)
+    cache_file_name = get_cache_filename(field, data_type, api, mode)
     meta_dataframe = load_cached_data(cache_file_name)
 
     if meta_dataframe.empty:
@@ -125,7 +128,7 @@ def load_planned_wells(provider, field):
 
     mode = "data"
 
-    cache_file_name = get_cache_filename(field, api, mode)
+    cache_file_name = get_cache_filename(field, data_type, api, mode)
     data_dataframe = load_cached_data(cache_file_name)
 
     if data_dataframe.empty:
@@ -147,10 +150,11 @@ def load_planned_wells(provider, field):
 def load_pdm_info(provider, field):
     print("Loading production wells metadata from PDM ...")
     # Check file cache
+    data_type = "prod_data"
     api = "PDM"
     mode = "meta"
 
-    cache_file_name = get_cache_filename(field, api, mode)
+    cache_file_name = get_cache_filename(field, data_type, api, mode)
     dataframe = load_cached_data(cache_file_name)
 
     if dataframe.empty:
@@ -784,11 +788,12 @@ def create_production_layers(
     well_colors: dict = {},
     prod_interval: str = "Day",
 ):
+    data_type = "wellbore"
     api = "PDM"
     tic = time.perf_counter()
 
     mode = field_name.replace(" ", "_") + "_prod_" + interval_4d
-    cache_file_name = get_cache_filename(field_name, api, mode)
+    cache_file_name = get_cache_filename(field_name, data_type, api, mode)
     prod_dataframe = load_cached_data(cache_file_name)
 
     if prod_dataframe.empty:
@@ -803,7 +808,7 @@ def create_production_layers(
         print("  - Storing production data to file cache:", cache_file_name)
 
     mode = field_name.replace(" ", "_") + "_inj_" + interval_4d
-    cache_file_name = get_cache_filename(field_name, api, mode)
+    cache_file_name = get_cache_filename(field_name, data_type, api, mode)
     inj_dataframe = load_cached_data(cache_file_name)
 
     if inj_dataframe.empty:

@@ -236,19 +236,15 @@ def create_auto4d_lists(metadata, interval_mode, selectors):
 
 
 def create_selectors_list(metadata, selectors, interval_mode):
-    # Metadata 0.4.2
-    # selectors = {
-    #     "strat_zone": "name",
-    #     "interval": "interval",
-    #     "extraction_type": "attribute",
-    #     "content": "seismic",
-    #     "difference": "difference",
-    # }
-
     map_type_dict = {}
 
-    intervals_df = metadata[["time1", "time2"]]
-    intervals = []
+    print("DEBUG create_selectors_list")
+    print(metadata)
+    print(selectors)
+
+    if "time1" in metadata.columns:
+        intervals_df = metadata[["time1", "time2"]]
+        intervals = []
 
     for key, value in selectors.items():
         selector = key

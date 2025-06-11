@@ -13,7 +13,10 @@ class Schema(BaseModel):
 class SeismicHorizon:
     id: str
     kind: str
+    version: str
     Name: str
+    Source: str
+    OW_id: str
     FieldID: str
     SeismicDomainTypeID: str
     Datasets: list[str]
@@ -26,10 +29,15 @@ class SeismicHorizon:
     CrosslineMin: float
     CrosslineMax: float
     CrosslineIncrement: float
+    Status: str
 
 
-# class SeismicBinGrid(Schema):
-#     name: str
+@dataclass
+class SeismicBinGrid:
+    id: str
+    kind: str
+    version: str
+    BinGridName: str
 
 
 @dataclass
@@ -128,7 +136,9 @@ class SeismicAttributeInterpretation:
 class Dataset:
     id: str
     kind: str
-    source: str
+    Name: str
+    Source: str
+    EncodingFormatTypeID: str
 
 
 @dataclass
@@ -157,6 +167,7 @@ class SeismicTraceData:
     id: str
     kind: str
     Name: str
+    BinGridID: str
     FieldID: str
     InlineMin: float
     InlineMax: float
@@ -164,6 +175,7 @@ class SeismicTraceData:
     CrosslineMax: float
     SampleInterval: int
     SampleCount: int
-    SeismicDomainTypeID: Optional[str] = ""
-    PrincipalAcquisitionProjectID: Optional[str] = ""
-    DatasetID: Optional[str] = ""
+    SeismicDomainTypeID: str
+    PrincipalAcquisitionProjectID: str
+    Datasets: list[str]
+    Artefacts: list[str]

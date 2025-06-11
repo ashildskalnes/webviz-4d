@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 from typing import Optional
 from osdu_api.configuration.base_config_manager import BaseConfigManager
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import BaseModel
 
 
 class Config(BaseSettings, BaseConfigManager):
