@@ -651,22 +651,23 @@ class DefaultOsduService:
             # print()
 
             for osdu_object in osdu_objects:
-                try:
-                    seismic_trace_data = self.parse_seismic_trace_data(osdu_object)
+                if osdu_object.get("data").get("Name") == selected_name:
+                    try:
+                        seismic_trace_data = self.parse_seismic_trace_data(osdu_object)
 
-                    if seismic_trace_data.Name == selected_name:
-                        seismic_trace_datas.append(seismic_trace_data)
-                except:
-                    id = osdu_object.get("id")
-                    kind = osdu_object.get("kind")
-                    Name = osdu_object.get("data").get("Name", "")
+                        if seismic_trace_data.Name == selected_name:
+                            seismic_trace_datas.append(seismic_trace_data)
+                    except:
+                        id = osdu_object.get("id")
+                        Name = osdu_object.get("data").get("Name", "")
 
-                    if Name == "":
-                        print(id, "-  WARNING: Name not found")
+                        if Name == "":
+                            print(id, "-  WARNING: Name not found")
 
-                    print(
-                        Name, "  - WARNING: Not possible to convert to SeismicTraceData"
-                    )
+                        print(
+                            Name,
+                            "  - WARNING: Not possible to convert to SeismicTraceData",
+                        )
 
         return seismic_trace_datas
 

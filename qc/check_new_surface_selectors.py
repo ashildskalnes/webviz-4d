@@ -7,8 +7,11 @@ import time
 import xtgeo
 
 from webviz_4d._datainput.common import read_config
-from webviz_4d._datainput._auto4d import get_auto4d_metadata_selectors
-from webviz_4d._datainput._maps import load_surface_from_file_new
+from webviz_4d._datainput._osdu import (
+    get_osdu_metadata_selectors,
+    load_surface_from_osdu_new,
+)
+from webviz_4d._providers.osdu_provider._provider_impl_file import DefaultOsduService
 
 
 def main():
@@ -19,22 +22,20 @@ def main():
 
     config_file = args.config_file
     config = read_config(config_file)
+    field_name = config.get("shared_settings").get("field_name")
+
     surface_viewer = config["layout"][0]["content"][1]["content"][0]["content"][0][
         "SurfaceViewer4D"
     ]
     selectors = surface_viewer.get("selectors")
     pprint(selectors, sort_dicts=False)
 
-    map_default = {
-        "data_source": "auto4d_file",
-        "map_type": "observed",
-        "difference_type": "AttributeOfDifference",
-        "coverage": "Full",
-        "map_dim": "4D",
-    }
-
-    all_metadata, selection_list = get_auto4d_metadata_selectors(
-        config, selectors, map_default
+    osdu_service = DefaultOsduService()
+    all_metadata, selection_list = get_osdu_metadata_selectors(
+        config,
+        osdu_service,
+        selectors,
+        field_name,
     )
     print(all_metadata)
     print(selection_list)
@@ -50,7 +51,7 @@ def main():
     data = {
         "attr": "RMS",
         "name": "FullReservoirEnvelope",
-        "date": "2022-05-15-2021-05-15",
+        "date": "2022-05-15-2020-09-30",
     }
     ensemble = "Amplitude"
     real = "NotTimeshifted"
@@ -71,11 +72,12 @@ def main():
         & (all_metadata[fixed_keys[4]] == fixed_values[4])
     ]
 
-    surface, map_name = load_surface_from_file_new(
+    print(metadata_fixed[["map_name", "interval"]])
+
+    surface, map_name = load_surface_from_osdu_new(
         map_idx,
+        all_metadata,
         selectors,
-        metadata_fixed,
-        map_default,
         data,
         ensemble,
         real,
