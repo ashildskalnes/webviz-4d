@@ -1,0 +1,9 @@
+map_settings:
+    colormaps_folder: ../colormaps/
+    surface_metadata_file: ./surface_metadata.csv
+    colormaps_settings: ./attribute_maps.csv
+    default_colormap: cool 
+
+
+    
+ 
