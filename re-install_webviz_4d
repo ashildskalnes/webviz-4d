@@ -7,7 +7,7 @@ fi
 
 source /prog/res/komodo/2024.06.10-py311/enable
 
-echo "Creating new virual environment: venv"
+echo "Creating new virtual environment: venv"
 
 python -m venv venv
 source ./venv/bin/activate
@@ -17,8 +17,8 @@ echo "Installing all necessary packages ..."
 pip install --upgrade pip
 pip install -r requirements.txt
 pip install python-dotenv
-pip install pydantic
-pip install pydantic_settings
+pip install pydantic==2.11.3
+pip install pydantic_settings==2.9.1
 pip install fmu-sumo
 pip install webviz-config
 pip install webviz-config-equinor
