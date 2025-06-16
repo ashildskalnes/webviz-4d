@@ -516,6 +516,9 @@ def create_time_filter(time_interval, exact):
         print("ERROR: Wrong time interval specification:", time_interval)
         time = None
 
+    print("DEBUG create_time_filter", time_interval)
+    print("DEBUG create_time_filter", decode_time_interval(time))
+
     return time
 
 
