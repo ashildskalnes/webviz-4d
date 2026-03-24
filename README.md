@@ -25,7 +25,7 @@ pip install .[tests]
 You can do automatic linting of your code changes by running
 ```bash
 black --check webviz_4d # Check code style
-pylint webviz_4d # Check code quality
+pylint webviz_4d # Check code quality 
 bandit -r webviz_4d  # Check Python security best practice
 ```
 
