@@ -17,7 +17,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "setuptools",  
+    "setuptools<81",
     "webviz-config>=0.6.3",
     "xtgeo>=4.0.0",
     "pillow>=10.4",
