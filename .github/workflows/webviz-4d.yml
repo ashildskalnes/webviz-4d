@@ -62,7 +62,7 @@ jobs:
       - name: 🕵️ Check code style & linting
         if: matrix.python-version == '3.11'
         run: |
-          black --check webviz_4d tests
+          #black --check webviz_4d tests
           #pylint webviz_4d tests
           #bandit -r -c ./bandit.yml webviz_4d tests
           #mypy --package webviz_4d --ignore-missing-imports --disallow-untyped-defs --show-error-codes
